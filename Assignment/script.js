@@ -10,7 +10,7 @@ $(document).ready(function() {
         $(this).siblings('.mobile-dropdown-content').slideToggle();
         $(this).find('i').toggleClass('fa-chevron-down fa-chevron-up');
     });
-    
+
     // Chat modal functionality
     const chatModal = $('#header-chat-modal');
     const openChatBtn = $('#open-chat-header');
@@ -98,6 +98,5 @@ $(document).ready(function() {
         chatBody.append(messageHtml);
         chatBody.scrollTop(chatBody[0].scrollHeight);
     }
-});
 
-// Login
+});
