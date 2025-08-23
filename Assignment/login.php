@@ -1,41 +1,73 @@
 <?php
-
 include '_base.php';
 
+$show_captcha = false;
+
 if (is_post()) {
-    $email    = req('email');
+    $login_input = req('login_input');
     $password = req('password');
+    $captcha_response = req('captcha');
 
-    // Validate: email
-    if ($email == '') {
-        $_err['email'] = 'Required';
+    if (isIPBlocked()) {
+        $_err['general'] = 'Too many failed attempts from this IP. Please try again later.';
     }
-    else if (!is_email($email)) {
-        $_err['email'] = 'Invalid email';
-    }
-
-    // Validate: password
-    if ($password == '') {
-        $_err['password'] = 'Required';
-    }
-
-    // Login user
-    if (!$_err) {
-        // TODO
-        $stm = $_db->prepare('
-            SELECT * FROM user
-            WHERE email = ? AND password = ?
-        ');
-        $stm->execute([$email,$password]);
-        $u = $stm->fetch();
-
-        if ($u) {
-            temp('info', 'Login successfully');
-            login($u);
+    else {
+        if (empty($login_input)) {
+            $_err['login_input'] = 'Email or username is required';
         }
-        else {
-            $_err['password'] = 'Not matched';
+        else if (!is_valid_login_input($login_input)) {
+            $_err['login_input'] = 'Please enter a valid email address or username';
+            logFailedLoginAttempt($login_input, 'Invalid email/username format');
         }
+
+        if (empty($password)) {
+            $_err['password'] = 'Password is required';
+        }
+
+        if (!$_err && isAccountLocked($login_input)) {
+            $_err['general'] = 'Account temporarily locked due to multiple failed attempts. Please try again in 15 minutes.';
+            logFailedLoginAttempt($login_input, 'Account locked - too many failed attempts');
+        }
+
+        $show_captcha = shouldShowCaptcha($login_input);
+        if (!$_err && $show_captcha && !verifyCaptcha($captcha_response)) {
+            $_err['captcha'] = 'Incorrect security answer. Please try again.';
+            logFailedLoginAttempt($login_input, 'CAPTCHA verification failed');
+        }
+
+        if (!$_err) {
+            $user = authenticateUser($login_input, $password);
+            
+            if ($user) {
+                // Login successful
+                loginUser($user);
+                
+                // Clear failed attempts
+                $clear_attempts = $_db->prepare("DELETE FROM failed_attempts WHERE email = ?");
+                $clear_attempts->execute([$login_input]);
+        
+                // Handle remember me
+                if (isset($_POST['remember_me'])) {
+                    setRememberMeCookie($user->userID); // Use object notation
+                }
+        
+                // Success message
+                $display_name = !empty($user->name) ? $user->name : $user->username;
+                temp('success', 'Login successful! Welcome back, ' . htmlspecialchars($display_name) . '!');
+                
+                // Redirect
+                $redirect_to = isset($_SESSION['intended_url']) ? $_SESSION['intended_url'] : 'index.php';
+                unset($_SESSION['intended_url']);
+                redirect($redirect_to);
+            } else {
+                $_err['password'] = 'Invalid email/username or password';
+                logFailedLoginAttempt($login_input, 'Invalid credentials');
+            }
+        }
+    }
+
+    if ($_err && isset($login_input)) {
+        $show_captcha = shouldShowCaptcha($login_input);
     }
 }
 
@@ -47,184 +79,15 @@ $page_title = 'Login';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($page_title); ?> - Your App</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .login-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .login-header h1 {
-            color: #333;
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .login-header p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .alert {
-            padding: 12px 16px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-        }
-
-        .alert-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fca5a5;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #e1e5e9;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: #fff;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .form-input.error {
-            border-color: #ef4444;
-            background: #fef2f2;
-        }
-
-        .error-message {
-            color: #ef4444;
-            font-size: 12px;
-            margin-top: 6px;
-            display: block;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 30px;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 14px 20px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            text-align: center;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-secondary {
-            background: #f8f9fa;
-            color: #666;
-            border: 1px solid #e1e5e9;
-        }
-
-        .btn-secondary:hover {
-            background: #e9ecef;
-        }
-
-        .links {
-            text-align: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e1e5e9;
-        }
-
-        .links a {
-            color: #667eea;
-            text-decoration: none;
-            font-size: 14px;
-            margin: 0 10px;
-        }
-
-        .links a:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 30px 20px;
-            }
-            
-            .form-actions {
-                flex-direction: column;
-            }
-        }
-    </style>
+    <title><?php echo htmlspecialchars($page_title); ?> - AiKUN Furniture</title>
+    <link rel="stylesheet" href="css/loginRegister.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="login-container">
         <div class="login-header">
             <h1>Welcome Back</h1>
-            <p>Please sign in to your account</p>
+            <p>Please login to your account</p>
         </div>
 
         <?php if ($success_msg = get_temp('success')): ?>
@@ -247,41 +110,85 @@ $page_title = 'Login';
 
         <form method="post" class="form" novalidate>
             <div class="form-group">
-                <label for="email">Email Address</label>
+                <label for="login_input">Email or Username</label>
                 <input 
-                    type="email" 
-                    id="email" 
-                    name="email" 
-                    class="form-input <?php echo isset($_err['email']) ? 'error' : ''; ?>" 
+                    type="text" 
+                    id="login_input" 
+                    name="login_input" 
+                    class="form-input <?php echo isset($_err['login_input']) ? 'error' : ''; ?>" 
                     maxlength="100"
-                    placeholder="Enter your email"
-                    value="<?php echo htmlspecialchars(req('email')); ?>"
+                    placeholder="Enter your email or username"
+                    value="<?php echo htmlspecialchars(req('login_input')); ?>"
                     required
+                    autocomplete="username"
                 >
-                <?php if (isset($_err['email'])): ?>
-                    <div class="error-message"><?php echo htmlspecialchars($_err['email']); ?></div>
+                <?php if (isset($_err['login_input'])): ?>
+                    <div class="error-message"><?php echo htmlspecialchars($_err['login_input']); ?></div>
                 <?php endif; ?>
+                <small class="input-help">You can use either your email address or username</small>
             </div>
 
             <div class="form-group">
                 <label for="password">Password</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    class="form-input <?php echo isset($_err['password']) ? 'error' : ''; ?>" 
-                    maxlength="100"
-                    placeholder="Enter your password"
-                    required
-                >
+                <div class="password-input-container">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input <?php echo isset($_err['password']) ? 'error' : ''; ?>" 
+                        maxlength="100"
+                        placeholder="Enter your password"
+                        required
+                        autocomplete="current-password"
+                    >
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        <span id="toggle-text">Show</span>
+                    </button>
+                </div>
                 <?php if (isset($_err['password'])): ?>
                     <div class="error-message"><?php echo htmlspecialchars($_err['password']); ?></div>
                 <?php endif; ?>
             </div>
 
+            <?php if ($show_captcha): ?>
+            <!-- Security CAPTCHA (shown after failed attempts) -->
+            <div class="form-group">
+                <label for="captcha">Security Check</label>
+                <div class="captcha-container">
+                    <div class="captcha-question">
+                        <?php echo generateCaptcha(); ?>
+                    </div>
+                    <input 
+                        type="number" 
+                        id="captcha" 
+                        name="captcha" 
+                        class="form-input captcha-input <?php echo isset($_err['captcha']) ? 'error' : ''; ?>" 
+                        placeholder="Answer"
+                        required
+                    >
+                </div>
+                <?php if (isset($_err['captcha'])): ?>
+                    <div class="error-message"><?php echo htmlspecialchars($_err['captcha']); ?></div>
+                <?php endif; ?>
+                <small class="security-notice">🛡️ Security verification required due to previous failed attempts</small>
+            </div>
+            <?php endif; ?>
+
+            <div class="form-options">
+                <label class="checkbox-container">
+                    <input type="checkbox" name="remember_me" id="remember_me">
+                    <span class="checkmark"></span>
+                    Remember me
+                </label>
+            </div>
+
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
-                    Sign In
+                    <span>Log In</span>
+                    <div class="btn-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        Logging in...
+                    </div>
                 </button>
                 <button type="reset" class="btn btn-secondary">
                     Clear
@@ -295,22 +202,31 @@ $page_title = 'Login';
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="js/loginRegister.js"></script>
+
     <script>
-        // Clear error styling when user starts typing
-        document.addEventListener('DOMContentLoaded', function() {
-            const inputs = document.querySelectorAll('.form-input');
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleText = document.getElementById('toggle-text');
             
-            inputs.forEach(input => {
-                input.addEventListener('input', function() {
-                    if (this.classList.contains('error')) {
-                        this.classList.remove('error');
-                        const errorMsg = this.parentNode.querySelector('.error-message');
-                        if (errorMsg) {
-                            errorMsg.style.display = 'none';
-                        }
-                    }
-                });
-            });
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleText.textContent = 'Hide';
+            } else {
+                passwordField.type = 'password';
+                toggleText.textContent = 'Show';
+            }
+        }
+
+        // Add real-time validation feedback
+        document.getElementById('login_input').addEventListener('input', function() {
+            const input = this.value.trim();
+            const isEmail = input.includes('@');
+            const placeholder = isEmail ? 'Enter your email' : 'Enter your username';
+            
+            // Update placeholder dynamically (optional)
+            // this.placeholder = placeholder;
         });
     </script>
 </body>
