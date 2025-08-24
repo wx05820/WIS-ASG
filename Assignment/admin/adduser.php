@@ -16,7 +16,7 @@ if (is_post()) {
     else if (!is_email($email)) {
         $_err['email'] = 'Invalid email';
     }
-    else if (!is_unique($email, 'staff', 'email')) {
+    else if (!is_unique($email, 'user', 'email')) {
         $_err['email'] = 'Duplicated';
     }
  if (!$_err){
@@ -35,7 +35,7 @@ $stm = $_db->prepare('
 $stm->execute([$id, $email]);
 
 //Generate token url
-$url = base("admin/adminregister.php?id=$id");
+$url = base("adminregister.php?id=$id");
 
         // TODO: (5) Send email
         $m = get_mail();
@@ -62,7 +62,7 @@ $url = base("admin/adminregister.php?id=$id");
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AiKUN Furniture - Premium Malaysian Furniture Store</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../css/loginRegister.css">
 </head>
 <body class="bodylr">
     <div class="login-container">

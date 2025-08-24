@@ -244,10 +244,10 @@ if (is_post()) {
         
         // Register user with profile photo
         $stm = $_db->prepare('
-            INSERT INTO user (username, email, password, photo, created_at)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO user (username, email, password, photo, role, created_at)   
+            VALUES (?, ?, ?, ?, "Customer", NOW())
         ');
-        $stm->execute([$username, $email, $password_hash, $randomProfilePhoto]);
+        $stm->execute([$username, $email, $password_hash, $randomProfilePhoto, $role]);
         
         if ($stm->rowCount()) {
             // Clear session data
@@ -591,7 +591,5 @@ $page_title = $page_titles[$step] ?? 'Register';
         confirmInput.addEventListener('input', checkPasswordRequirements);
     </script>
     <?php endif; ?>
-
-    
 </body>
 </html>

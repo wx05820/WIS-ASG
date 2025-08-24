@@ -360,6 +360,27 @@ function is_post() {
     return $_SERVER['REQUEST_METHOD'] === 'POST';
 }
 
+function base($path = '') {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $baseUrl = "$protocol://$host/admin/";
+    return $baseUrl . ltrim($path, '/');
+}
+
+function is_unique($value, $table, $field) {
+    global $_db;
+    $stm = $_db->prepare("SELECT COUNT(*) FROM $table WHERE $field = ?");
+    $stm->execute([$value]);
+    return $stm->fetchColumn() == 0;
+}
+
+function is_exists($value, $table, $field) {
+    global $_db;
+    $stm = $_db->prepare("SELECT COUNT(*) FROM $table WHERE $field = ?");
+    $stm->execute([$value]);
+    return $stm->fetchColumn() > 0;
+}
+
 function req($key) {
     if (!isset($_POST[$key])) return '';
     if (is_array($_POST[$key])) return array_map('trim', $_POST[$key]);
