@@ -34,16 +34,34 @@ if (is_post()) {
     if (!$password) {
         $_err['password'] = 'Required';
     }
-    else if (strlen($password) < 5 || strlen($password) > 100) {
-        $_err['password'] = 'Between 5-100 characters';
+    else if (strlen($password) < 8) {
+        $_err['password'] = 'Password must be at least 8 characters';
+    }
+    else if (strlen($password) > 128) {
+        $_err['password'] = 'Password must be less than 128 characters';
+    }
+    else if (!preg_match('/[A-Z]/', $password)) {
+        $_err['password'] = 'Password must contain at least one uppercase letter';
+    }
+    else if (!preg_match('/[a-z]/', $password)) {
+        $_err['password'] = 'Password must contain at least one lowercase letter';
+    }
+    else if (!preg_match('/[0-9]/', $password)) {
+        $_err['password'] = 'Password must contain at least one number';
+    }
+    else if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+        $_err['password'] = 'Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)';
     }
 
     // Validate: confirm
     if (!$confirm) {
         $_err['confirm'] = 'Required';
     }
-    else if (strlen($confirm) < 5 || strlen($confirm) > 100) {
-        $_err['confirm'] = 'Between 5-100 characters';
+    else if (strlen($confirm) < 8) {
+        $_err['confirm'] = 'Password must be at least 8 characters';
+    }
+    else if (strlen($confirm) > 128) {
+        $_err['confirm'] = 'Password must be less than 128 characters';
     }
     else if ($confirm != $password) {
         $_err['confirm'] = 'Not matched';
@@ -342,7 +360,7 @@ if (is_post()) {
                     id="password" 
                     name="password" 
                     class="form-input <?php echo isset($_err['password']) ? 'error' : ''; ?>" 
-                    maxlength="100"
+                    maxlength="128"
                     placeholder="Enter your password"
                     required
                 >
@@ -361,7 +379,7 @@ if (is_post()) {
                     id="confirm" 
                     name="confirm" 
                     class="form-input <?php echo isset($_err['confirm']) ? 'error' : ''; ?>" 
-                    maxlength="100"
+                    maxlength="128"
                     placeholder="Confirm your password"
                     required
                 >
@@ -410,9 +428,9 @@ if (is_post()) {
                 const password = this.value;
                 let strength = 0;
                 
-                if (password.length >= 8) strength += 1;
-                if (password.length >= 12) strength += 1;
+                if (password.length >= 8 && password.length <= 128) strength += 1;
                 if (/[A-Z]/.test(password)) strength += 1;
+                if (/[a-z]/.test(password)) strength += 1;
                 if (/[0-9]/.test(password)) strength += 1;
                 if (/[^A-Za-z0-9]/.test(password)) strength += 1;
                 
@@ -421,17 +439,20 @@ if (is_post()) {
                 let color = '#ef4444'; // red
                 
                 if (strength <= 1) {
-                    width = 25;
+                    width = 20;
                     color = '#ef4444'; // red
+                } else if (strength <= 2) {
+                    width = 40;
+                    color = '#f59e0b'; // orange
                 } else if (strength <= 3) {
-                    width = 50;
-                    color = '#f59e0b'; // yellow
+                    width = 60;
+                    color = '#fbbf24'; // yellow
                 } else if (strength <= 4) {
-                    width = 75;
+                    width = 80;
                     color = '#10b981'; // green
                 } else {
                     width = 100;
-                    color = '#10b981'; // green
+                    color = '#059669'; // dark green
                 }
                 
                 strengthBar.style.width = width + '%';

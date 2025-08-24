@@ -4,13 +4,10 @@ include '_base.php';
 
 function sendOTPEmail($email, $otp) {
     try {
-        // Use your existing get_mail() function
         $mail = get_mail();
         
-        // Set recipient
         $mail->addAddress($email);
         
-        // Email content
         $mail->isHTML(true);
         $mail->Subject = 'AiKUN Furniture - Registration Verification';
         $mail->Body = "
@@ -39,7 +36,6 @@ function sendOTPEmail($email, $otp) {
             </div>
         </div>";
         
-        // Plain text version for email clients that don't support HTML
         $mail->AltBody = "AiKUN Furniture - Email Verification\n\n" .
                         "Your verification code is: $otp\n\n" .
                         "This code will expire in 10 minutes.\n\n" .
@@ -50,33 +46,27 @@ function sendOTPEmail($email, $otp) {
         return true;
         
     } catch (Exception $e) {
-        // Log the error for debugging
         error_log("Email sending failed: " . $e->getMessage());
         return false;
     }
 }
 
-// Get current step
 $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
 
 if (is_post()) {
-    // Check if IP is blocked first
     if (isIPBlocked()) {
         $_err['general'] = 'Too many failed attempts. Please try again later.';
     }
     else if ($step == 1) {
-        // Step 1: Email validation and OTP sending
         $email = req('email');
         $captcha_response = req('captcha');
         $is_repeat = isRepeatOTPRequest($email);
         
-        // Verify CAPTCHA first
         if (!verifyCaptcha($captcha_response)) {
             $_err['captcha'] = 'Incorrect answer. Please try again.';
             logFailedAttempt($email, 'captcha_failed', 'Math captcha failed');
         }
         
-        // Validate email
         if ($email == '') {
             $_err['email'] = 'Required';
         }
@@ -85,7 +75,6 @@ if (is_post()) {
             logFailedAttempt($email, 'invalid_email', 'Invalid email format');
         }
         else {
-            // Check if email already exists
             $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE email = ?');
             $stm->execute([$email]);
             if ($stm->fetchColumn()) {
@@ -94,26 +83,21 @@ if (is_post()) {
             }
         }
         
-        // Check rate limiting
         if (!$_err && !checkRateLimit($email)) {
             $_err['email'] = 'Too many OTP requests. Please wait before requesting again.';
             logFailedAttempt($email, 'rate_limit', 'Exceeded OTP rate limit');
         }
         
         if (!$_err) {
-            // Generate OTP
             $otp = rand(100000, 999999);
             $otp_expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
             
-            // Store OTP in session or temporary table
             $_SESSION['registration_email'] = $email;
             $_SESSION['registration_otp'] = $otp;
             $_SESSION['registration_otp_expiry'] = $otp_expiry;
             $_SESSION['last_otp_email'] = $email;
             
-            // Send OTP email
             if (sendOTPEmail($email, $otp)) {
-                // Log successful OTP request
                 logOTPRequest($email, true);
 
                 if($is_repeat) {
@@ -131,13 +115,11 @@ if (is_post()) {
     } else if ($step == 2) {
     $email = $_SESSION['registration_email'] ?? '';
 
-    // Ensure we actually have an email from Step 1
     if (!$email) {
         $_SESSION['temp_error'] = 'Session expired. Please start again.';
         redirect('register.php?step=1');
     }
 
-    // If the user clicked "Resend OTP"
     if (isset($_POST['resend'])) {
         if (checkRateLimit($email)) {
             $otp = rand(100000, 999999);
@@ -158,13 +140,10 @@ if (is_post()) {
         redirect('register.php?step=2');
     }
 
-    // Handle OTP verification
     $otp_input = '';
     
-    // Check if OTP is submitted as array (from individual inputs) or single field
     if (isset($_POST['otp'])) {
         if (is_array($_POST['otp'])) {
-            // Join individual digit inputs
             $otp_input = implode('', array_map('trim', $_POST['otp']));
         } else {
             $otp_input = trim($_POST['otp']);
@@ -184,12 +163,8 @@ if (is_post()) {
     } elseif ($otp_input != $_SESSION['registration_otp']) {
         $_err['otp'] = 'Invalid OTP';
         logFailedAttempt($email, 'invalid_otp', 'Incorrect OTP entered');
-        
-        // Debug info (remove in production)
-        error_log("OTP Debug - Input: '$otp_input', Session: '{$_SESSION['registration_otp']}'");
-    }
+            }
 
-    // If OTP verified
         if (empty($_err)) {
             redirect('register.php?step=3');
         }
@@ -204,12 +179,14 @@ if (is_post()) {
         redirect('register.php?step=1');
     }
     
-    // Password validation
     if ($password == '') {
         $_err['password'] = 'Required';
     }
     else if (strlen($password) < 8) {
         $_err['password'] = 'Password must be at least 8 characters';
+    }
+    else if (strlen($password) > 128) {
+        $_err['password'] = 'Password must be less than 128 characters';
     }
     else if (!preg_match('/[A-Z]/', $password)) {
         $_err['password'] = 'Password must contain at least one uppercase letter';
@@ -220,6 +197,9 @@ if (is_post()) {
     else if (!preg_match('/[0-9]/', $password)) {
         $_err['password'] = 'Password must contain at least one number';
     }
+    else if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+        $_err['password'] = 'Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)';
+    }
     
     if ($confirm_password == '') {
         $_err['confirm_password'] = 'Required';
@@ -229,31 +209,28 @@ if (is_post()) {
     }
     
     if (!$_err) {
-        // Generate random username
         do {
             $username = generateRandomUsername();
             $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE username = ?');
             $stm->execute([$username]);
         } while ($stm->fetchColumn() > 0);
 
-        // Get random profile photo
         $randomProfilePhoto = getRandomProfilePhoto();
     
-        // Hash the password before storing
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+        $role = "Customer";
+        $status = "Active";
         
-        // Register user with profile photo
         $stm = $_db->prepare('
-            INSERT INTO user (username, email, password, photo, role, created_at)   
-            VALUES (?, ?, ?, ?, "Customer", NOW())
+            INSERT INTO user (username, email, password, photo, role, created_at, status)   
+            VALUES (?, ?, ?, ?, ?, NOW(), ?)
         ');
-        $stm->execute([$username, $email, $password_hash, $randomProfilePhoto, $role]);
+        $stm->execute([$username, $email, $password_hash, $randomProfilePhoto, $role, $status]);
         
         if ($stm->rowCount()) {
-            // Clear session data
             unset($_SESSION['registration_email'], $_SESSION['registration_otp'], $_SESSION['registration_otp_expiry']);
             
-            // Set success message and redirect to login
             $_SESSION['temp_success'] = 'Registration successful! You can now log in with your credentials.';
             redirect('login.php');
             
@@ -265,7 +242,6 @@ if (is_post()) {
 }
 }
 
-// Set page title based on step
 $page_titles = [
     1 => 'Register - Step 1: Email',
     2 => 'Register - Step 2: Verify OTP', 
@@ -288,9 +264,7 @@ $page_title = $page_titles[$step] ?? 'Register';
         <div class="register-header">
             <h1>Create Your Account</h1>
             <p>Step <?php echo $step; ?> of 3</p>
-            
-            <!-- Progress bar -->
-            <div class="progress-bar">
+                <div class="progress-bar">
                 <div class="progress-step <?php echo $step >= 1 ? 'active' : ''; ?>">1</div>
                 <div class="progress-line <?php echo $step >= 2 ? 'active' : ''; ?>"></div>
                 <div class="progress-step <?php echo $step >= 2 ? 'active' : ''; ?>">2</div>
@@ -319,7 +293,6 @@ $page_title = $page_titles[$step] ?? 'Register';
 
         <form method="post" class="form" novalidate>
             <?php if ($step == 1): ?>
-                <!-- Step 1: Email Input -->
                 <div class="step-content">
                     <h3>Enter Your Email Address</h3>
                     <p>We'll send you a verification code</p>
@@ -341,7 +314,6 @@ $page_title = $page_titles[$step] ?? 'Register';
                         <?php endif; ?>
                     </div>
                     
-                    <!-- Math CAPTCHA -->
                     <div class="form-group">
                         <label for="captcha">Security Check</label>
                         <div class="captcha-container">
@@ -374,7 +346,6 @@ $page_title = $page_titles[$step] ?? 'Register';
                 </div>
                 
             <?php elseif ($step == 2): ?>
-    <!-- Step 2: OTP Verification -->
     <div class="step-content">
         <h3>Verify Your Email</h3>
         <p>Enter the 6-digit code sent to 
@@ -419,7 +390,6 @@ $page_title = $page_titles[$step] ?? 'Register';
                 </div>
                 
             <?php elseif ($step == 3): ?>
-                <!-- Step 3: Set Password -->
                 <div class="step-content">
                     <h3>Create Your Password</h3>
                     
@@ -465,13 +435,13 @@ $page_title = $page_titles[$step] ?? 'Register';
                         <?php endif; ?>
                     </div>
 
-                    <!-- Password Requirements -->
                     <ul id="password-requirements" class="password-requirements">
-                        <li id="length" class="invalid">❌ At least 8 characters</li>
-                        <li id="uppercase" class="invalid">❌ At least one uppercase letter</li>
-                        <li id="lowercase" class="invalid">❌ At least one lowercase letter</li>
-                        <li id="number" class="invalid">❌ At least one number</li>
-                        <li id="match" class="invalid">❌ Passwords match</li>
+                                                        <li id="length" class="invalid">❌ 8-128 characters</li>
+                                <li id="uppercase" class="invalid">❌ At least one uppercase letter</li>
+                                <li id="lowercase" class="invalid">❌ At least one lowercase letter</li>
+                                <li id="number" class="invalid">❌ At least one number</li>
+                                <li id="special" class="invalid">❌ At least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)</li>
+                                <li id="match" class="invalid">❌ Passwords match</li>
                     </ul>
                 </div>
 
@@ -492,7 +462,6 @@ $page_title = $page_titles[$step] ?? 'Register';
     
     <?php if ($step == 2 && isset($_SESSION['registration_otp_expiry'])): ?>
     <script>
-        // Countdown timer for OTP expiry
         const expiryTime = new Date('<?php echo $_SESSION['registration_otp_expiry']; ?>').getTime();
         
         const countdown = setInterval(function() {
@@ -524,6 +493,7 @@ $page_title = $page_titles[$step] ?? 'Register';
             uppercase: document.getElementById('uppercase'),
             lowercase: document.getElementById('lowercase'),
             number: document.getElementById('number'),
+            special: document.getElementById('special'),
             match: document.getElementById('match'),
         };
 
@@ -531,33 +501,33 @@ $page_title = $page_titles[$step] ?? 'Register';
             const password = passwordInput.value;
             const confirm = confirmInput.value;
 
-            // Check requirements
-            const lengthValid = password.length >= 8;
+            const lengthValid = password.length >= 8 && password.length <= 128;
             const uppercaseValid = /[A-Z]/.test(password);
             const lowercaseValid = /[a-z]/.test(password);
             const numberValid = /[0-9]/.test(password);
+            const specialValid = /[^A-Za-z0-9]/.test(password);
             const matchValid = password === confirm && password !== '';
 
-            // Update UI
             updateRequirement(requirements.length, lengthValid);
             updateRequirement(requirements.uppercase, uppercaseValid);
             updateRequirement(requirements.lowercase, lowercaseValid);
             updateRequirement(requirements.number, numberValid);
+            updateRequirement(requirements.special, specialValid);
             updateRequirement(requirements.match, matchValid);
 
-            // Update strength bar
             let strength = 0;
             if (lengthValid) strength++;
             if (uppercaseValid) strength++;
             if (lowercaseValid) strength++;
             if (numberValid) strength++;
+            if (specialValid) strength++;
 
             const strengthBar = document.getElementById('strength-bar');
             const strengthText = document.getElementById('strength-text');
-            const colors = ["red", "orange", "yellow", "lightgreen", "green"];
-            const texts = ["Very Weak", "Weak", "Fair", "Good", "Strong"];
+            const colors = ["red", "orange", "yellow", "lightgreen", "green", "darkgreen"];
+            const texts = ["Very Weak", "Weak", "Fair", "Good", "Strong", "Very Strong"];
 
-            strengthBar.style.width = (strength * 25) + "%";
+            strengthBar.style.width = (strength * 16.67) + "%";
             strengthBar.style.background = colors[strength];
             strengthText.textContent = texts[strength];
         }
