@@ -16,7 +16,7 @@ if (is_post()) {
     else if (!is_email($email)) {
         $_err['email'] = 'Invalid email';
     }
-    else if (!is_unique($email, 'user', 'email')) {
+    else if (!is_unique($email, 'staff', 'email')) {
         $_err['email'] = 'Duplicated';
     }
  if (!$_err){
@@ -35,7 +35,7 @@ $stm = $_db->prepare('
 $stm->execute([$id, $email]);
 
 //Generate token url
-$url = base("adminregister.php?id=$id");
+$url = base("admin/adminregister.php?id=$id");
 
         // TODO: (5) Send email
         $m = get_mail();
