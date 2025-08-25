@@ -528,13 +528,64 @@ body::before {
     cursor: pointer;
     font-size: 1.125rem;
     transition: var(--transition-normal);
-    padding: 0.25rem;
+    padding: 0.5rem;
     border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
 }
 
 .password-toggle:hover {
     color: var(--wood-dark);
     background: var(--gray-100);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.password-toggle:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Eye icon styling */
+.password-toggle .eye-icon {
+    transition: var(--transition-normal);
+    font-size: 1.25rem;
+}
+
+.password-toggle .eye-icon.show {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.password-toggle .eye-icon.hide {
+    opacity: 0.6;
+    transform: scale(0.9);
+}
+
+.password-toggle:hover .eye-icon {
+    color: var(--wood-dark);
+    transform: scale(1.1);
+}
+
+/* Eye icon animation for state change */
+.password-toggle .eye-icon.state-change {
+    animation: eyeBlink 0.3s ease-in-out;
+}
+
+@keyframes eyeBlink {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.8); }
+    100% { transform: scale(1); }
+}
+
+/* Password input with toggle button */
+.password-input-container {
+    position: relative;
+}
+
+.password-input-container .form-input {
+    padding-right: 3.5rem;
 }
 
 /* Error Messages */

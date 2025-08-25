@@ -193,6 +193,19 @@ body::before {
     position: relative;
 }
 
+.login-header {
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.login-header h1 {
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
 .form-header h1 {
     color: var(--wood-dark);
     font-size: 2.25rem;
@@ -494,6 +507,64 @@ body::before {
     border-left-color: var(--error-color);
 }
 
+/* Enhanced Back Button with premium wood design */
+.back-btn {
+    position: absolute;
+    top: -1.75rem;
+    left: -1rem;
+    background: linear-gradient(135deg, var(--wood-medium) 0%, var(--wood-dark) 100%);
+    border: 2px solid var(--wood-dark);
+    border-radius: 50%;
+    width: 3.5rem;
+    height: 3.5rem;
+    color: white;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    box-shadow: 
+        0 4px 12px rgba(139, 69, 19, 0.25),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    z-index: 10;
+    backdrop-filter: blur(8px);
+}
+
+.back-btn:hover {
+    background: linear-gradient(135deg, var(--wood-dark) 0%, var(--primary-dark) 100%);
+    transform: translateX(-6px) scale(1.05);
+    box-shadow: 
+        0 8px 20px rgba(139, 69, 19, 0.35),
+        0 4px 8px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-color: var(--accent-gold);
+}
+
+.back-btn:active {
+    transform: translateX(-3px) scale(0.98);
+    transition: all 0.1s ease;
+}
+
+.back-btn:focus {
+    outline: 3px solid var(--accent-gold);
+    outline-offset: 3px;
+    box-shadow: 
+        0 0 0 3px rgba(212, 175, 55, 0.3),
+        0 4px 12px rgba(139, 69, 19, 0.25),
+        0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.back-btn i {
+    transition: transform var(--transition-normal);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.back-btn:hover i {
+    transform: translateX(-2px) scale(1.1);
+}
+
 /* Furniture Icons */
 .input-icon {
     position: absolute;
@@ -520,6 +591,10 @@ body::before {
     position: relative;
 }
 
+.password-input-container .form-input {
+    padding-right: 3.5rem;
+}
+
 .password-toggle {
     position: absolute;
     right: 1rem;
@@ -531,13 +606,55 @@ body::before {
     cursor: pointer;
     font-size: 1.125rem;
     transition: var(--transition-normal);
-    padding: 0.25rem;
+    padding: 0.5rem;
     border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
 }
 
 .password-toggle:hover {
     color: var(--wood-dark);
     background: var(--gray-100);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.password-toggle:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Eye icon styling */
+.password-toggle .eye-icon {
+    transition: var(--transition-normal);
+    font-size: 1.25rem;
+}
+
+.password-toggle .eye-icon.show {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.password-toggle .eye-icon.hide {
+    opacity: 0.6;
+    transform: scale(0.9);
+}
+
+.password-toggle:hover .eye-icon {
+    color: var(--wood-dark);
+    transform: scale(1.1);
+}
+
+/* Eye icon animation for state change */
+.password-toggle .eye-icon.state-change {
+    animation: eyeBlink 0.3s ease-in-out;
+}
+
+@keyframes eyeBlink {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.8); }
+    100% { transform: scale(1); }
 }
 
 /* Progress Bar Styles */

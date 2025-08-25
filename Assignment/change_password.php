@@ -158,7 +158,7 @@ $page_title = 'Change Password';
                             required
                         >
                         <button type="button" class="password-toggle" onclick="togglePassword('current-password')">
-                            <i class="fas fa-eye"></i>
+                            <i class="eye-icon show fas fa-eye"></i>
                         </button>
                     </div>
                     <div class="error-message" id="current-password-error">
@@ -181,7 +181,7 @@ $page_title = 'Change Password';
                             required
                         >
                         <button type="button" class="password-toggle" onclick="togglePassword('new-password')">
-                            <i class="fas fa-eye"></i>
+                            <i class="eye-icon show fas fa-eye"></i>
                         </button>
                     </div>
                     <div class="error-message" id="new-password-error">
@@ -205,7 +205,7 @@ $page_title = 'Change Password';
                             required
                         >
                         <button type="button" class="password-toggle" onclick="togglePassword('confirm-password')">
-                            <i class="fas fa-eye"></i>
+                            <i class="eye-icon show fas fa-eye"></i>
                         </button>
                     </div>
                     <div class="error-message" id="confirm-password-error">
@@ -236,16 +236,21 @@ $page_title = 'Change Password';
     
     function togglePassword(inputId) {
         const input = document.getElementById(inputId);
-        const toggle = input.parentNode.querySelector('.password-toggle i');
+        const toggleButton = input.parentNode.querySelector('.password-toggle');
+        const eyeIcon = toggleButton.querySelector('.eye-icon');
         
         if (input.type === 'password') {
             input.type = 'text';
-            toggle.classList.remove('fa-eye');
-            toggle.classList.add('fa-eye-slash');
+            eyeIcon.classList.remove('show', 'fas', 'fa-eye');
+            eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
+            eyeIcon.classList.add('state-change');
+            setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
         } else {
             input.type = 'password';
-            toggle.classList.remove('fa-eye-slash');
-            toggle.classList.add('fa-eye');
+            eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
+            eyeIcon.classList.add('show', 'fas', 'fa-eye');
+            eyeIcon.classList.add('state-change');
+            setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
         }
     }
     

@@ -441,7 +441,7 @@ $page_title = 'Forgot Password';
                                     required
                                 >
                                 <button type="button" class="password-toggle" onclick="togglePassword('new_password')">
-                                    <i class="fas fa-eye"></i>
+                                    <i class="eye-icon show fas fa-eye"></i>
                                 </button>
                             </div>
                             <?php if (isset($_err['new_password'])): ?>
@@ -477,7 +477,7 @@ $page_title = 'Forgot Password';
                                     required
                                 >
                                 <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
-                                    <i class="fas fa-eye"></i>
+                                    <i class="eye-icon show fas fa-eye"></i>
                                 </button>
                             </div>
                             <?php if (isset($_err['confirm_password'])): ?>
@@ -508,14 +508,21 @@ $page_title = 'Forgot Password';
         // Password toggle functionality
         function togglePassword(inputId) {
             const input = document.getElementById(inputId);
-            const icon = input.nextElementSibling.querySelector('i');
+            const toggleButton = input.parentNode.querySelector('.password-toggle');
+            const eyeIcon = toggleButton.querySelector('.eye-icon');
             
             if (input.type === 'password') {
                 input.type = 'text';
-                icon.className = 'fas fa-eye-slash';
+                eyeIcon.classList.remove('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             } else {
                 input.type = 'password';
-                icon.className = 'fas fa-eye';
+                eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             }
         }
 

@@ -258,6 +258,7 @@ $page_title = $page_titles[$step] ?? 'Register';
     <link rel="stylesheet" href="css/loginRegister.css">
     <title><?php echo htmlspecialchars($page_title); ?> - AiKUN Furniture</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="register-container">
@@ -404,7 +405,7 @@ $page_title = $page_titles[$step] ?? 'Register';
                                 required
                             >
                             <button type="button" class="password-toggle" onclick="togglePassword('password')">
-                                <span id="toggle-text-1">Show</span>
+                                <i class="eye-icon show fas fa-eye"></i>
                             </button>
                         </div>
                         <div id="password-strength">
@@ -427,7 +428,7 @@ $page_title = $page_titles[$step] ?? 'Register';
                                 required
                             >
                             <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
-                                <span id="toggle-text-2">Show</span>
+                                <i class="eye-icon show fas fa-eye"></i>
                             </button>
                         </div>
                         <?php if (isset($_err['confirm_password'])): ?>
@@ -546,14 +547,21 @@ $page_title = $page_titles[$step] ?? 'Register';
 
         function togglePassword(fieldId) {
             const passwordField = document.getElementById(fieldId);
-            const toggleText = document.getElementById(fieldId === 'password' ? 'toggle-text-1' : 'toggle-text-2');
+            const toggleButton = passwordField.parentNode.querySelector('.password-toggle');
+            const eyeIcon = toggleButton.querySelector('.eye-icon');
             
             if (passwordField.type === 'password') {
                 passwordField.type = 'text';
-                toggleText.textContent = 'Hide';
+                eyeIcon.classList.remove('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             } else {
                 passwordField.type = 'password';
-                toggleText.textContent = 'Show';
+                eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             }
         }
 
