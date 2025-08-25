@@ -177,15 +177,14 @@ function clearRememberMeCookie() {
     }
 }
 
-function clearAllRememberTokens($userID) {
+function clearAllRememberTokens($user_id) {
     global $_db;
+    
     try {
         $stmt = $_db->prepare("DELETE FROM remember_tokens WHERE user_id = ?");
-        $stmt->execute([$userID]);
-        return true;
+        $stmt->execute([$user_id]);
     } catch (Exception $e) {
-        error_log("Clear all remember tokens error: " . $e->getMessage());
-        return false;
+        error_log("Failed to clear remember tokens: " . $e->getMessage());
     }
 }
 
@@ -270,9 +269,11 @@ function is_valid_login_input($input) {
 
 function validatePasswordStrength($password) {
     if (strlen($password) < 8) return 'Password must be at least 8 characters long';
+    if (strlen($password) > 128) return 'Password must be less than 128 characters';
     if (!preg_match('/[A-Z]/', $password)) return 'Password must contain at least one uppercase letter';
     if (!preg_match('/[a-z]/', $password)) return 'Password must contain at least one lowercase letter';
     if (!preg_match('/[0-9]/', $password)) return 'Password must contain at least one number';
+    if (!preg_match('/[^A-Za-z0-9]/', $password)) return 'Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)';
     return true;
 }
 
@@ -350,6 +351,27 @@ function get_mail() {
 
 function is_post() {
     return $_SERVER['REQUEST_METHOD'] === 'POST';
+}
+
+function base($path = '') {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $baseUrl = "$protocol://$host/admin/";
+    return $baseUrl . ltrim($path, '/');
+}
+
+function is_unique($value, $table, $field) {
+    global $_db;
+    $stm = $_db->prepare("SELECT COUNT(*) FROM $table WHERE $field = ?");
+    $stm->execute([$value]);
+    return $stm->fetchColumn() == 0;
+}
+
+function is_exists($value, $table, $field) {
+    global $_db;
+    $stm = $_db->prepare("SELECT COUNT(*) FROM $table WHERE $field = ?");
+    $stm->execute([$value]);
+    return $stm->fetchColumn() > 0;
 }
 
 function req($key) {

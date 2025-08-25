@@ -366,14 +366,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function togglePassword() {
             const passwordField = document.getElementById('password');
-            const toggleText = document.getElementById('toggle-text');
+            const toggleButton = passwordField.parentNode.querySelector('.password-toggle');
+            const eyeIcon = toggleButton.querySelector('.eye-icon');
             
             if (passwordField.type === 'password') {
                 passwordField.type = 'text';
-                toggleText.textContent = 'Hide';
+                eyeIcon.classList.remove('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             } else {
                 passwordField.type = 'password';
-                toggleText.textContent = 'Show';
+                eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             }
         }
 
@@ -431,3 +438,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+

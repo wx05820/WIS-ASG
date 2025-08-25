@@ -82,10 +82,14 @@ $page_title = 'Login';
     <title><?php echo htmlspecialchars($page_title); ?> - AiKUN Furniture</title>
     <link rel="stylesheet" href="css/loginRegister.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="login-container">
         <div class="login-header">
+            <button class="back-btn" onclick="window.location.href='index.php'">
+                <i class="fas fa-arrow-left"></i>
+            </button>
             <h1>Welcome Back</h1>
             <p>Please login to your account</p>
         </div>
@@ -142,7 +146,7 @@ $page_title = 'Login';
                         autocomplete="current-password"
                     >
                     <button type="button" class="password-toggle" onclick="togglePassword()">
-                        <span id="toggle-text">Show</span>
+                        <i class="eye-icon show fas fa-eye"></i>
                     </button>
                 </div>
                 <?php if (isset($_err['password'])): ?>
@@ -208,14 +212,21 @@ $page_title = 'Login';
     <script>
         function togglePassword() {
             const passwordField = document.getElementById('password');
-            const toggleText = document.getElementById('toggle-text');
+            const toggleButton = passwordField.parentNode.querySelector('.password-toggle');
+            const eyeIcon = toggleButton.querySelector('.eye-icon');
             
             if (passwordField.type === 'password') {
                 passwordField.type = 'text';
-                toggleText.textContent = 'Hide';
+                eyeIcon.classList.remove('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             } else {
                 passwordField.type = 'password';
-                toggleText.textContent = 'Show';
+                eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
             }
         }
 

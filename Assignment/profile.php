@@ -15,219 +15,447 @@ if (!$current_user) {
     redirect('login.php');
 }
 
-// Handle form submissions
-if (is_post()) {
-    $csrf_token = req('csrf_token');
+// Get available default photos from profilePhoto directory
+function getDefaultPhotos() {
+    $photos = [];
+    $directory = 'profilePhoto/';
+    
+    if (is_dir($directory)) {
+        $files = scandir($directory);
+        foreach ($files as $file) {
+            if ($file !== '.' && $file !== '..' && 
+                in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $photos[] = $directory . $file;
+            }
+        }
+    }
+    
+    return $photos;
+}
+
+// Handle AJAX requests
+if (isset($_POST['action'])) {
+    header('Content-Type: application/json');
     
     // Verify CSRF token
-    if (!validateCSRFToken($csrf_token)) {
-        $_err['general'] = 'Security token mismatch. Please try again.';
+    if (!validateCSRFToken($_POST['csrf_token'] ?? '')) {
+        echo json_encode(['success' => false, 'message' => 'Security token mismatch']);
+        exit;
+    }
+    
+    switch ($_POST['action']) {
+        case 'update_profile':
+            handleProfileUpdate();
+            break;
+            
+        case 'update_photo':
+            handlePhotoUpdate();
+            break;
+            
+        case 'get_default_photos':
+            echo json_encode(['success' => true, 'photos' => getDefaultPhotos()]);
+            break;
+            
+        default:
+            echo json_encode(['success' => false, 'message' => 'Invalid action']);
+    }
+    exit;
+}
+
+function handleProfileUpdate() {
+    global $current_user, $_db;
+    
+    $name = sanitizeInput($_POST['name'] ?? '', 'name');
+    $username = sanitizeInput($_POST['username'] ?? '', 'username');
+    $phone = sanitizeInput($_POST['phone'] ?? '', 'phone');
+    $birthday = sanitizeInput($_POST['birthday'] ?? '');
+    
+    $errors = [];
+    
+    // Validate name
+    if (empty($name)) {
+        $errors['name'] = 'Name is required';
+    } elseif (strlen($name) < 2 || strlen($name) > 100) {
+        $errors['name'] = 'Name must be between 2-100 characters';
+    } elseif (!preg_match('/^[a-zA-Z\s\'-]+$/', $name)) {
+        $errors['name'] = 'Name contains invalid characters';
+    }
+    
+    // Validate username
+    if (empty($username)) {
+        $errors['username'] = 'Username is required';
+    } elseif (strlen($username) < 3 || strlen($username) > 30) {
+        $errors['username'] = 'Username must be between 3-30 characters';
+    } elseif (!preg_match('/^[a-zA-Z0-9_-]+$/', $username)) {
+        $errors['username'] = 'Username can only contain letters, numbers, underscore and hyphen';
     } else {
-        $action = req('action');
-        
-        switch ($action) {
-            case 'update_profile':
-                handleProfileUpdate($current_user, $_db);
-                break;
-                
-            case 'change_password':
-                handlePasswordChange($current_user, $_db);
-                break;
-                
-            case 'update_photo':
-                handlePhotoUpload($current_user, $_db);
-                break;
-                
-            case 'remove_photo':
-                handlePhotoRemoval($current_user, $_db);
-                break;
+        // Check if username is already taken (excluding current user)
+        $stmt = $_db->prepare('SELECT userID FROM user WHERE username = ? AND userID != ?');
+        $stmt->execute([$username, $current_user->userID]);
+        if ($stmt->rowCount() > 0) {
+            $errors['username'] = 'Username is already taken';
         }
     }
     
-    // Refresh user data after updates
-    $current_user = getCurrentUser();
-}
-
-// Helper functions for form handling
-function handleProfileUpdate($user, $db) {
-    global $_err;
-    
-    $name = sanitizeInput(req('name'), 'name');
-    $username = sanitizeInput(req('username'), 'username');
-    $phoneNo = sanitizeInput(req('phoneNo'), 'phone');
-    $birthday = sanitizeInput(req('birthday'));
-    
-    // Validate inputs
-    $name_validation = validateName($name);
-    if (!$name_validation['valid']) {
-        $_err['name'] = $name_validation['message'];
-    }
-    
-    $username_validation = validateUsername($username, $user->userID, $db);
-    if (!$username_validation['valid']) {
-        $_err['username'] = $username_validation['message'];
-    }
-    
-    $phone_validation = validatePhoneNumber($phoneNo);
-    if (!$phone_validation['valid']) {
-        $_err['phoneNo'] = $phone_validation['message'];
-    }
-    
-    $birthday_validation = validateBirthday($birthday);
-    if (!$birthday_validation['valid']) {
-        $_err['birthday'] = $birthday_validation['message'];
-    }
-    
-    if (empty($_err)) {
-        try {
-            $stmt = $db->prepare("UPDATE user SET name = ?, username = ?, phoneNo = ?, birthday = ?, updated_at = NOW() WHERE userID = ?");
-            $stmt->execute([$name, $username, $phoneNo, $birthday ?: null, $user->userID]);
-            
-            // Update session data
-            $_SESSION['name'] = $name;
-            $_SESSION['username'] = $username;
-            
-            logProfileActivity($user->userID, 'profile_updated', [
-                'name' => $name,
-                'username' => $username,
-                'phoneNo' => $phoneNo,
-                'birthday' => $birthday
-            ], $db);
-            
-            temp('success', 'Profile updated successfully!');
-            
-        } catch (PDOException $e) {
-            error_log("Profile update error: " . $e->getMessage());
-            $_err['general'] = 'Error updating profile. Please try again.';
-        }
-    }
-}
-
-function handlePasswordChange($user, $db) {
-    global $_err;
-    
-    $current_password = req('current_password');
-    $new_password = req('new_password');
-    $confirm_password = req('confirm_password');
-    
-    // Validate current password
-    if (empty($current_password)) {
-        $_err['current_password'] = 'Current password is required';
-    } elseif (!password_verify($current_password, $user->password)) {
-        $_err['current_password'] = 'Current password is incorrect';
-        logFailedAttempt($user->email, 'password_change', 'Incorrect current password');
-    }
-    
-    // Validate new password
-    if (empty($new_password)) {
-        $_err['new_password'] = 'New password is required';
-    } else {
-        $password_validation = validatePasswordStrength($new_password);
-        if ($password_validation !== true) {
-            $_err['new_password'] = $password_validation;
+    // Validate phone
+    if (!empty($phone)) {
+        if (!preg_match('/^\+?[0-9\s\-()]{8,20}$/', $phone)) {
+            $errors['phone'] = 'Please enter a valid phone number';
         }
     }
     
-    // Validate password confirmation
-    if (empty($confirm_password)) {
-        $_err['confirm_password'] = 'Please confirm your new password';
-    } elseif ($new_password !== $confirm_password) {
-        $_err['confirm_password'] = 'Passwords do not match';
-    }
-    
-    // Check if new password is different from current
-    if (empty($_err) && password_verify($new_password, $user->password)) {
-        $_err['new_password'] = 'New password must be different from current password';
-    }
-    
-    if (empty($_err)) {
-        try {
-            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-            $stmt = $db->prepare("UPDATE user SET password = ?, updated_at = NOW() WHERE userID = ?");
-            $stmt->execute([$hashed_password, $user->userID]);
-            
-            // Clear all remember tokens for security
-            clearAllRememberTokens($user->userID);
-            
-            logProfileActivity($user->userID, 'password_changed', ['ip' => $_SERVER['REMOTE_ADDR']], $db);
-            temp('success', 'Password changed successfully! Please login again for security.');
-            redirect('login.php');
-            
-        } catch (PDOException $e) {
-            error_log("Password change error: " . $e->getMessage());
-            $_err['password_general'] = 'Error updating password. Please try again.';
-        }
-    }
-}
-
-function handlePhotoUpload($user, $db) {
-    global $_err;
-    
-    if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] === UPLOAD_ERR_OK) {
-        $upload_options = [
-            'max_size' => 2 * 1024 * 1024,
-            'min_width' => 100,
-            'min_height' => 100,
-            'max_width' => 1000,
-            'max_height' => 1000
-        ];
-        
-        $upload_result = handleSecureUpload($_FILES['profile_photo'], 'uploads/profiles/', $user->userID, $upload_options);
-        
-        if ($upload_result['success']) {
-            try {
-                // Delete old profile photo if exists
-                if (!empty($user->profile_photo) && $user->profile_photo !== 'profilePhoto/default.jpg') {
-                    deleteFileSecurely($user->profile_photo, $user->userID);
-                }
-                
-                // Update database
-                $photo_path = 'uploads/profiles/' . $upload_result['filename'];
-                $stmt = $db->prepare("UPDATE user SET profile_photo = ?, updated_at = NOW() WHERE userID = ?");
-                $stmt->execute([$photo_path, $user->userID]);
-                
-                logProfileActivity($user->userID, 'profile_photo_updated', [
-                    'filename' => $upload_result['filename']
-                ], $db);
-                
-                temp('success', 'Profile photo updated successfully!');
-                
-            } catch (PDOException $e) {
-                error_log("Profile photo update error: " . $e->getMessage());
-                $_err['photo'] = 'Error updating profile photo. Please try again.';
-            }
+    // Validate birthday
+    if (!empty($birthday)) {
+        $birth_date = DateTime::createFromFormat('Y-m-d', $birthday);
+        if (!$birth_date) {
+            $errors['birthday'] = 'Please enter a valid date';
         } else {
-            $_err['photo'] = $upload_result['message'];
+            $age = (new DateTime())->diff($birth_date)->y;
+            if ($age < 13) {
+                $errors['birthday'] = 'Must be at least 13 years old';
+            } elseif ($age > 120) {
+                $errors['birthday'] = 'Please enter a valid birthday';
+            }
         }
-    } else {
-        $_err['photo'] = 'Please select a valid photo to upload.';
     }
-}
-
-function handlePhotoRemoval($user, $db) {
-    global $_err;
+    
+    if (!empty($errors)) {
+        echo json_encode(['success' => false, 'errors' => $errors]);
+        return;
+    }
     
     try {
-        // Delete current photo file
-        if (!empty($user->profile_photo) && $user->profile_photo !== 'profilePhoto/default.jpg') {
-            deleteFileSecurely($user->profile_photo, $user->userID);
+        $stmt = $_db->prepare("
+            UPDATE user 
+            SET name = ?, username = ?, phoneNo = ?, birthday = ?, updated_at = NOW() 
+            WHERE userID = ?
+        ");
+        $stmt->execute([
+            $name, 
+            $username, 
+            $phone ?: null, 
+            $birthday ?: null, 
+            $current_user->userID
+        ]);
+        
+        // Update session data
+        $_SESSION['name'] = $name;
+        $_SESSION['username'] = $username;
+        
+        // Log activity
+        logProfileActivity($current_user->userID, 'profile_updated', [
+            'name' => $name,
+            'username' => $username,
+            'phone' => $phone,
+            'birthday' => $birthday
+        ], $_db);
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Profile updated successfully!'
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log("Profile update error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Database error occurred. Please try again.'
+        ]);
+    }
+}
+
+function handlePhotoUpdate() {
+    global $current_user, $_db;
+    
+    $photo_type = $_POST['photo_type'] ?? '';
+    $photo_data = $_POST['photo_data'] ?? '';
+    
+    try {
+        $new_photo_path = null;
+        
+        switch ($photo_type) {
+            case 'default':
+                // Validate default photo path
+                $default_photos = getDefaultPhotos();
+                if (in_array($photo_data, $default_photos)) {
+                    $new_photo_path = $photo_data;
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Invalid default photo selected']);
+                    return;
+                }
+                break;
+                
+            case 'upload':
+                // Handle file upload
+                if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+                    $upload_result = handleSecurePhotoUpload($_FILES['photo'], $current_user->userID);
+                    if ($upload_result['success']) {
+                        $new_photo_path = $upload_result['path'];
+                        
+                        // Delete old custom photo if exists
+                        if (!empty($current_user->photo) && 
+                            strpos($current_user->photo, 'uploads/profiles/') === 0 &&
+                            file_exists($current_user->photo)) {
+                            unlink($current_user->photo);
+                        }
+                    } else {
+                        echo json_encode(['success' => false, 'message' => $upload_result['message']]);
+                        return;
+                    }
+                }
+                break;
+                
+            case 'camera':
+                // Handle base64 camera capture
+                $upload_result = handleBase64PhotoUpload($photo_data, $current_user->userID);
+                if ($upload_result['success']) {
+                    $new_photo_path = $upload_result['path'];
+                    
+                    // Delete old custom photo if exists
+                    if (!empty($current_user->photo) && 
+                        strpos($current_user->photo, 'uploads/profiles/') === 0 &&
+                        file_exists($current_user->photo)) {
+                        unlink($current_user->photo);
+                    }
+                } else {
+                    echo json_encode(['success' => false, 'message' => $upload_result['message']]);
+                    return;
+                }
+                break;
+                
+                
+            default:
+                echo json_encode(['success' => false, 'message' => 'Invalid photo type']);
+                return;
         }
         
         // Update database
-        $stmt = $db->prepare("UPDATE user SET profile_photo = NULL, updated_at = NOW() WHERE userID = ?");
-        $stmt->execute([$user->userID]);
+        $stmt = $_db->prepare("UPDATE user SET photo = ?, updated_at = NOW() WHERE userID = ?");
+        $stmt->execute([$new_photo_path, $current_user->userID]);
         
-        logProfileActivity($user->userID, 'profile_photo_removed', [], $db);
-        temp('success', 'Profile photo removed successfully!');
+        // Log activity
+        logProfileActivity($current_user->userID, 'profile_photo_updated', [
+            'type' => $photo_type,
+            'path' => $new_photo_path
+        ], $_db);
         
-    } catch (PDOException $e) {
-        error_log("Profile photo removal error: " . $e->getMessage());
-        $_err['photo'] = 'Error removing profile photo. Please try again.';
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Profile photo updated successfully!',
+            'photo_path' => $new_photo_path
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("Photo update error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Error updating profile photo. Please try again.'
+        ]);
     }
 }
 
-$page_title = 'My Profile';
-$current_age = calculateAge($current_user->birthday ?? '');
+function handleSecurePhotoUpload($file, $user_id) {
+    // Validate file exists
+    if (!isset($file) || $file['error'] === UPLOAD_ERR_NO_FILE) {
+        return ['success' => false, 'message' => 'No file selected.'];
+    }
+    
+    // Check for upload errors
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $error_messages = [
+            UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini.',
+            UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form.',
+            UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded.',
+            UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder.',
+            UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
+            UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload.',
+        ];
+        
+        return ['success' => false, 'message' => $error_messages[$file['error']] ?? 'Unknown upload error.'];
+    }
+    $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($file['type'], $allowed_types)) {
+        return ['success' => false, 'message' => 'Invalid file type. Please upload JPEG, PNG, GIF, or WebP images.'];
+    }
+    
+    if ($file['size'] > 2 * 1024 * 1024) { // 2MB limit
+        return ['success' => false, 'message' => 'File size must be less than 2MB.'];
+    }
+    
+    // Verify it's actually an image
+    $image_info = getimagesize($file['tmp_name']);
+    if (!$image_info) {
+        return ['success' => false, 'message' => 'Invalid image file.'];
+    }
+    
+    // Check dimensions
+    if ($image_info[0] < 100 || $image_info[1] < 100) {
+        return ['success' => false, 'message' => 'Image must be at least 100x100 pixels.'];
+    }
+    
+    // Create upload directory if it doesn't exist
+    $upload_dir = 'uploads/profiles/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    // Generate unique filename
+    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filename = $user_id . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+    $filepath = $upload_dir . $filename;
+    
+    // Move uploaded file
+    if (move_uploaded_file($file['tmp_name'], $filepath)) {
+        // Optimize image (resize if too large)
+        optimizeProfileImage($filepath);
+        
+        return [
+            'success' => true, 
+            'path' => $filepath,
+            'filename' => $filename
+        ];
+    } else {
+        return ['success' => false, 'message' => 'Failed to save uploaded file.'];
+    }
+}
+
+function handleBase64PhotoUpload($base64_data, $user_id) {
+    // Validate base64 data
+    if (strpos($base64_data, 'data:image/') !== 0) {
+        return ['success' => false, 'message' => 'Invalid image data format.'];
+    }
+    
+    // Extract image data
+    list($type, $data) = explode(';', $base64_data);
+    list(, $data) = explode(',', $data);
+    $image_data = base64_decode($data);
+    
+    if (!$image_data) {
+        return ['success' => false, 'message' => 'Failed to decode image data.'];
+    }
+    
+    // Validate image type
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime_type = $finfo->buffer($image_data);
+    $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    
+    if (!in_array($mime_type, $allowed_types)) {
+        return ['success' => false, 'message' => 'Invalid image type.'];
+    }
+    
+    // Check file size (2MB limit)
+    if (strlen($image_data) > 2 * 1024 * 1024) {
+        return ['success' => false, 'message' => 'Image size must be less than 2MB.'];
+    }
+    
+    // Create upload directory if it doesn't exist
+    $upload_dir = 'uploads/profiles/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    // Generate unique filename
+    $extension = $mime_type === 'image/jpeg' ? 'jpg' : 
+                ($mime_type === 'image/png' ? 'png' : 
+                ($mime_type === 'image/gif' ? 'gif' : 'webp'));
+    
+    $filename = $user_id . '_camera_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+    $filepath = $upload_dir . $filename;
+    
+    // Save image
+    if (file_put_contents($filepath, $image_data)) {
+        // Optimize image
+        optimizeProfileImage($filepath);
+        
+        return [
+            'success' => true, 
+            'path' => $filepath,
+            'filename' => $filename
+        ];
+    } else {
+        return ['success' => false, 'message' => 'Failed to save captured image.'];
+    }
+}
+
+function optimizeProfileImage($filepath) {
+    $image_info = getimagesize($filepath);
+    if (!$image_info) return;
+    
+    $mime_type = $image_info['mime'];
+    $width = $image_info[0];
+    $height = $image_info[1];
+    
+    // Skip if image is already small enough
+    if ($width <= 500 && $height <= 500) return;
+    
+    // Calculate new dimensions (max 500x500 while maintaining aspect ratio)
+    $max_size = 500;
+    if ($width > $height) {
+        $new_width = $max_size;
+        $new_height = intval(($height * $max_size) / $width);
+    } else {
+        $new_height = $max_size;
+        $new_width = intval(($width * $max_size) / $height);
+    }
+    
+    // Create image resource based on type
+    switch ($mime_type) {
+        case 'image/jpeg':
+            $source = imagecreatefromjpeg($filepath);
+            break;
+        case 'image/png':
+            $source = imagecreatefrompng($filepath);
+            break;
+        case 'image/gif':
+            $source = imagecreatefromgif($filepath);
+            break;
+        case 'image/webp':
+            $source = imagecreatefromwebp($filepath);
+            break;
+        default:
+            return;
+    }
+    
+    if (!$source) return;
+    
+    // Create new image with new dimensions
+    $resized = imagecreatetruecolor($new_width, $new_height);
+    
+    // Preserve transparency for PNG and GIF
+    if ($mime_type === 'image/png' || $mime_type === 'image/gif') {
+        imagealphablending($resized, false);
+        imagesavealpha($resized, true);
+        $transparent = imagecolorallocatealpha($resized, 255, 255, 255, 127);
+        imagefill($resized, 0, 0, $transparent);
+    }
+    
+    // Resize image
+    imagecopyresampled($resized, $source, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+    
+    // Save optimized image
+    switch ($mime_type) {
+        case 'image/jpeg':
+            imagejpeg($resized, $filepath, 85);
+            break;
+        case 'image/png':
+            imagepng($resized, $filepath, 8);
+            break;
+        case 'image/gif':
+            imagegif($resized, $filepath);
+            break;
+        case 'image/webp':
+            imagewebp($resized, $filepath, 85);
+            break;
+    }
+    
+    // Clean up
+    imagedestroy($source);
+    imagedestroy($resized);
+}
+
+$page_title = 'Edit Profile';
+$default_photos = getDefaultPhotos();
 ?>
 
 <!DOCTYPE html>
@@ -235,780 +463,637 @@ $current_age = calculateAge($current_user->birthday ?? '');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/profile.css">
     <title><?php echo htmlspecialchars($page_title); ?> - AiKUN Furniture</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-        
-        body {
-            background-color: #f5f7f9;
-            color: #333;
-            line-height: 1.6;
-            padding: 20px;
-        }
-        
-        .profile-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-        
-        .profile-header {
-            background: linear-gradient(135deg, #4a90e2, #2c6aa8);
-            color: white;
-            padding: 20px 30px;
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .back-link {
-            color: white;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        
-        .profile-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            margin: 0;
-        }
-        
-        .logout-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.3s;
-        }
-        
-        .logout-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        .profile-content {
-            padding: 30px;
-        }
-        
-        .profile-section {
-            margin-bottom: 40px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .profile-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-        
-        .section-header {
-            margin-bottom: 25px;
-        }
-        
-        .section-header h2 {
-            font-size: 22px;
-            color: #2c3e50;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .photo-section {
-            text-align: center;
-        }
-        
-        .photo-container {
-            margin-bottom: 20px;
-        }
-        
-        .profile-photo {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 4px solid #e9ecef;
-        }
-        
-        .profile-photo-placeholder {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #4a90e2, #2c6aa8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-            border: 4px solid #e9ecef;
-        }
-        
-        .initials {
-            font-size: 40px;
-            font-weight: bold;
-            color: white;
-        }
-        
-        .photo-actions {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .photo-requirements {
-            color: #6c757d;
-            font-size: 14px;
-            display: block;
-            text-align: center;
-        }
-        
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-        
-        .full-width {
-            grid-column: 1 / -1;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #2c3e50;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .form-input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        
-        .form-input:focus {
-            outline: none;
-            border-color: #4a90e2;
-            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-        }
-        
-        .form-input.error {
-            border-color: #e74c3c;
-        }
-        
-        .form-group small {
-            color: #6c757d;
-            font-size: 14px;
-            display: block;
-            margin-top: 5px;
-        }
-        
-        .password-input-container {
-            position: relative;
-        }
-        
-        .password-toggle {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #6c757d;
-            cursor: pointer;
-            padding: 5px;
-        }
-        
-        .password-requirements {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
-        }
-        
-        .password-requirements ul {
-            margin: 10px 0 0 20px;
-            color: #6c757d;
-        }
-        
-        .form-actions {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        
-        .btn-primary {
-            background: #4a90e2;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #3a80d2;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .btn-warning {
-            background: #f39c12;
-            color: white;
-        }
-        
-        .btn-warning:hover {
-            background: #e67e22;
-        }
-        
-        .alert {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .error-message {
-            color: #e74c3c;
-            font-size: 14px;
-            margin-top: 5px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .security-info {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-        }
-        
-        .info-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .info-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .security-actions {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .form-actions {
-                flex-direction: column;
-            }
-            
-            .btn {
-                width: 100%;
-                justify-content: center;
-            }
-        }
-    </style>
+    
 </head>
 <body>
-    <div class="profile-container">
-        <!-- Navigation/Header -->
+    <div class="profile-container fade-in-up">
+        <!-- Header -->
         <div class="profile-header">
-            <div class="header-content">
-                <a href="index.php" class="back-link">
-                    <i class="fas fa-arrow-left"></i> Back to Home
-                </a>
-                <h1>My Profile</h1>
-                <a href="logout.php" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
+            <button class="back-btn" onclick="goBack()">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <h1><i class="fas fa-user-edit"></i> Edit Profile</h1>
+            <p>Personalize your account settings</p>
         </div>
 
-        <!-- Success/Error Messages -->
-        <?php if ($success_msg = get_temp('success')): ?>
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
-                <?php echo htmlspecialchars($success_msg); ?>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($error_msg = get_temp('error')): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                <?php echo htmlspecialchars($error_msg); ?>
-            </div>
-        <?php endif; ?>
-
         <div class="profile-content">
-            <!-- Profile Photo Section -->
-            <div class="profile-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-camera"></i> Profile Photo</h2>
+            <!-- Success/Error Messages -->
+            <?php if ($success_msg = get_temp('success')): ?>
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <?php echo htmlspecialchars($success_msg); ?>
                 </div>
+            <?php endif; ?>
+
+            <?php if ($error_msg = get_temp('error')): ?>
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <?php echo htmlspecialchars($error_msg); ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- Photo Management Section -->
+            <div class="photo-management-section">
+                <h2><i class="fas fa-camera"></i> Profile Photo</h2>
                 
-                <div class="photo-section">
-                    <div class="photo-container">
-                        <?php if (!empty($current_user->profile_photo) && file_exists($current_user->profile_photo)): ?>
-                            <img src="<?php echo htmlspecialchars($current_user->profile_photo); ?>" alt="Profile Photo" class="profile-photo">
-                        <?php else: ?>
-                            <div class="profile-photo-placeholder">
-                                <div class="initials">
-                                    <?php echo htmlspecialchars(generateAvatarInitials($current_user->name ?: $current_user->username)); ?>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="photo-actions">
-                        <form method="post" enctype="multipart/form-data" class="photo-form">
-                            <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                            <input type="hidden" name="action" value="update_photo">
-                            
-                            <label for="profile_photo" class="btn btn-primary">
-                                <i class="fas fa-upload"></i> Choose Photo
-                            </label>
-                            <input type="file" id="profile_photo" name="profile_photo" accept="image/*" style="display: none;" onchange="previewAndSubmit(this)">
-                        </form>
-                        
-                        <?php if (!empty($current_user->profile_photo)): ?>
-                        <form method="post" class="photo-form" onsubmit="return confirm('Are you sure you want to remove your profile photo?')">
-                            <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                            <input type="hidden" name="action" value="remove_photo">
-                            <button type="submit" class="btn btn-secondary">
-                                <i class="fas fa-trash"></i> Remove
-                            </button>
-                        </form>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <?php if (isset($_err['photo'])): ?>
-                        <div class="error-message">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <?php echo htmlspecialchars($_err['photo']); ?>
+                <div class="current-photo-display">
+                    <?php if (!empty($current_user->photo) && file_exists($current_user->photo)): ?>
+                        <img src="<?php echo htmlspecialchars($current_user->photo); ?>" class="current-photo" alt="Profile Photo" id="current-photo-display">
+                    <?php else: ?>
+                        <div class="photo-placeholder" id="current-photo-display">
+                            <i class="fas fa-user"></i>
                         </div>
                     <?php endif; ?>
-                    
-                    <small class="photo-requirements">
-                        Maximum 2MB • JPEG, PNG, GIF, WebP • Minimum 100x100 pixels
-                    </small>
+                    <p style="margin-top: 15px; color: #6c757d;">Current Profile Photo</p>
                 </div>
-            </div>
 
-            <!-- Profile Information Section -->
-            <div class="profile-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-user"></i> Profile Information</h2>
-                </div>
-                
-                <?php if (isset($_err['general'])): ?>
-                    <div class="alert alert-error">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <?php echo htmlspecialchars($_err['general']); ?>
+                <div class="photo-actions">
+                    <div class="photo-action-card" onclick="toggleDefaultPhotos()">
+                        <i class="fas fa-images"></i>
+                        <h3>Choose Default</h3>
+                        <p>Select from our collection</p>
                     </div>
-                <?php endif; ?>
-                
-                <form method="post" class="profile-form" novalidate>
+                    
+                    <!-- Replace the upload photo action card with this -->
+                    <div class="photo-action-card" id="upload-card" onclick="document.getElementById('file-upload').click()">
+                        <i class="fas fa-upload"></i>
+                        <h3>Upload Photo</h3>
+                        <p>From your device</p>
+                    </div>
+                    
+                    <div class="photo-action-card" onclick="openCamera()">
+                        <i class="fas fa-camera"></i>
+                        <h3>Take Photo</h3>
+                        <p>Use camera directly</p>
+                    </div>
+                </div>
+
+                <!-- Default Photos Grid -->
+                <div class="default-photos-grid" id="default-photos-grid">
+                    <?php foreach ($default_photos as $photo): ?>
+                        <div class="default-photo-option" onclick="selectDefaultPhoto('<?php echo htmlspecialchars($photo); ?>', this)">
+                            <img src="<?php echo htmlspecialchars($photo); ?>" alt="Default Avatar" 
+                                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjNGE5MGUyIi8+CjxjaXJjbGUgY3g9IjQwIiBjeT0iMzIiIHI9IjEyIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMjAgNjBjMC04IDgtMTYgMjAtMTZzMjAgOCAyMCAxNiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+'">
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <!-- Hidden forms -->
+                <form id="photo-upload-form" style="display: none;" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="update_profile">
-                    
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="name">
-                                <i class="fas fa-user"></i> Full Name
-                            </label>
-                            <input 
-                                type="text" 
-                                id="name" 
-                                name="name" 
-                                class="form-input <?php echo isset($_err['name']) ? 'error' : ''; ?>" 
-                                maxlength="100"
-                                value="<?php echo htmlspecialchars($current_user->name ?? ''); ?>"
-                                required
-                            >
-                            <small>Your display name (2-100 characters)</small>
-                            <?php if (isset($_err['name'])): ?>
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <?php echo htmlspecialchars($_err['name']); ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="username">
-                                <i class="fas fa-at"></i> Username
-                            </label>
-                            <input 
-                                type="text" 
-                                id="username" 
-                                name="username" 
-                                class="form-input <?php echo isset($_err['username']) ? 'error' : ''; ?>" 
-                                maxlength="30"
-                                value="<?php echo htmlspecialchars($current_user->username ?? ''); ?>"
-                                required
-                            >
-                            <small>3-30 characters, letters, numbers, underscore and hyphen only</small>
-                            <?php if (isset($_err['username'])): ?>
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <?php echo htmlspecialchars($_err['username']); ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="phoneNo">
-                                <i class="fas fa-phone"></i> Phone Number
-                            </label>
-                            <input 
-                                type="tel" 
-                                id="phoneNo" 
-                                name="phoneNo" 
-                                class="form-input <?php echo isset($_err['phoneNo']) ? 'error' : ''; ?>" 
-                                maxlength="20"
-                                value="<?php echo htmlspecialchars($current_user->phoneNo ?? ''); ?>"
-                                placeholder="+60123456789"
-                            >
-                            <small>Optional - Include country code</small>
-                            <?php if (isset($_err['phoneNo'])): ?>
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <?php echo htmlspecialchars($_err['phoneNo']); ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="birthday">
-                                <i class="fas fa-birthday-cake"></i> Birthday
-                            </label>
-                            <input 
-                                type="date" 
-                                id="birthday" 
-                                name="birthday" 
-                                class="form-input <?php echo isset($_err['birthday']) ? 'error' : ''; ?>"
-                                value="<?php echo htmlspecialchars($current_user->birthday ?? ''); ?>"
-                                max="<?php echo date('Y-m-d', strtotime('-13 years')); ?>"
-                            >
-                            <small>
-                                <?php if ($current_age): ?>
-                                    Current age: <?php echo $current_age; ?> years old
-                                <?php else: ?>
-                                    Optional - Must be 13 or older
-                                <?php endif; ?>
-                            </small>
-                            <?php if (isset($_err['birthday'])): ?>
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <?php echo htmlspecialchars($_err['birthday']); ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Update Profile
-                        </button>
-                        <button type="reset" class="btn btn-secondary">
-                            <i class="fas fa-undo"></i> Reset Changes
-                        </button>
-                    </div>
+                    <input type="hidden" name="action" value="update_photo">
+                    <input type="hidden" name="photo_type" value="upload">
+                    <input type="file" id="file-upload" name="photo" accept="image/*" onchange="handleFileUpload(this)" style="display: none;">
                 </form>
             </div>
 
-            <!-- Account Security Section -->
-            <div class="profile-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-shield-alt"></i> Account Security</h2>
-                </div>
-                
-                <div class="security-info">
-                    <div class="info-item">
-                        <i class="fas fa-clock"></i>
-                        <span>Last login: <?php echo $current_user->last_login ? date('M j, Y g:i A', strtotime($current_user->last_login)) : 'Never'; ?></span>
-                    </div>
-                    <div class="info-item">
-                        <i class="fas fa-user-plus"></i>
-                        <span>Member since: <?php echo date('M j, Y', strtotime($current_user->created_at ?? 'now')); ?></span>
-                    </div>
-                </div>
-
-                <!-- Change Password Form -->
-                <?php if (isset($_err['password_general'])): ?>
-                    <div class="alert alert-error">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <?php echo htmlspecialchars($_err['password_general']); ?>
-                    </div>
-                <?php endif; ?>
-                
-                <form method="post" class="password-form" novalidate>
-                    <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-                    <input type="hidden" name="action" value="change_password">
+            <!-- Camera Modal -->
+            <div class="camera-modal" id="camera-modal">
+                <div class="camera-container">
+                    <button class="close-camera" onclick="closeCamera()">&times;</button>
+                    <h3><i class="fas fa-camera"></i> Take a Photo</h3>
+                    <video id="video" autoplay></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    <div id="photo-preview"></div>
                     
-                    <h3><i class="fas fa-key"></i> Change Password</h3>
-                    
-                    <div class="form-group">
-                        <label for="current_password">Current Password</label>
-                        <div class="password-input-container">
-                            <input 
-                                type="password" 
-                                id="current_password" 
-                                name="current_password" 
-                                class="form-input <?php echo isset($_err['current_password']) ? 'error' : ''; ?>" 
-                                required
-                                autocomplete="current-password"
-                            >
-                            <button type="button" class="password-toggle" onclick="togglePassword('current_password')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                        <?php if (isset($_err['current_password'])): ?>
-                            <div class="error-message">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <?php echo htmlspecialchars($_err['current_password']); ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="new_password">New Password</label>
-                        <div class="password-input-container">
-                            <input 
-                                type="password" 
-                                id="new_password" 
-                                name="new_password" 
-                                class="form-input <?php echo isset($_err['new_password']) ? 'error' : ''; ?>" 
-                                required
-                                autocomplete="new-password"
-                            >
-                            <button type="button" class="password-toggle" onclick="togglePassword('new_password')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                        <?php if (isset($_err['new_password'])): ?>
-                            <div class="error-message">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <?php echo htmlspecialchars($_err['new_password']); ?>
-                            </div>
-                        <?php endif; ?>
-                        <div class="password-requirements">
-                            <small>Password must contain:</small>
-                            <ul>
-                                <li>At least 8 characters</li>
-                                <li>One uppercase letter</li>
-                                <li>One lowercase letter</li>
-                                <li>One number</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="confirm_password">Confirm New Password</label>
-                        <div class="password-input-container">
-                            <input 
-                                type="password" 
-                                id="confirm_password" 
-                                name="confirm_password" 
-                                class="form-input <?php echo isset($_err['confirm_password']) ? 'error' : ''; ?>" 
-                                required
-                                autocomplete="new-password"
-                            >
-                            <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                        <?php if (isset($_err['confirm_password'])): ?>
-                            <div class="error-message">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <?php echo htmlspecialchars($_err['confirm_password']); ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" onclick="return confirm('Changing your password will log you out from all devices. Continue?')">
-                            <i class="fas fa-key"></i> Change Password
+                    <div class="camera-controls">
+                        <button class="btn btn-success" id="capture-btn" onclick="capturePhoto()">
+                            <i class="fas fa-camera"></i> Capture
                         </button>
-                    </div>
-                </form>
-
-                <!-- Additional Security Actions -->
-                <div class="security-actions">
-                    <h3><i class="fas fa-cog"></i> Security Actions</h3>
-                    <div class="action-buttons">
-                        <a href="logout.php?action=logout_all" class="btn btn-warning" onclick="return confirm('This will log you out from all devices. Continue?')">
-                            <i class="fas fa-sign-out-alt"></i> Logout All Devices
-                        </a>
+                        <button class="btn btn-primary" id="use-photo-btn" onclick="usePhoto()" style="display: none;">
+                            <i class="fas fa-check"></i> Use Photo
+                        </button>
+                        <button class="btn btn-secondary" id="retake-btn" onclick="retakePhoto()" style="display: none;">
+                            <i class="fas fa-redo"></i> Retake
+                        </button>
+                        <button class="btn btn-danger" onclick="closeCamera()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
                     </div>
                 </div>
             </div>
+
+            <!-- Profile Information Form -->
+            <form id="profile-form" class="form-section">
+                <h2><i class="fas fa-user"></i> Profile Information</h2>
+                
+                <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+                <input type="hidden" name="action" value="update_profile">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="name">
+                            <i class="fas fa-user"></i> Full Name
+                        </label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            name="name" 
+                            class="form-input" 
+                            placeholder="Enter your full name"
+                            maxlength="100"
+                            value="<?php echo htmlspecialchars($current_user->name ?? ''); ?>"
+                            required
+                        >
+                        <div class="error-message" id="name-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="username">
+                            <i class="fas fa-at"></i> Username
+                        </label>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            class="form-input" 
+                            placeholder="Enter your username"
+                            maxlength="30"
+                            value="<?php echo htmlspecialchars($current_user->username ?? ''); ?>"
+                            required
+                        >
+                        <div class="error-message" id="username-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">
+                            <i class="fas fa-envelope"></i> Email Address
+                        </label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            class="form-input" 
+                            value="<?php echo htmlspecialchars($current_user->email ?? ''); ?>"
+                            readonly
+                            style="background: #f8f9fa; cursor: not-allowed;"
+                        >
+                        <small style="color: #6c757d;">Email cannot be changed for security reasons</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">
+                            <i class="fas fa-phone"></i> Phone Number
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="phone" 
+                            name="phone" 
+                            class="form-input" 
+                            placeholder="+60123456789"
+                            maxlength="20"
+                            value="<?php echo htmlspecialchars($current_user->phoneNo ?? ''); ?>"
+                        >
+                        <div class="error-message" id="phone-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="birthday">
+                            <i class="fas fa-birthday-cake"></i> Birthday
+                        </label>
+                        <input 
+                            type="date" 
+                            id="birthday" 
+                            name="birthday" 
+                            class="form-input"
+                            value="<?php echo htmlspecialchars($current_user->birthday ?? ''); ?>"
+                            max="<?php echo date('Y-m-d', strtotime('-13 years')); ?>"
+                        >
+                        <div class="error-message" id="birthday-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        <span>Update Profile</span>
+                        <div class="spinner"></div>
+                    </button>
+                    <button type="reset" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i> Reset Changes
+                    </button>
+                    <a href="change_password.php" class="btn btn-success">
+                        <i class="fas fa-key"></i> Change Password
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
-        function togglePassword(fieldId) {
-            const field = document.getElementById(fieldId);
-            const button = field.nextElementSibling;
-            const icon = button.querySelector('i');
-            
-            if (field.type === 'password') {
-                field.type = 'text';
-                icon.className = 'fas fa-eye-slash';
+    // Initialize with PHP data
+    const currentUser = <?php echo json_encode([
+        'name' => $current_user->name ?? '',
+        'username' => $current_user->username ?? '',
+        'email' => $current_user->email ?? '',
+        'phone' => $current_user->phoneNo ?? '',
+        'birthday' => $current_user->birthday ?? '',
+        'photo' => $current_user->photo ?? null
+    ]); ?>;
+    
+    // Global variables for camera functionality
+    let stream = null;
+    let capturedPhotoData = null;
+    
+    // Toggle default photos grid
+    function toggleDefaultPhotos() {
+        const grid = document.getElementById('default-photos-grid');
+        grid.classList.toggle('active');
+    }
+    
+    // Select a default photo
+    function selectDefaultPhoto(photoPath, element) {
+        // Remove selected class from all options
+        document.querySelectorAll('.default-photo-option').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        
+        // Add selected class to clicked option
+        element.classList.add('selected');
+        
+        // Update profile photo via AJAX
+        const formData = new FormData();
+        formData.append('csrf_token', '<?php echo generateCSRFToken(); ?>');
+        formData.append('action', 'update_photo');
+        formData.append('photo_type', 'default');
+        formData.append('photo_data', photoPath);
+        
+        fetch('profile.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the displayed photo
+                updateProfilePhotoDisplay(data.photo_path);
+                showAlert('success', data.message);
+                // Close the default photos grid
+                document.getElementById('default-photos-grid').classList.remove('active');
             } else {
-                field.type = 'password';
-                icon.className = 'fas fa-eye';
+                showAlert('error', data.message || 'Failed to update photo');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'Network error occurred. Please try again.');
+        });
+    }
+    
+    // Handle file upload - FIXED VERSION
+    function handleFileUpload(input) {
+        if (!input.files || input.files.length === 0) {
+            showAlert('error', 'No file selected.');
+            return;
         }
-
-        function previewAndSubmit(input) {
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                
-                // Basic validation
-                if (file.size > 2 * 1024 * 1024) {
-                    alert('File size must be less than 2MB');
-                    input.value = '';
-                    return;
-                }
-                
-                if (!file.type.match('image.*')) {
-                    alert('Please select an image file');
-                    input.value = '';
-                    return;
-                }
-                
-                // Submit form automatically
-                if (confirm('Upload this image as your profile photo?')) {
-                    input.form.submit();
+        
+        const file = input.files[0];
+        
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            showAlert('error', `Invalid file type: ${file.type}. Please upload JPEG, PNG, GIF, or WebP images.`);
+            return;
+        }
+        
+        // Validate file size (max 2MB)
+        const maxSize = 2 * 1024 * 1024;
+        if (file.size > maxSize) {
+            showAlert('error', `File too large: ${Math.round(file.size / 1024)} KB. Maximum size is 2MB.`);
+            return;
+        }
+        
+        // Show loading state
+        const uploadCard = document.getElementById('upload-card');
+        const originalContent = uploadCard.innerHTML;
+        uploadCard.innerHTML = '<i class="fas fa-spinner fa-spin"></i><p>Uploading...</p>';
+        uploadCard.classList.add('uploading');
+        
+        // Create FormData and append the file
+        const formData = new FormData();
+        formData.append('csrf_token', '<?php echo generateCSRFToken(); ?>');
+        formData.append('action', 'update_photo');
+        formData.append('photo_type', 'upload');
+        formData.append('photo', file);
+        
+        // Send the request
+        fetch('profile.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateProfilePhotoDisplay(data.photo_path);
+                showAlert('success', data.message);
+                // Reset the file input
+                input.value = '';
+            } else {
+                showAlert('error', data.message || 'Failed to upload photo');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'Network error occurred. Please try again.');
+        })
+        .finally(() => {
+            // Restore original content
+            uploadCard.innerHTML = originalContent;
+            uploadCard.classList.remove('uploading');
+        });
+    }
+    
+    // Open camera
+    function openCamera() {
+        const modal = document.getElementById('camera-modal');
+        modal.classList.add('active');
+        
+        // Reset camera controls
+        document.getElementById('capture-btn').style.display = 'block';
+        document.getElementById('use-photo-btn').style.display = 'none';
+        document.getElementById('retake-btn').style.display = 'none';
+        document.getElementById('photo-preview').style.display = 'none';
+        document.getElementById('video').style.display = 'block';
+        
+        // Access camera
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(cameraStream) {
+            stream = cameraStream;
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+        })
+        .catch(function(error) {
+            console.error('Error accessing camera:', error);
+            showAlert('error', 'Cannot access camera: ' + error.message);
+            closeCamera();
+        });
+    }
+    
+    // Close camera
+    function closeCamera() {
+        const modal = document.getElementById('camera-modal');
+        modal.classList.remove('active');
+        
+        // Stop camera stream
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+    
+    // Capture photo
+    function capturePhoto() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        
+        // Set canvas dimensions to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw current video frame to canvas
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to data URL
+        capturedPhotoData = canvas.toDataURL('image/png');
+        
+        // Show preview
+        const preview = document.getElementById('photo-preview');
+        preview.innerHTML = `<img src="${capturedPhotoData}" alt="Captured Photo">`;
+        preview.style.display = 'block';
+        
+        // Hide video and show controls for using/retaking
+        video.style.display = 'none';
+        document.getElementById('capture-btn').style.display = 'none';
+        document.getElementById('use-photo-btn').style.display = 'block';
+        document.getElementById('retake-btn').style.display = 'block';
+    }
+    
+    // Retake photo
+    function retakePhoto() {
+        const video = document.getElementById('video');
+        const preview = document.getElementById('photo-preview');
+        
+        // Show video and hide preview
+        video.style.display = 'block';
+        preview.style.display = 'none';
+        
+        // Show capture button and hide use/retake buttons
+        document.getElementById('capture-btn').style.display = 'block';
+        document.getElementById('use-photo-btn').style.display = 'none';
+        document.getElementById('retake-btn').style.display = 'none';
+    }
+    
+    // Use captured photo
+    function usePhoto() {
+        if (!capturedPhotoData) return;
+        
+        const formData = new FormData();
+        formData.append('csrf_token', '<?php echo generateCSRFToken(); ?>');
+        formData.append('action', 'update_photo');
+        formData.append('photo_type', 'camera');
+        formData.append('photo_data', capturedPhotoData);
+        
+        fetch('profile.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateProfilePhotoDisplay(data.photo_path);
+                showAlert('success', data.message);
+                closeCamera();
+            } else {
+                showAlert('error', data.message || 'Failed to update photo');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'Network error occurred. Please try again.');
+        });
+    }
+    
+    // Update profile photo display
+    function updateProfilePhotoDisplay(photoPath) {
+        const display = document.getElementById('current-photo-display');
+        
+        if (photoPath) {
+            // Create a new image element
+            const img = document.createElement('img');
+            img.src = photoPath + '?t=' + new Date().getTime(); // Cache busting
+            img.className = 'current-photo';
+            img.alt = 'Profile Photo';
+            img.onload = function() {
+                // Replace the current display with the new image
+                if (display.tagName === 'IMG') {
+                    display.parentNode.replaceChild(img, display);
                 } else {
-                    input.value = '';
+                    // If it's a placeholder div, replace it
+                    display.parentNode.replaceChild(img, display);
                 }
+            };
+        } else {
+            // If no photo path, show placeholder
+            const placeholder = document.createElement('div');
+            placeholder.className = 'photo-placeholder';
+            placeholder.innerHTML = '<i class="fas fa-user"></i>';
+            
+            if (display.tagName === 'IMG') {
+                display.parentNode.replaceChild(placeholder, display);
+            } else {
+                // If it's already a placeholder, just update the ID
+                display.id = 'current-photo-display';
             }
         }
-
-        // Real-time validation feedback
-        document.getElementById('username').addEventListener('input', function() {
-            const value = this.value;
-            const isValid = /^[a-zA-Z0-9_-]{3,30}$/.test(value);
-            
-            this.style.borderColor = value.length === 0 ? '' : (isValid ? '#22c55e' : '#ef4444');
+    }
+    
+    // Show field error
+    function showFieldError(inputElement, errorElement, message) {
+        inputElement.style.borderColor = '#dc3545';
+        errorElement.querySelector('span').textContent = message;
+        errorElement.style.display = 'flex';
+    }
+    
+    // Clear field errors
+    function clearFieldErrors() {
+        document.querySelectorAll('.error-message').forEach(el => {
+            el.style.display = 'none';
         });
-
-        document.getElementById('new_password').addEventListener('input', function() {
-            const value = this.value;
-            const requirements = [
-                value.length >= 8,
-                /[A-Z]/.test(value),
-                /[a-z]/.test(value),
-                /[0-9]/.test(value)
-            ];
-            
-            const isValid = requirements.every(req => req);
-            this.style.borderColor = value.length === 0 ? '' : (isValid ? '#22c55e' : '#ef4444');
+        document.querySelectorAll('.form-input').forEach(input => {
+            input.style.borderColor = '#e9ecef';
         });
-
-        document.getElementById('confirm_password').addEventListener('input', function() {
-            const newPassword = document.getElementById('new_password').value;
-            const confirmPassword = this.value;
-            const isValid = newPassword === confirmPassword && confirmPassword.length > 0;
-            
-            this.style.borderColor = confirmPassword.length === 0 ? '' : (isValid ? '#22c55e' : '#ef4444');
-        });
-
-        // Auto-hide alerts after 5 seconds
-        setTimeout(function() {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                alert.style.transition = 'opacity 0.5s';
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
-            });
+    }
+    
+    // Show alert message
+    function showAlert(type, message) {
+        // Remove existing alerts
+        document.querySelectorAll('.alert').forEach(alert => alert.remove());
+        
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check' : 'exclamation'}-circle"></i>
+            ${message}
+        `;
+        
+        document.querySelector('.profile-content').prepend(alert);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            alert.remove();
         }, 5000);
-    </script>
+    }
+    
+    // Go back to previous page
+    function goBack() {
+        window.history.back();
+    }
+    
+    // Form submission handlers
+    document.getElementById('profile-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const btnText = submitBtn.querySelector('span');
+        const spinner = submitBtn.querySelector('.spinner');
+        
+        // Show loading
+        submitBtn.disabled = true;
+        btnText.style.display = 'none';
+        spinner.style.display = 'inline-block';
+        
+        // Clear previous errors
+        clearFieldErrors();
+        
+        fetch('profile.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+            } else {
+                if (data.errors) {
+                    // Show field-specific errors
+                    Object.keys(data.errors).forEach(field => {
+                        const errorElement = document.getElementById(field + '-error');
+                        const inputElement = document.getElementById(field);
+                        if (errorElement && inputElement) {
+                            showFieldError(inputElement, errorElement, data.errors[field]);
+                        }
+                    });
+                } else {
+                    showAlert('error', data.message || 'An error occurred');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'Network error occurred. Please try again.');
+        })
+        .finally(() => {
+            // Reset button
+            submitBtn.disabled = false;
+            btnText.style.display = 'inline';
+            spinner.style.display = 'none';
+        });
+    });
+    
+    // Initialize form validation
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add input event listeners to clear errors when typing
+        document.querySelectorAll('.form-input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.style.borderColor = '#e9ecef';
+                const errorElement = document.getElementById(this.id + '-error');
+                if (errorElement) {
+                    errorElement.style.display = 'none';
+                }
+            });
+        });
+        
+        // Add drag and drop functionality for file uploads
+        const uploadCard = document.getElementById('upload-card');
+        const fileInput = document.getElementById('file-upload');
+        
+        uploadCard.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        
+        uploadCard.addEventListener('dragleave', function() {
+            this.classList.remove('drag-over');
+        });
+        
+        uploadCard.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileUpload(fileInput);
+            }
+        });
+    });
+</script>
 </body>
 </html>
