@@ -72,7 +72,7 @@
         <!-- Main Navigation -->
         <nav class="main-navigation">
             <ul>
-                <li><a href="index.php">All Products</a></li>
+                <li><a href="../product/list.php">All Products</a></li>
                 <li><a href="products.php">Users</a></li>
                 <li><a href="about.php">Staff</a></li>
                 <li><a href="adduser.php">AddUsers</a></li>
@@ -87,7 +87,7 @@
         <div class="mobile-navigation">
             <ul>
                 <li><a href="index.php">Home</a></li>
-                <li><a href="products.php">All Products</a></li>
+                <li><a href="../product/list.php">All Products</a></li>
                 <li>
                     <a href="javascript:void(0)" class="mobile-dropdown-toggle">Categories <i class="fas fa-chevron-down"></i></a>
                     <ul class="mobile-dropdown-content">

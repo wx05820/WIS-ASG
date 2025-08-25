@@ -1,6 +1,6 @@
 <?php
 $host = '127.0.0.1';
-$db   = 'asg';
+$db   = 'aikun';
 $user = 'root';
 $pass = '';
 $charset = 'utf8mb4';
@@ -12,7 +12,7 @@ $options = [
 ];
 
 try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
+    $_db = new PDO($dsn, $user, $pass, $options);
 } catch (PDOException $e) {
     die("Database connection failed: " . $e->getMessage());
 }

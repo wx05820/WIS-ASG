@@ -10,16 +10,8 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 }
 
-try {
-    $_db = new PDO('mysql:dbname=aikun', 'root', '', [
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"
-    ]);
-} catch (PDOException $e) {
-    error_log("Database connection failed: " . $e->getMessage());
-    die("Database connection failed. Please try again later.");
-}
+// Database connection will be established by config.php
+// $_db variable will be available after including config.php
 
 $_err = [];
 
