@@ -974,5 +974,41 @@ function getUserProfile($user_id, $db) {
     }
 }
 
+function checkLoginAndRedirect($redirectPage) {
+/*     session_start(); // Ensure session is active
+ */
+    if (!isset($_SESSION['user_id'])) {
+        echo "<script>alert('Please log in to access this page.'); window.location.href = '$redirectPage';</script>";
 
+        // Fallback for non-JS browsers
+        echo "<noscript><meta http-equiv='refresh' content='0;url=$redirectPage'></noscript>";
+        exit();
+    }
+}
+
+// Shopping cart
+function get_cart(){
+    return $_SESSION['cart'] ?? [];
+}
+
+function set_cart($cart = []){
+    $_SESSION['cart'] = $cart;
+}
+
+function update_cart($id, $qty) {
+    $cart = get_cart();
+
+    if(is_exists($id, 'product', 'id')){
+        $cart[$id] = $qty;
+    }
+    else{
+        unset($cart[$id]);
+    }
+
+    set_cart($cart);
+}
+
+function money($n) {
+    return 'RM '.number_format($n, 2);
+}
 ?>

@@ -77,9 +77,9 @@
                 &copy; <?php echo date('Y'); ?> AiKUN Furniture. All Rights Reserved.
             </div>
             <div class="legal-links">
-                <a href="privacy.php">Privacy Policy</a>
-                <a href="terms.php">Terms of Service</a>
-                <a href="sitemap.php">Sitemap</a>
+                <a href="/privacy.php">Privacy Policy</a>
+                <a href="/terms.php">Terms of Service</a>
+                <a href="/sitemap.php">Sitemap</a>
             </div>
         </div>
     </div>

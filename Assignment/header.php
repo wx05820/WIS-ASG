@@ -1,5 +1,5 @@
 <?php
-include '_base.php';
+require_once '_base.php';
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -21,7 +21,7 @@ if (isset($_SESSION['user_id'])) {
         if ($user_data) {
             $username = $user_data->username;
             $user_email = $user_data->email;
-            $user_profile_photo = !empty($user_data->photo) ? $user_data->photo : 'profilePhoto/default.jpg';
+            $user_profile_photo = !empty($user_data->photo) ? $user_data->photo : '/profilePhoto/default.jpg';
         }
         
         // Get cart count for logged-in user
@@ -58,22 +58,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/index.css">
 </head>
 <body>
     <header class="wooden-header">
         <div class="header-container">
             <!-- Logo and Company Name -->
             <div class="logo-section">
-                <a href="index.php" aria-label="AiKUN Furniture Homepage">
-                    <img src="images/logo.png" alt="AiKUN Furniture Logo" class="logo">
+                <a href="/index.php" aria-label="AiKUN Furniture Homepage">
+                    <img src="/images/logo.png" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
             
             <!-- Search Bar and Filters -->
             <div class="search-section">
-                <form action="search.php" method="GET" class="search-form" role="search">
+                <form action="/search.php" method="GET" class="search-form" role="search">
                     <div class="search-input-container">
                         <input type="text" 
                                name="query" 
@@ -120,7 +120,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                      alt="<?php echo htmlspecialchars($username); ?>'s profile photo" 
                                      class="profile-photo-small"
-                                     onerror="this.src='profilePhoto/default.jpg'">
+                                     onerror="this.src='/profilePhoto/default.jpg'">
                                 <span class="username-display"><?php echo htmlspecialchars($username); ?></span>
                                 <i class="fas fa-chevron-down dropdown-arrow"></i>
                             </button>
@@ -129,18 +129,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                     <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                          alt="Profile Photo" 
                                          class="profile-photo-large"
-                                         onerror="this.src='profilePhoto/default.jpg'">
+                                         onerror="this.src='/profilePhoto/default.jpg'">
                                     <div class="user-info">
                                         <h4><?php echo htmlspecialchars($username); ?></h4>
                                         <p class="user-email"><?php echo htmlspecialchars($user_email); ?></p>
                                     </div>
                                 </div>
                                 <hr class="dropdown-divider">
-                                <a href="profile.php" class="dropdown-item" role="menuitem">
+                                <a href="/profile.php" class="dropdown-item" role="menuitem">
                                     <i class="fas fa-user-edit"></i> Edit Profile
                                 </a>
                                 <hr class="dropdown-divider">
-                                <a href="logout.php" class="dropdown-item logout-item" role="menuitem">
+                                <a href="/logout.php" class="dropdown-item logout-item" role="menuitem">
                                     <i class="fas fa-sign-out-alt"></i> Logout
                                 </a>
                             </div>
@@ -155,9 +155,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php endif; ?>
                     
                     <!-- Cart Icon -->
-                    <a href="cart.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)">
+                    <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)">
                         <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>
+                        <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>                        
                     </a>
                     
                     <!-- Shipping Dropdown -->
@@ -192,10 +192,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Main Navigation -->
         <nav class="main-navigation" role="navigation" aria-label="Main navigation">
             <ul>
-                <li><a href="index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
-                <li><a href="products.php" class="<?php echo ($current_page === 'products.php') ? 'active' : ''; ?>">All Products</a></li>
-                <li><a href="about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
-                <li><a href="contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
+                <li><a href="/index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
+                <li><a href="/product/productList.php" class="<?php echo ($current_page === '/product/productList.php') ? 'active' : ''; ?>">All Products</a></li>
+                <li><a href="/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
+                <li><a href="/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
             </ul>
             
             <!-- Mobile Menu Toggle -->
@@ -208,7 +208,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="mobile-navigation" id="mobile-nav">
             <ul>
                 <li><a href="index.php">Home</a></li>
-                <li><a href="products.php">All Products</a></li>
+                <li><a href="/product/productList.php">All Products</a></li>
                 <li>
                     <a href="javascript:void(0)" class="mobile-dropdown-toggle">
                         Categories <i class="fas fa-chevron-down"></i>
@@ -449,7 +449,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             if (categorySelect.value) params.append('category', categorySelect.value);
             if (roomSelect.value) params.append('room', roomSelect.value);
             
-            window.location.href = 'products.php' + (params.toString() ? '?' + params.toString() : '');
+            window.location.href = '/product/productList.php' + (params.toString() ? '?' + params.toString() : '');
         }
     }
 
