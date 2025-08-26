@@ -967,8 +967,6 @@ function getUserProfile($user_id, $db) {
 }
 
 function checkLoginAndRedirect($redirectPage) {
-/*     session_start(); // Ensure session is active
- */
     if (!isset($_SESSION['user_id'])) {
         echo "<script>alert('Please log in to access this page.'); window.location.href = '$redirectPage';</script>";
 
