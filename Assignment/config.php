@@ -1,6 +1,6 @@
 <?php
 $host = '127.0.0.1';
-$db   = 'aikun'; // Replace with your actual database name
+$db   = 'aikun';
 $user = 'root';
 $pass = '';
 $charset = 'utf8mb4';

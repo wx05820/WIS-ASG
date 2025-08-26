@@ -1,5 +1,6 @@
 <?php
-require_once '_base.php';
+include 'config.php';
+include '_base.php';
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -21,7 +22,7 @@ if (isset($_SESSION['user_id'])) {
         if ($user_data) {
             $username = $user_data->username;
             $user_email = $user_data->email;
-            $user_profile_photo = !empty($user_data->photo) ? $user_data->photo : '/profilePhoto/default.jpg';
+            $user_profile_photo = !empty($user_data->photo) ? $user_data->photo : (strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../profilePhoto/default.jpg' : 'profilePhoto/default.jpg');
         }
         
         // Get cart count for logged-in user
@@ -52,21 +53,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <title><?php echo isset($page_title) ? $page_title . ' - ' : ''; ?>AiKUN Furniture - Premium Malaysian Furniture Store</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../images/favicon.ico' : 'images/favicon.ico'; ?>">
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/style.css' : 'css/style.css'; ?>">
+    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
 </head>
 <body>
     <header class="wooden-header">
         <div class="header-container">
             <!-- Logo and Company Name -->
             <div class="logo-section">
-                <a href="/index.php" aria-label="AiKUN Furniture Homepage">
-                    <img src="/images/logo.png" alt="AiKUN Furniture Logo" class="logo">
+                <a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../index.php' : 'index.php'; ?>" aria-label="AiKUN Furniture Homepage">
+                    <img src="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../images/logo.png' : 'images/logo.png'; ?>" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
@@ -120,7 +122,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                      alt="<?php echo htmlspecialchars($username); ?>'s profile photo" 
                                      class="profile-photo-small"
-                                     onerror="this.src='/profilePhoto/default.jpg'">
+                                     onerror="this.src='<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../profilePhoto/default.jpg' : 'profilePhoto/default.jpg'; ?>'">
                                 <span class="username-display"><?php echo htmlspecialchars($username); ?></span>
                                 <i class="fas fa-chevron-down dropdown-arrow"></i>
                             </button>
@@ -129,7 +131,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                     <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                          alt="Profile Photo" 
                                          class="profile-photo-large"
-                                         onerror="this.src='/profilePhoto/default.jpg'">
+                                         onerror="this.src='<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../profilePhoto/default.jpg' : 'profilePhoto/default.jpg'; ?>'">
                                     <div class="user-info">
                                         <h4><?php echo htmlspecialchars($username); ?></h4>
                                         <p class="user-email"><?php echo htmlspecialchars($user_email); ?></p>
@@ -192,10 +194,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Main Navigation -->
         <nav class="main-navigation" role="navigation" aria-label="Main navigation">
             <ul>
-                <li><a href="/index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
-                <li><a href="/product/productList.php" class="<?php echo ($current_page === '/product/productList.php') ? 'active' : ''; ?>">All Products</a></li>
-                <li><a href="/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
-                <li><a href="/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../index.php' : 'index.php'; ?>" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../product/list.php' : 'products.php'; ?>" class="<?php echo ($current_page === 'products.php') ? 'active' : ''; ?>">All Products</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../about.php' : 'about.php'; ?>" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../contact.php' : 'contact.php'; ?>" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
             </ul>
             
             <!-- Mobile Menu Toggle -->
