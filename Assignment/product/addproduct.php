@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$base_stmt = $_db->prepare($base_sql);
 			$base_stmt->execute();
 			$lastProd = $base_stmt->fetch();
-
+ 
 			if ($lastProd && isset($lastProd['prodID'])) {
 				// Get numeric part, increment by 1
 				$base = (int)substr($lastProd['prodID'], 1, 4) + 1;
