@@ -1119,3 +1119,44 @@ body::before {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--wood-dark);
 }
+.dialog {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.dialog-content {
+    background: #fff;
+    padding: 20px 30px;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    text-align: center;
+    max-width: 400px;
+    animation: popIn 0.3s ease;
+}
+
+.close-btn {
+    float: right;
+    font-size: 20px;
+    cursor: pointer;
+    color: #888;
+}
+
+.close-btn:hover {
+    color: #333;
+}
+
+@keyframes popIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.readonly-email {
+    background-color: #f0f0f0;  
+    color: #666;               
+    cursor: not-allowed;      
+}
