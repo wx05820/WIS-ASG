@@ -1,12 +1,29 @@
 <?php
 require_once __DIR__ . '/../_base.php';
 
-$user_id = $_SESSION['user_id'];
-checkLoginAndPrompt('../login.php');
+$user_id = $_SESSION['user_id'] ?? null;
+
+// If guest, just return empty cart and zero totals later
+if (!$user_id) {
+    $cart = [];
+    $totals = [
+        'subtotal' => 0,
+        'shipping' => 0,
+        'discount' => 0,
+        'total' => 0,
+        'itemCount' => 0
+    ];
+    return; // stop here, skip DB queries
+}
 
 // Fetch cart items from DB
 function get_cart($user_id){
     global $_db;
+
+    if (!$user_id) {
+        return [];
+    }
+
     $stmt = $_db->prepare("SELECT ci.cartID, ci.prodID, ci.qty AS cartQty, p.name, p.price, p.image1, p.color, p.qty AS stock
                             FROM cart_items ci
                             JOIN cart c ON ci.cartID = c.cartID

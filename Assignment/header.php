@@ -159,14 +159,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <!-- Cart Icon -->                        
                     <?php 
                         require_once 'order/cart.php';
-                        $user_id = $_SESSION['user_id'] ?? 0;
+                        $user_id = $_SESSION['user_id'] ?? null;
+                        $cart_count = 0;
 
-                        try {
-                            $cart_items = get_cart($user_id);
-                            $cart_count = $cart_items ? array_sum(array_column($cart_items, 'qty')) : 0;
-                        } catch (Exception $e) {
-                            $cart_count = 0;
-                        }
+                        if($user_id){
+                            try {
+                                $cart_items = get_cart($user_id);
+                                $cart_count = $cart_items ? array_sum(array_column($cart_items, 'qty')) : 0;
+                            } catch (Exception $e) {
+                                $cart_count = 0;
+                            }
+                        }                        
                     ?>
                     <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)" id="mini-cart">
                         <i class="fas fa-shopping-cart"></i>
