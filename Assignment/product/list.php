@@ -102,9 +102,13 @@ $page_title = "Products";
         </div>
 
         <!-- Product Management Buttons -->
-        <div class="product-management" style="display: flex; gap: 10px; align-items: center;">
-            <a href="addproduct.php" class="btn btn-success" style="padding: 6px 12px; border-radius: 4px; background: #28a745; color: #fff; text-decoration: none;">Add Product</a>
-            <a href="removeproduct.php" class="btn btn-danger" style="padding: 6px 12px; border-radius: 4px; background: #dc3545; color: #fff; text-decoration: none;">Remove Product</a>
+        <div class="product-management" style="display: flex; gap: 15px; align-items: center;">
+            <a href="addproduct.php" title="Add Product" style="color: white; font-size: 2em;">
+                <i class="fas fa-plus-circle"></i>
+            </a>
+            <a href="../admin/adminpage.php" title="Home" style="color: white; font-size: 1.5em;">
+				<i class="fas fa-home"></i>
+			</a>
         </div>
     </div>
 </header>
@@ -148,12 +152,15 @@ $page_title = "Products";
                 </div>
 
                 <!-- Sort Options -->
-                <div class="sort-filter">
+                <div class="sort-filter" style="display: flex; align-items: center; gap: 8px;">
                     <select name="sort" onchange="updateSort(this.value)" class="filter-select">
                         <option value="name" <?php echo ($sort === 'name') ? 'selected' : ''; ?>>Sort by Name</option>
                         <option value="price" <?php echo ($sort === 'price') ? 'selected' : ''; ?>>Sort by Price</option>
                         <option value="qty" <?php echo ($sort === 'qty') ? 'selected' : ''; ?>>Sort by Stock</option>
                     </select>
+                    <button type="button" onclick="toggleOrder()" class="order-btn" title="Toggle sort order" style="background: wooden; border: none; cursor: pointer;">
+                        <i class="fas fa-sort-<?php echo ($order === 'ASC') ? 'up' : 'down'; ?>"></i>
+                    </button>
                 </div>
             </div>
 
@@ -182,16 +189,6 @@ $page_title = "Products";
                                     </div>
                                 <?php endif; ?>
                             </a>
-                            
-                            <!-- Quick Actions -->
-                            <div class="quick-actions">
-                                <button type="button" 
-                                        onclick="quickView(<?php echo $product['prodID']; ?>)" 
-                                        class="quick-view-btn" 
-                                        title="Quick View">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
                         </div>
 
                         <div class="product-info">
@@ -212,8 +209,16 @@ $page_title = "Products";
                                 </span>
                             </div>
                             
-                            <div class="product-price">
+                            <div class="product-price" style="display: flex; align-items: center; justify-content: space-between;">
                                 <span class="price">RM <?php echo number_format($product['price'], 2); ?></span>
+                                <span class="product-actions" style="display: flex; gap: 10px;">
+                                    <a href="editproduct.php?id=<?php echo $product['prodID']; ?>" title="Edit Product" style="color: grey; font-size: 1.3em;">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="removeproduct.php?id=<?php echo $product['prodID']; ?>" title="Delete Product" style="color: red; font-size: 1.3em;" onclick="return confirm('Are you sure you want to delete this product?');">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -252,18 +257,19 @@ $page_title = "Products";
     </div>
 </body>
 
-<!-- Quick View Modal -->
-<div id="quickViewModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <div id="quickViewContent"></div>
-    </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     initializeProductList();
 });
+
+function toggleOrder() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentOrder = urlParams.get('order') || 'ASC';
+    const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
+    urlParams.set('order', newOrder);
+    urlParams.set('page', '1'); // Reset to first page
+    window.location.href = '?' + urlParams.toString();
+}
 
 function initializeProductList() {
     // Initialize quick view modal
@@ -288,19 +294,6 @@ function updateSort(sortValue) {
     window.location.href = '?' + urlParams.toString();
 }
 
-function quickView(productId) {
-    // Fetch product details for quick view
-    fetch(`quick-view.php?id=${productId}`)
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('quickViewContent').innerHTML = html;
-            document.getElementById('quickViewModal').style.display = 'block';
-        })
-        .catch(error => {
-            console.error('Error loading quick view:', error);
-        });
-}
-
 function showNotification(message, type) {
     // Create notification element
     const notification = document.createElement('div');
@@ -322,4 +315,5 @@ function showNotification(message, type) {
         setTimeout(() => notification.remove(), 300);
     }, 3000);
 }
+
 </script>
