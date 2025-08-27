@@ -1,3 +1,73 @@
+/* Add Product Page */
+.addproduct-form {
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgb(139, 89, 43);
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.addproduct-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--wood-dark);
+    font-weight: 600;
+}
+
+.addproduct-form input[type="text"],
+.addproduct-form input[type="number"],
+.addproduct-form input[type="file"],
+.addproduct-form textarea,
+.addproduct-form select {
+    width: 100%;
+    padding: rem 1rem;
+    margin-bottom: 1.2rem;
+    border: 2px solid var(--wood-light);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #f8f9fa;
+    color: var(--wood-dark);
+    transition: border-color 0.3s;
+}
+
+.addproduct-form input[type="file"] {
+    background: #fff;
+    padding: 0.5rem 0.8rem;
+}
+
+.addproduct-form input:focus,
+.addproduct-form textarea:focus,
+.addproduct-form select:focus {
+    border-color: var(--gold-accent);
+    outline: none;
+}
+
+.addproduct-form button[type="submit"] {
+    background: var(--wood-primary);
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s, color 0.3s;
+}
+
+.addproduct-form button[type="submit"]:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+}
+
+.message {
+    background: #d4edda;
+    color: #155724;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+}
 /* Product Pages Styles - Wooden Theme */
 :root {
     --wood-primary: #8B5A2B;       /* Main wood color */
@@ -733,3 +803,4 @@ body {
         opacity: 1;
     }
 }
+
