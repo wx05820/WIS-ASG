@@ -23,19 +23,6 @@ $stmt = $_db->prepare("
 $stmt->execute([$user_id]);
 $cartdb = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* $cart=[];
-foreach($cartdb as $row){
-    $cart[$row['prodID']] = [
-        'qty' => $row['qty'],
-        'product' => [
-            'price' => $row['price'],
-            'name' => $row['name'],
-            'color' => $row['color'] ?? '',
-            'img' => !empty($row['img']) ? 'data:image/jpeg;base64,'.base64_encode($row['img']) : '',
-        ]
-    ];
-} */
-
 $cart = get_cart($user_id);
 $totals = cartTotals($cart);
 
