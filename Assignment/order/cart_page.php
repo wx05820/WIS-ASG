@@ -1,7 +1,8 @@
 <?php
 require_once '../_base.php';
+include 'cart.php';
 
-checkLoginAndRedirect('../login.php');
+checkLoginAndPrompt('../login.php');
 
 $user_id = $_SESSION['user_id'];
 $current_user = getCurrentUser();
@@ -11,20 +12,32 @@ if (!$current_user) {
     redirect('login.php');
 }
 
-if (is_post()){
-    $btn = req('btn');
-    if ($btn == 'clear'){
-        set_cart();
-        redirect('?');
-    }
+$stmt = $_db->prepare("
+    SELECT ci.prodID, ci.qty, p.name, p.price, p.image1, p.color
+    FROM cart_items ci
+    JOIN cart c ON ci.cartID = c.cartID
+    JOIN product p ON ci.prodID = p.prodID
+    WHERE c.userID =? "
+);
 
-    $id = req('id');
-    $qty = req('qty');
-    update_cart($id, $qty);
-    redirect();
-}
- 
-$cart = $_SESSION['cart'] ?? [];
+$stmt->execute([$user_id]);
+$cartdb = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/* $cart=[];
+foreach($cartdb as $row){
+    $cart[$row['prodID']] = [
+        'qty' => $row['qty'],
+        'product' => [
+            'price' => $row['price'],
+            'name' => $row['name'],
+            'color' => $row['color'] ?? '',
+            'img' => !empty($row['img']) ? 'data:image/jpeg;base64,'.base64_encode($row['img']) : '',
+        ]
+    ];
+} */
+
+$cart = get_cart($user_id);
+$totals = cartTotals($cart);
 
 include '../header.php'; ?>
 
@@ -35,33 +48,43 @@ include '../header.php'; ?>
 <main class="container-cart">
     <section class="cart-card">
         <h1 class="cart-title">Shopping Cart</h1>
+        <div class="cart-actions">
+            <button id="select-all" data-checked="false">Select All</button>
+            <button id="clear-selected">Clear Selected</button>
+        </div>
+
         <div id="cart-items">
             <?php if(empty($cart)): ?>
                 <p class="empty">Your cart is empty.</p>
-            <?php else: ?>
-                <?php 
-                    foreach($cart as $id=>$row):
-                        $p=$row['product'];
-                ?>
+            <?php else: ?>                
+                <?php foreach($cart as $prodID=>$row): ?>
+                        <?php 
+                            $p=$row['product']; 
+                            $stmStock = $_db->prepare("SELECT qty FROM product WHERE prodID=?");
+                            $stmStock->execute([$prodID]);
+                            $stock = $stmStock->fetchColumn() ?: 0;
+                        ?>
 
-                <div class="cart-row" data-id="<?= $id?>">
-                        <input type="checkbox" class="item-check" <?= !empty($row['selected'])?'checked':''?>>
-                        <img src="<?= $p['img']?>" alt="<?= htmlspecialchars($p['title'])?>">
+                <div class="cart-row" data-id="<?= htmlspecialchars($prodID)?>">
+                        <input type="checkbox" class="item-check" checked>
+                        <img src="<?= htmlspecialchars($p['img'])?>" alt="<?= htmlspecialchars($p['title'])?>" class="imgCart">
                         <div class="title"><?= htmlspecialchars($p['title'])?></div>
-                        <div class="colour"><?= htmlspecialchars($p['colour'])?></div>
+                        <div class="color"><?= htmlspecialchars($p['color'])?></div>
                         <div class="price"><?= money($p['price'])?></div>
                         <div class="qty">
                             <button class="dec">-</button>
-                            <input type="number" value="<?= $row['qty']?>" class="qty-input">
+                            <input type="number" value="<?= $row['qty']?>" class="qty-input" min="1" max="<?= $stock ?>">
                             <button class="inc">+</button>
                         </div>
-                        <button class="remove">Remove</button>
+                        <button class="remove" data-id="<?= htmlspecialchars($prodID)?>">Remove</button>
                 </div>
                 <?php endforeach ?>
             <?php endif ?>
         </div>
         <div class="totals">
-            <strong>Total: <span id="grant-total">RM 0.00</span></strong>
+            <strong>Total Items: <?= $totals['itemCount'] ?></strong><br>
+            <strong>Subtotal: <?= money($totals['subtotal']) ?></strong><br>
+            <strong>Total: <?= money($totals['total']) ?></strong>
         </div>
     </section>
 </main>

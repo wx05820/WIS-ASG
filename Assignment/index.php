@@ -19,9 +19,9 @@
                 <p>Handcrafted with quality materials and timeless designs</p>
                 <a href="products.php" class="cta-button">Shop Now</a>
             </div>
-        </section>
-        
-        
+
+            
+        </section> 
     </main>
     
     <?php include 'footer.php'; ?>

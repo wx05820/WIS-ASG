@@ -1,6 +1,6 @@
 <?php
-include 'config.php';
-include '_base.php';
+require_once __DIR__ . '/_base.php';
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -26,7 +26,7 @@ if (isset($_SESSION['user_id'])) {
         }
         
         // Get cart count for logged-in user
-        $cart_stm = $_db->prepare('SELECT COUNT(*) as count FROM cart WHERE userID = ?');
+        $cart_stm = $_db->prepare('SELECT COUNT(*) as count FROM cart_items JOIN cart ON cart_items.cartID = cart.cartID WHERE userID = ?');
         $cart_stm->execute([$_SESSION['user_id']]);
         $cart_data = $cart_stm->fetch();
         $cart_count = $cart_data ? $cart_data->count : 0;
@@ -59,16 +59,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/style.css' : 'css/style.css'; ?>">
-    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
+    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/css/index.css' : 'css/index.css'; ?>">
+    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/css/products.css' : 'css/products.css'; ?>">
 </head>
 <body>
     <header class="wooden-header">
         <div class="header-container">
             <!-- Logo and Company Name -->
             <div class="logo-section">
-                <a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../index.php' : 'index.php'; ?>" aria-label="AiKUN Furniture Homepage">
-                    <img src="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../images/logo.png' : 'images/logo.png'; ?>" alt="AiKUN Furniture Logo" class="logo">
+                <a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/index.php' : '/index.php'; ?>" aria-label="AiKUN Furniture Homepage">
+                    <img src="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/images/logo.png' : '/images/logo.png'; ?>" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
@@ -122,7 +122,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                      alt="<?php echo htmlspecialchars($username); ?>'s profile photo" 
                                      class="profile-photo-small"
-                                     onerror="this.src='<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../profilePhoto/default.jpg' : 'profilePhoto/default.jpg'; ?>'">
+                                     onerror="this.src='<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/profilePhoto/default.jpg' : '/profilePhoto/default.jpg'; ?>'">
                                 <span class="username-display"><?php echo htmlspecialchars($username); ?></span>
                                 <i class="fas fa-chevron-down dropdown-arrow"></i>
                             </button>
@@ -150,16 +150,27 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php else: ?>
                         <!-- Login/Register for non-logged-in users -->
                         <div class="auth-buttons">
-                            <a href="login.php" class="user-icon" aria-label="Login">
+                            <a href="/login.php" class="user-icon" aria-label="Login">
                                 <i class="fas fa-user"></i>
                             </a>
                         </div>
                     <?php endif; ?>
                     
-                    <!-- Cart Icon -->
-                    <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)">
+                    <!-- Cart Icon -->                        
+                    <?php 
+                        require_once 'order/cart.php';
+                        $user_id = $_SESSION['user_id'] ?? 0;
+
+                        try {
+                            $cart_items = get_cart($user_id);
+                            $cart_count = $cart_items ? array_sum(array_column($cart_items, 'qty')) : 0;
+                        } catch (Exception $e) {
+                            $cart_count = 0;
+                        }
+                    ?>
+                    <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)" id="mini-cart">
                         <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>                        
+                        <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>
                     </a>
                     
                     <!-- Shipping Dropdown -->
@@ -168,15 +179,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <i class="fas fa-truck"></i>
                         </button>
                         <div class="dropdown-content" role="menu">
-                            <a href="tracking.php" role="menuitem">
+                            <a href="/tracking.php" role="menuitem">
                                 <i class="fas fa-search"></i> Track Shipping
                             </a>
                             <?php if (isset($_SESSION['user_id'])): ?>
-                                <a href="orders.php" role="menuitem">
+                                <a href="/orders.php" role="menuitem">
                                     <i class="fas fa-history"></i> Order History
                                 </a>
                             <?php endif; ?>
-                            <a href="shipping-info.php" role="menuitem">
+                            <a href="/shipping-info.php" role="menuitem">
                                 <i class="fas fa-info-circle"></i> Shipping Info
                             </a>
                         </div>
@@ -194,10 +205,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Main Navigation -->
         <nav class="main-navigation" role="navigation" aria-label="Main navigation">
             <ul>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../index.php' : 'index.php'; ?>" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../product/list.php' : 'products.php'; ?>" class="<?php echo ($current_page === 'products.php') ? 'active' : ''; ?>">All Products</a></li>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../about.php' : 'about.php'; ?>" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../contact.php' : 'contact.php'; ?>" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/index.php' : 'index.php'; ?>" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/product/list.php' : 'products.php'; ?>" class="<?php echo ($current_page === 'products.php') ? 'active' : ''; ?>">All Products</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/about.php' : 'about.php'; ?>" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
+                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/contact.php' : 'contact.php'; ?>" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
             </ul>
             
             <!-- Mobile Menu Toggle -->
@@ -209,7 +220,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Mobile Navigation -->
         <div class="mobile-navigation" id="mobile-nav">
             <ul>
-                <li><a href="index.php">Home</a></li>
+                <li><a href="/index.php">Home</a></li>
                 <li><a href="/product/productList.php">All Products</a></li>
                 <li>
                     <a href="javascript:void(0)" class="mobile-dropdown-toggle">
@@ -237,14 +248,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         <li><a href="room.php?type=outdoor">Outdoor</a></li>
                     </ul>
                 </li>
-                <li><a href="about.php">About Us</a></li>
-                <li><a href="contact.php">Contact</a></li>
+                <li><a href="/about.php">About Us</a></li>
+                <li><a href="/contact.php">Contact</a></li>
                 <?php if (!isset($_SESSION['user_id'])): ?>
                     <li class="mobile-auth">
                         <a href="login.php">Login</a>
                     </li>
                     <li class="mobile-auth">
-                        <a href="register.php">Register</a>
+                        <a href="/register.php">Register</a>
                     </li>
                 <?php endif; ?>
             </ul>
@@ -474,3 +485,4 @@ $current_page = basename($_SERVER['PHP_SELF']);
         return text.replace(/[&<>"']/g, function(m) { return map[m]; });
     }
     </script>
+    <script src="/js/cart.js" defer></script>

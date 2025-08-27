@@ -10,8 +10,15 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 }
 
-// Database connection will be established by config.php
-// $_db variable will be available after including config.php
+try {
+    $_db = new PDO('mysql:host=localhost;dbname=aikun;charset=utf8mb4', 'root', '', [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ]);
+} catch (PDOException $e) {
+    die("Database connection failed: " . $e->getMessage());
+}
 
 $_err = [];
 
@@ -966,36 +973,29 @@ function getUserProfile($user_id, $db) {
     }
 }
 
-function checkLoginAndRedirect($redirectPage) {
+function checkLoginAndPrompt($redirectPage) {
     if (!isset($_SESSION['user_id'])) {
-        echo "<script>alert('Please log in to access this page.'); window.location.href = '$redirectPage';</script>";
-
-        // Fallback for non-JS browsers
-        echo "<noscript><meta http-equiv='refresh' content='0;url=$redirectPage'></noscript>";
+        // Output a small HTML + JS snippet to show alert and redirect after OK
+        echo <<<HTML
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Login Required</title>
+                </head>
+                <body>
+                <script>
+                    alert('Please log in to access this page.');
+                    window.location.href = '$redirectPage';
+                </script>
+                <noscript>
+                    <p>Please <a href="$redirectPage">log in</a> to access this page.</p>
+                </noscript>
+                </body>
+                </html>
+            HTML;
         exit();
     }
-}
-
-// Shopping cart
-function get_cart(){
-    return $_SESSION['cart'] ?? [];
-}
-
-function set_cart($cart = []){
-    $_SESSION['cart'] = $cart;
-}
-
-function update_cart($id, $qty) {
-    $cart = get_cart();
-
-    if(is_exists($id, 'product', 'id')){
-        $cart[$id] = $qty;
-    }
-    else{
-        unset($cart[$id]);
-    }
-
-    set_cart($cart);
 }
 
 function money($n) {
