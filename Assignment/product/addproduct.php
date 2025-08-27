@@ -21,8 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	}
 
 	if ($errorMsg === '') {
-		// Auto-generate prodID
-
+		// Auto-generate prodID=
 		// Check for existing product with same name and category
 		$exist_sql = "SELECT prodID FROM product WHERE name = ? AND catID = ? ORDER BY prodID ASC LIMIT 1";
 		$exist_stmt = $_db->prepare($exist_sql);
@@ -39,43 +38,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$newColor = str_pad((int)$maxColor + 1, 2, '0', STR_PAD_LEFT);
 			$prodID = 'P' . $baseStr . $newColor;
 		} else {
-			// Generate new base prodID
-			$base_sql = "SELECT prodID FROM product WHERE LEFT(prodID,5) LIKE 'P%' ORDER BY prodID DESC LIMIT 1";
+			$base_sql = "
+				SELECT prodID 
+				FROM product 
+				WHERE prodID LIKE 'P____01' 
+				ORDER BY CAST(SUBSTRING(prodID, 2, 4) AS UNSIGNED) DESC 
+				LIMIT 1
+			";
 			$base_stmt = $_db->prepare($base_sql);
 			$base_stmt->execute();
 			$lastProd = $base_stmt->fetch();
+
 			if ($lastProd && isset($lastProd['prodID'])) {
+				// Get numeric part, increment by 1
 				$base = (int)substr($lastProd['prodID'], 1, 4) + 1;
 				$baseStr = str_pad($base, 4, '0', STR_PAD_LEFT);
 			} else {
-				$baseStr = '0001';
+				$baseStr = '0001'; // First product
 			}
+
+			// New ID based on largest number
 			$prodID = 'P' . $baseStr . '01';
 		}
 
-		// Handle image upload
-		if (isset($_FILES['image1']) && $_FILES['image1']['error'] === UPLOAD_ERR_OK) {
+		// Handle multiple image uploads
+		$image1 = $image2 = $image3 = '';
+		if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
 			$targetDir = '../bin/';
-			$fileName = basename($_FILES['image1']['name']);
-			$targetFile = $targetDir . $fileName;
-			if (move_uploaded_file($_FILES['image1']['tmp_name'], $targetFile)) {
-				$image1 = $fileName;
-			}
-		}
-		if (isset($_FILES['image2']) && $_FILES['image2']['error'] === UPLOAD_ERR_OK) {
-			$targetDir = '../bin/';
-			$fileName = basename($_FILES['image2']['name']);
-			$targetFile = $targetDir . $fileName;
-			if (move_uploaded_file($_FILES['image2']['tmp_name'], $targetFile)) {
-				$image2 = $fileName;
-			}
-		}
-		if (isset($_FILES['image3']) && $_FILES['image3']['error'] === UPLOAD_ERR_OK) {
-			$targetDir = '../bin/';
-			$fileName = basename($_FILES['image3']['name']);
-			$targetFile = $targetDir . $fileName;
-			if (move_uploaded_file($_FILES['image3']['tmp_name'], $targetFile)) {
-				$image3 = $fileName;
+			for ($i = 0; $i < min(3, count($_FILES['images']['name'])); $i++) {
+				if ($_FILES['images']['error'][$i] === UPLOAD_ERR_OK) {
+					$fileName = basename($_FILES['images']['name'][$i]);
+					$targetFile = $targetDir . $fileName;
+					if (move_uploaded_file($_FILES['images']['tmp_name'][$i], $targetFile)) {
+						if ($i === 0) $image1 = $fileName;
+						if ($i === 1) $image2 = $fileName;
+						if ($i === 2) $image3 = $fileName;
+					}
+				}
 			}
 		}
 
@@ -229,18 +228,16 @@ $categories = $cat_stmt->fetchAll();
 				<?php endforeach; ?>
 			</select>
 
-			<label>Product Image 1:</label>
-			<input type="file" name="image1" accept="image/*">
-			<label>Product Image 2:</label>
-			<input type="file" name="image2" accept="image/*">
-			<label>Product Image 3:</label>
-			<input type="file" name="image3" accept="image/*">
+			<label>Product Images:</label>
+			<input type="file" name="images[]" style="width: 400px" accept="image/*" multiple>
 
 			<?php if (!empty($errorMsg)): ?>
 				<textarea readonly style="color: red; background: #fff; border: none; width: 100%;">Error: <?php echo htmlspecialchars($errorMsg); ?></textarea>
 			<?php endif; ?>
 
-			<button type="submit">Add Product</button>
+			<div>
+				<button type="submit">Add Product</button>
+			</div>
 		</form>
 	</div>
 </body>
