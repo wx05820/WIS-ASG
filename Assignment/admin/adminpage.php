@@ -12,40 +12,17 @@
         <div class="header-container">
             <!-- Logo and Company Name -->
             <div class="logo-section">
-                <a href="index.php">
+                <a href="../admin/adminpage.php">
                     <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
             
-            <!-- Search Bar and Filters -->
-            <div class="search-section">
-                <form action="search.php" method="GET" class="search-form">
-                    <input type="text" name="query" placeholder="Search for furniture..." class="search-input">
-                    <button type="submit" class="search-button"><i class="fas fa-search"></i></button>
-                </form>
-                <div class="filter-options">
-                    <select name="category" class="filter-select">
-                        <option value="">Filter by Category</option>
-                        <option value="bed">Bed Frame</option>
-                        <option value="desk">Desktop</option>
-                        <option value="chair">Chair</option>
-                        <option value="table">Table</option>
-                        <option value="sofa">Sofa</option>
-                        <option value="cabinet">Cabinet</option>
-                    </select>
-                    <select name="room" class="filter-select">
-                        <option value="">Filter by Room</option>
-                        <option value="living">Living Room</option>
-                        <option value="bedroom">Bedroom</option>
-                        <option value="kitchen">Kitchen</option>
-                        <option value="dining">Dining Area</option>
-                        <option value="office">Home Office</option>
-                        <option value="outdoor">Outdoor</option>
-                    </select>
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1 style="text-align: center; margin: 0 auto;">Admin Page</h1>
                 </div>
-            </div>
-            
+
             <!-- User Icons Section -->
             <div class="user-section">
                 <div class="user-actions">
@@ -60,11 +37,6 @@
                     <?php else: ?>
                         <a href="login.php" class="user-icon"><i class="fas fa-user"></i></a>
                     <?php endif; ?>
-                
-                    
-
-                    
-                
                 </div>
             </div>
         </div>
