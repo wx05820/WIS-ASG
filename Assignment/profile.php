@@ -596,9 +596,7 @@ $default_photos = getDefaultPhotos();
                             class="form-input" 
                             placeholder="Enter your full name"
                             maxlength="100"
-                            value="<?php echo htmlspecialchars($current_user->name ?? ''); ?>"
-                            required
-                        >
+                            value="<?php echo htmlspecialchars($current_user->name ?? ''); ?>">
                         <div class="error-message" id="name-error">
                             <i class="fas fa-exclamation-triangle"></i>
                             <span></span>
