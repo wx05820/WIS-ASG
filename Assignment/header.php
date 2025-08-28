@@ -25,11 +25,11 @@ if (isset($_SESSION['user_id'])) {
             $user_profile_photo = !empty($user_data->photo) ? $user_data->photo : (strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../profilePhoto/default.jpg' : 'profilePhoto/default.jpg');
         }
         
-        // Get cart count for logged-in user
+        /* // Get cart count for logged-in user
         $cart_stm = $_db->prepare('SELECT COUNT(*) as count FROM cart_items JOIN cart ON cart_items.cartID = cart.cartID WHERE userID = ?');
         $cart_stm->execute([$_SESSION['user_id']]);
         $cart_data = $cart_stm->fetch();
-        $cart_count = $cart_data ? $cart_data->count : 0;
+        $cart_count = $cart_data ? $cart_data->count : 0; */
         
     } catch (PDOException $e) {
         // Log error and continue with defaults
@@ -62,7 +62,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/css/index.css' : 'css/index.css'; ?>">
     <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/css/products.css' : 'css/products.css'; ?>">
 </head>
-<body>
+<body data-user-id="<?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : ''; ?>">
     <header class="wooden-header">
         <div class="header-container">
             <!-- Logo and Company Name -->

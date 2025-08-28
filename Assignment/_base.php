@@ -501,8 +501,6 @@ function getRandomProfilePhoto() {
     if (!empty($availablePhotos)) {
         $randomIndex = array_rand($availablePhotos);
         return $availablePhotos[$randomIndex];
-    } else {
-        return 'profilePhoto/default.jpg';
     }
 }
 
@@ -986,32 +984,8 @@ function getUserProfile($user_id, $db) {
     }
 }
 
-function checkLoginAndPrompt($redirectPage) {
-    if (!isset($_SESSION['user_id'])) {
-        // Output a small HTML + JS snippet to show alert and redirect after OK
-        echo <<<HTML
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Login Required</title>
-                </head>
-                <body>
-                <script>
-                    alert('Please log in to access this page.');
-                    window.location.href = '$redirectPage';
-                </script>
-                <noscript>
-                    <p>Please <a href="$redirectPage">log in</a> to access this page.</p>
-                </noscript>
-                </body>
-                </html>
-            HTML;
-        exit();
-    }
-}
-
 function money($n) {
     return 'RM '.number_format($n, 2);
 }
+
 ?>
