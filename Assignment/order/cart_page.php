@@ -28,7 +28,7 @@ $totals = cartTotals($cart);
 
 include '../header.php'; ?>
 
-<script src="/js/cart.js" defer></script>
+<script src="../js/cart.js" defer></script>
 <link rel="stylesheet" href="../css/index.css">
 <link rel="stylesheet" href="../css/cart.css">
 

@@ -487,13 +487,13 @@ if (rand(1, 100) === 1) {
 
 function getRandomProfilePhoto() {
     $profilePhotos = [
-        'profilePhoto/profile1.jpg',
-        'profilePhoto/profile2.jpg',
-        'profilePhoto/profile3.jpg',
-        'profilePhoto/profile4.jpg',
-        'profilePhoto/profile5.jpg',
-        'profilePhoto/profile6.jpg',
-        'profilePhoto/profile7.jpg',
+        '/profilePhoto/profile1.jpg',
+        '/profilePhoto/profile2.jpg',
+        '/profilePhoto/profile3.jpg',
+        '/profilePhoto/profile4.jpg',
+        '/profilePhoto/profile5.jpg',
+        '/profilePhoto/profile6.jpg',
+        '/profilePhoto/profile7.jpg',
     ];
     $availablePhotos = array_filter($profilePhotos, function($photo) {
         return file_exists($photo);
@@ -501,8 +501,6 @@ function getRandomProfilePhoto() {
     if (!empty($availablePhotos)) {
         $randomIndex = array_rand($availablePhotos);
         return $availablePhotos[$randomIndex];
-    } else {
-        return 'profilePhoto/default.jpg';
     }
 }
 

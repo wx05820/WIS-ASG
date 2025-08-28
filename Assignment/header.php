@@ -12,6 +12,16 @@ $username = null;
 $user_email = null;
 $cart_count = 0;
 
+// Define base path for images based on current directory
+// Check if we're in any subdirectory (product/, order/, user/, etc.)
+$current_path = $_SERVER['PHP_SELF'];
+$is_in_subdirectory = (strpos($current_path, '/product/') !== false || 
+                      strpos($current_path, '/order/') !== false || 
+                      strpos($current_path, '/user/') !== false ||
+                      preg_match('/\/[^\/]+\/[^\/]+\.php$/', $current_path)); // Any subdirectory pattern
+
+$image_base_path = $is_in_subdirectory ? '../' : '';
+
 if (isset($_SESSION['user_id'])) {
     try {
         // Fetch user profile photo, username, and email from database
@@ -22,7 +32,10 @@ if (isset($_SESSION['user_id'])) {
         if ($user_data) {
             $username = $user_data->username;
             $user_email = $user_data->email;
-            $user_profile_photo = !empty($user_data->photo) ? $user_data->photo : (strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../profilePhoto/default.jpg' : 'profilePhoto/default.jpg');
+            // Use default avatar if no photo is set
+            $user_profile_photo = !empty($user_data->photo) ? 
+                                 $image_base_path . $user_data->photo : 
+                                 $image_base_path . 'images/default-avatar.png';
         }
         
         // Get cart count for logged-in user
@@ -53,22 +66,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <title><?php echo isset($page_title) ? $page_title . ' - ' : ''; ?>AiKUN Furniture - Premium Malaysian Furniture Store</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../images/favicon.ico' : 'images/favicon.ico'; ?>">
+    <link rel="icon" type="image/x-icon" href="<?php echo $image_base_path; ?>images/favicon.ico">
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/css/index.css' : 'css/index.css'; ?>">
-    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/css/products.css' : 'css/products.css'; ?>">
+    <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/index.css">
+    <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/products.css">
 </head>
 <body>
     <header class="wooden-header">
         <div class="header-container">
             <!-- Logo and Company Name -->
             <div class="logo-section">
-                <a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/index.php' : '/index.php'; ?>" aria-label="AiKUN Furniture Homepage">
-                    <img src="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/images/logo.png' : '/images/logo.png'; ?>" alt="AiKUN Furniture Logo" class="logo">
+                <a href="/index.php" aria-label="AiKUN Furniture Homepage">
+                    <img src="<?php echo $image_base_path; ?>/images/logo.png" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
@@ -122,7 +135,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                      alt="<?php echo htmlspecialchars($username); ?>'s profile photo" 
                                      class="profile-photo-small"
-                                     onerror="this.src='<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/profilePhoto/default.jpg' : '/profilePhoto/default.jpg'; ?>'">
+                                     onerror="this.onerror=null; this.src='<?php echo $image_base_path; ?>images/default-avatar.png'">
                                 <span class="username-display"><?php echo htmlspecialchars($username); ?></span>
                                 <i class="fas fa-chevron-down dropdown-arrow"></i>
                             </button>
@@ -131,18 +144,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                     <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                          alt="Profile Photo" 
                                          class="profile-photo-large"
-                                         onerror="this.src='<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../profilePhoto/default.jpg' : 'profilePhoto/default.jpg'; ?>'">
+                                         onerror="this.onerror=null; this.src='<?php echo $image_base_path; ?>images/default-avatar.png'">
                                     <div class="user-info">
                                         <h4><?php echo htmlspecialchars($username); ?></h4>
                                         <p class="user-email"><?php echo htmlspecialchars($user_email); ?></p>
                                     </div>
                                 </div>
                                 <hr class="dropdown-divider">
-                                <a href="/profile.php" class="dropdown-item" role="menuitem">
+                                <a href="/user/profile.php" class="dropdown-item" role="menuitem">
                                     <i class="fas fa-user-edit"></i> Edit Profile
                                 </a>
                                 <hr class="dropdown-divider">
-                                <a href="/logout.php" class="dropdown-item logout-item" role="menuitem">
+                                <a href="/user/logout.php" class="dropdown-item logout-item" role="menuitem">
                                     <i class="fas fa-sign-out-alt"></i> Logout
                                 </a>
                             </div>
@@ -150,7 +163,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php else: ?>
                         <!-- Login/Register for non-logged-in users -->
                         <div class="auth-buttons">
-                            <a href="/login.php" class="user-icon" aria-label="Login">
+                            <a href="/user/login.php" class="user-icon" aria-label="Login">
                                 <i class="fas fa-user"></i>
                             </a>
                         </div>
@@ -208,10 +221,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Main Navigation -->
         <nav class="main-navigation" role="navigation" aria-label="Main navigation">
             <ul>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/index.php' : 'index.php'; ?>" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/product/list.php' : 'products.php'; ?>" class="<?php echo ($current_page === 'products.php') ? 'active' : ''; ?>">All Products</a></li>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/about.php' : 'about.php'; ?>" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
-                <li><a href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '/contact.php' : 'contact.php'; ?>" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
+                <li><a href="/index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
+                <li><a href="/product/list.php" class="<?php echo ($current_page === 'products.php' || $current_page === 'list.php') ? 'active' : ''; ?>">All Products</a></li>
+                <li><a href="/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
+                <li><a href="/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
             </ul>
             
             <!-- Mobile Menu Toggle -->
@@ -255,10 +268,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <li><a href="/contact.php">Contact</a></li>
                 <?php if (!isset($_SESSION['user_id'])): ?>
                     <li class="mobile-auth">
-                        <a href="login.php">Login</a>
+                        <a href="/user/login.php">Login</a>
                     </li>
                     <li class="mobile-auth">
-                        <a href="/register.php">Register</a>
+                        <a href="/user/register.php">Register</a>
                     </li>
                 <?php endif; ?>
             </ul>
@@ -307,185 +320,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
     </div>
 
-    <!-- JavaScript for Header Functionality -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeHeader();
-    });
-
-    function initializeHeader() {
-        // Mobile menu toggle
-        const mobileToggle = document.querySelector('.mobile-menu-toggle');
-        const mobileNav = document.querySelector('.mobile-navigation');
-        
-        if (mobileToggle && mobileNav) {
-            mobileToggle.addEventListener('click', function() {
-                mobileNav.classList.toggle('active');
-                this.querySelector('i').classList.toggle('fa-bars');
-                this.querySelector('i').classList.toggle('fa-times');
-            });
-        }
-
-        // Dropdown toggles
-        initializeDropdowns();
-        
-        // Chat modal
-        initializeChatModal();
-        
-        // Search functionality
-        initializeSearch();
-    }
-
-    function initializeDropdowns() {
-        // User dropdown
-        const userDropdown = document.querySelector('.user-dropdown');
-        if (userDropdown) {
-            const button = userDropdown.querySelector('.user-profile-btn');
-            const content = userDropdown.querySelector('.dropdown-content');
-            
-            button.addEventListener('click', function(e) {
-                e.stopPropagation();
-                content.classList.toggle('show');
-                this.setAttribute('aria-expanded', content.classList.contains('show'));
-            });
-        }
-
-        // Shipping dropdown
-        const shippingDropdown = document.querySelector('.shipping-dropdown');
-        if (shippingDropdown) {
-            const button = shippingDropdown.querySelector('.shipping-icon');
-            const content = shippingDropdown.querySelector('.dropdown-content');
-            
-            button.addEventListener('click', function(e) {
-                e.stopPropagation();
-                content.classList.toggle('show');
-                this.setAttribute('aria-expanded', content.classList.contains('show'));
-            });
-        }
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function() {
-            document.querySelectorAll('.dropdown-content.show').forEach(dropdown => {
-                dropdown.classList.remove('show');
-                const button = dropdown.parentElement.querySelector('button');
-                if (button) button.setAttribute('aria-expanded', 'false');
-            });
-        });
-    }
-
-    function initializeChatModal() {
-        const modal = document.getElementById('header-chat-modal');
-        const openBtn = document.getElementById('open-chat-header');
-        const closeBtn = document.querySelector('.close-chat');
-        const form = document.getElementById('chat-form');
-        const input = document.getElementById('chat-input-field');
-
-        if (openBtn && modal) {
-            openBtn.addEventListener('click', function() {
-                modal.style.display = 'block';
-                modal.setAttribute('aria-hidden', 'false');
-                input.focus();
-            });
-        }
-
-        if (closeBtn && modal) {
-            closeBtn.addEventListener('click', function() {
-                modal.style.display = 'none';
-                modal.setAttribute('aria-hidden', 'true');
-            });
-        }
-
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const message = input.value.trim();
-                if (message) {
-                    sendChatMessage(message);
-                    input.value = '';
-                }
-            });
-        }
-
-        // Close modal when clicking outside
-        window.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-                modal.setAttribute('aria-hidden', 'true');
-            }
-        });
-    }
-
-    function sendChatMessage(message) {
-        const chatBody = document.getElementById('chat-messages');
-        
-        // Add user message
-        const userMessage = document.createElement('div');
-        userMessage.className = 'chat-message user-message';
-        userMessage.innerHTML = `
-            <div class="message-content">
-                <p>${escapeHtml(message)}</p>
-            </div>
-        `;
-        chatBody.appendChild(userMessage);
-        
-        // Scroll to bottom
-        chatBody.scrollTop = chatBody.scrollHeight;
-        
-        // Here you would normally send the message to your AI backend
-        // For now, we'll show a simple response
-        setTimeout(() => {
-            const aiResponse = document.createElement('div');
-            aiResponse.className = 'chat-message ai-message';
-            aiResponse.innerHTML = `
-                <div class="message-avatar">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="message-content">
-                    <p>Thank you for your message! I'm currently being enhanced to provide better furniture recommendations. Please contact our customer service for immediate assistance.</p>
-                </div>
-            `;
-            chatBody.appendChild(aiResponse);
-            chatBody.scrollTop = chatBody.scrollHeight;
-        }, 1000);
-    }
-
-    function sendQuickMessage(message) {
-        sendChatMessage(message);
-    }
-
-    function applyFilters() {
-        const categorySelect = document.querySelector('select[name="category"]');
-        const roomSelect = document.querySelector('select[name="room"]');
-        const searchInput = document.querySelector('input[name="query"]');
-        
-        if (categorySelect && roomSelect) {
-            const params = new URLSearchParams();
-            
-            if (searchInput && searchInput.value) params.append('query', searchInput.value);
-            if (categorySelect.value) params.append('category', categorySelect.value);
-            if (roomSelect.value) params.append('room', roomSelect.value);
-            
-            window.location.href = '/product/productList.php' + (params.toString() ? '?' + params.toString() : '');
-        }
-    }
-
-    function updateCartCount(count) {
-        const cartCountElement = document.getElementById('cart-count');
-        if (cartCountElement) {
-            cartCountElement.textContent = count;
-            cartCountElement.parentElement.setAttribute('aria-label', `Shopping cart (${count} items)`);
-        }
-    }
-
-    function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-    }
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="/js/script.js"></script>
     <script src="/js/cart.js" defer></script>

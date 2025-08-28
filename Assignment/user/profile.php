@@ -1,5 +1,5 @@
 <?php
-include '_base.php';
+include '../_base.php';
 
 // Check if user is logged in
 if (!isLoggedIn()) {
@@ -18,14 +18,14 @@ if (!$current_user) {
 // Get available default photos from profilePhoto directory
 function getDefaultPhotos() {
     $photos = [];
-    $directory = 'profilePhoto/';
+    $directory = '../profilePhoto/';
     
     if (is_dir($directory)) {
         $files = scandir($directory);
         foreach ($files as $file) {
             if ($file !== '.' && $file !== '..' && 
                 in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                $photos[] = $directory . $file;
+                $photos[] = '/' . $directory . $file;
             }
         }
     }
@@ -195,7 +195,7 @@ function handlePhotoUpdate() {
                         // Delete old custom photo if exists
                         if (!empty($current_user->photo) && 
                             strpos($current_user->photo, 'uploads/profiles/') === 0 &&
-                            file_exists($current_user->photo)) {
+                            file_exists($_SERVER['DOCUMENT_ROOT'] . $current_user->photo)) {
                             unlink($current_user->photo);
                         }
                     } else {
@@ -279,9 +279,8 @@ function handleSecurePhotoUpload($file, $user_id) {
         return ['success' => false, 'message' => 'Invalid file type. Please upload JPEG, PNG, GIF, or WebP images.'];
     }
     
-    if ($file['size'] > 2 * 1024 * 1024) { // 2MB limit
+    if ($file['size'] > 2 * 1024 * 1024) // 2MB limit
         return ['success' => false, 'message' => 'File size must be less than 2MB.'];
-    }
     
     // Verify it's actually an image
     $image_info = getimagesize($file['tmp_name']);
@@ -463,7 +462,7 @@ $default_photos = getDefaultPhotos();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="../css/profile.css">
     <title><?php echo htmlspecialchars($page_title); ?> - AiKUN Furniture</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -501,8 +500,22 @@ $default_photos = getDefaultPhotos();
                 <h2><i class="fas fa-camera"></i> Profile Photo</h2>
                 
                 <div class="current-photo-display">
-                    <?php if (!empty($current_user->photo) && file_exists($current_user->photo)): ?>
-                        <img src="<?php echo htmlspecialchars($current_user->photo); ?>" class="current-photo" alt="Profile Photo" id="current-photo-display">
+                    <?php
+                    // Prepare photo path for file_exists and for <img src>
+                    $photo_url = '';
+                    $photo_fs_path = '';
+                    if (!empty($current_user->photo)) {
+                        if ($current_user->photo[0] === '/') {
+                            $photo_url = $current_user->photo;
+                            $photo_fs_path = $_SERVER['DOCUMENT_ROOT'] . $current_user->photo;
+                        } else {
+                            $photo_url = '/' . $current_user->photo;
+                            $photo_fs_path = __DIR__ . '/../' . $current_user->photo;
+                        }
+                    }
+                    ?>
+                    <?php if (!empty($photo_url) && file_exists($photo_fs_path)): ?>
+                        <img src="<?php echo htmlspecialchars($photo_url); ?>" class="current-photo" alt="Profile Photo" id="current-photo-display">
                     <?php else: ?>
                         <div class="photo-placeholder" id="current-photo-display">
                             <i class="fas fa-user"></i>

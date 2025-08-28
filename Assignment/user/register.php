@@ -1,6 +1,6 @@
 <?php
 
-include '_base.php';
+include '../_base.php';
 
 function sendOTPEmail($email, $otp) {
     try {
@@ -255,7 +255,7 @@ $page_title = $page_titles[$step] ?? 'Register';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/loginRegister.css">
+    <link rel="stylesheet" href="../css/loginRegister.css">
     <title><?php echo htmlspecialchars($page_title); ?> - AiKUN Furniture</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -462,112 +462,7 @@ $page_title = $page_titles[$step] ?? 'Register';
     <script src="js/loginRegister.js"></script>
     
     <?php if ($step == 2 && isset($_SESSION['registration_otp_expiry'])): ?>
-    <script>
-        const expiryTime = new Date('<?php echo $_SESSION['registration_otp_expiry']; ?>').getTime();
-        
-        const countdown = setInterval(function() {
-            const now = new Date().getTime();
-            const distance = expiryTime - now;
-            
-            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-            
-            document.getElementById('timer').innerHTML = minutes + "m " + seconds + "s ";
-            
-            if (distance < 0) {
-                clearInterval(countdown);
-                document.getElementById('timer').innerHTML = "EXPIRED";
-                document.querySelector('.btn-primary').disabled = true;
-                document.querySelector('.btn-primary').innerHTML = "Code Expired";
-            }
-        }, 1000);
-    </script>
-    <?php endif; ?>
-
-    <?php if ($step == 3): ?>
-    <script>
-        const passwordInput = document.getElementById('password');
-        const confirmInput = document.getElementById('confirm_password');
-
-        const requirements = {
-            length: document.getElementById('length'),
-            uppercase: document.getElementById('uppercase'),
-            lowercase: document.getElementById('lowercase'),
-            number: document.getElementById('number'),
-            special: document.getElementById('special'),
-            match: document.getElementById('match'),
-        };
-
-        function checkPasswordRequirements() {
-            const password = passwordInput.value;
-            const confirm = confirmInput.value;
-
-            const lengthValid = password.length >= 8 && password.length <= 128;
-            const uppercaseValid = /[A-Z]/.test(password);
-            const lowercaseValid = /[a-z]/.test(password);
-            const numberValid = /[0-9]/.test(password);
-            const specialValid = /[^A-Za-z0-9]/.test(password);
-            const matchValid = password === confirm && password !== '';
-
-            updateRequirement(requirements.length, lengthValid);
-            updateRequirement(requirements.uppercase, uppercaseValid);
-            updateRequirement(requirements.lowercase, lowercaseValid);
-            updateRequirement(requirements.number, numberValid);
-            updateRequirement(requirements.special, specialValid);
-            updateRequirement(requirements.match, matchValid);
-
-            let strength = 0;
-            if (lengthValid) strength++;
-            if (uppercaseValid) strength++;
-            if (lowercaseValid) strength++;
-            if (numberValid) strength++;
-            if (specialValid) strength++;
-
-            const strengthBar = document.getElementById('strength-bar');
-            const strengthText = document.getElementById('strength-text');
-            const colors = ["red", "orange", "yellow", "lightgreen", "green", "darkgreen"];
-            const texts = ["Very Weak", "Weak", "Fair", "Good", "Strong", "Very Strong"];
-
-            strengthBar.style.width = (strength * 16.67) + "%";
-            strengthBar.style.background = colors[strength];
-            strengthText.textContent = texts[strength];
-        }
-
-        function updateRequirement(element, isValid) {
-            if (isValid) {
-                element.classList.remove('invalid');
-                element.classList.add('valid');
-                element.textContent = '✅ ' + element.textContent.replace(/✅ |❌ /, '');
-            } else {
-                element.classList.remove('valid');
-                element.classList.add('invalid');
-                element.textContent = '❌ ' + element.textContent.replace(/✅ |❌ /, '');
-            }
-        }
-
-        function togglePassword(fieldId) {
-            const passwordField = document.getElementById(fieldId);
-            const toggleButton = passwordField.parentNode.querySelector('.password-toggle');
-            const eyeIcon = toggleButton.querySelector('.eye-icon');
-            
-            if (passwordField.type === 'password') {
-                passwordField.type = 'text';
-                eyeIcon.classList.remove('show', 'fas', 'fa-eye');
-                eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
-                eyeIcon.classList.add('state-change');
-                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
-            } else {
-                passwordField.type = 'password';
-                eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
-                eyeIcon.classList.add('show', 'fas', 'fa-eye');
-                eyeIcon.classList.add('state-change');
-                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
-            }
-        }
-
-        passwordInput.addEventListener('input', checkPasswordRequirements);
-        confirmInput.addEventListener('input', checkPasswordRequirements);
-    </script>
+        <div id="timer" data-expiry="<?= $_SESSION['registration_otp_expiry']; ?>"></div>
     <?php endif; ?>
 </body>
 </html>

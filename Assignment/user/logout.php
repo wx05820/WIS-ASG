@@ -1,5 +1,5 @@
 <?php
-include '_base.php';
+include '../_base.php';
 
 // ================= SECURITY HEADERS ==================
 header('X-Frame-Options: DENY');
@@ -283,7 +283,7 @@ if (!isset($_GET['confirm'])) {
                     <i class="fas fa-sign-out-alt"></i>
                     Yes, Logout
                 </a>
-                <a href="index.php" class="btn btn-cancel">
+                <a href="../index.php" class="btn btn-cancel">
                     <i class="fas fa-times"></i>
                     Cancel
                 </a>
