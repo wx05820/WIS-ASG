@@ -81,10 +81,10 @@ if (is_post()) {
     if (!$_err) {
         // Insert staff
         $stm = $_db->prepare('
-        INSERT INTO user (email, password, name, role, created_at)
+        INSERT INTO user (email, password, name, role, created_at, status)
         VALUES (?, SHA1(?), ?, ?, NOW())
         ');
-        $stm->execute([$email, $password, $name,$rolesFromToken,]);
+        $stm->execute([$email, $password, $name,$rolesFromToken, "Active"]);
 
         // Delete used token
         $stm = $_db->prepare('DELETE FROM staffregistertoken WHERE id = ?');

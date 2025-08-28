@@ -1,19 +1,15 @@
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('.form-input');
     
-    // Create multiple error sounds for variety
     const errorSounds = [
         new Audio('images/errorAudio.mp3')
     ];
     
-    // Set volume for all sounds
     errorSounds.forEach(sound => sound.volume = 0.6);
     
-    // Audio context for Web Audio API fallback
     let audioContext = null;
     let isAudioInitialized = false;
 
-    // Initialize audio context on first interaction
     function initializeAudio() {
         if (!isAudioInitialized) {
             try {
@@ -26,11 +22,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Initialize audio on any user interaction
     document.addEventListener('click', initializeAudio, { once: true });
     document.addEventListener('keydown', initializeAudio, { once: true });
     
-    // Clear errors when user starts typing
     inputs.forEach(input => {
         input.addEventListener('input', function() {
             if (this.classList.contains('error')) {
@@ -43,7 +37,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Password strength meter
     const passwordInput = document.getElementById('password');
     const strengthBar = document.getElementById('password-strength-bar');
     
@@ -80,14 +73,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Enhanced error sound function with multiple fallbacks
     function playErrorSound() {
-        // Initialize audio context if needed
         if (!isAudioInitialized) {
             initializeAudio();
         }
 
-        // Try to play HTML5 audio first
         const sound = errorSounds[0];
         sound.currentTime = 0;
         
@@ -101,12 +91,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 playWebAudioErrorSound();
             });
         } else {
-            // Fallback for older browsers
             playWebAudioErrorSound();
         }
     }
 
-    // Web Audio API fallback for better browser support
     function playWebAudioErrorSound() {
         if (!audioContext) {
             console.warn('No audio context available');
@@ -114,19 +102,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            // Resume audio context if suspended
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
             }
 
-            // Create error beep sound
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
             
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
             
-            // Create a double beep error sound
             oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
             oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.15);
             oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.3);
@@ -145,12 +130,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Enhanced function to show error and play sound immediately
     function showErrorWithSound(element, message) {
-        // Add error class with animation
         element.classList.add('error');
         
-        // Create or update error message
         let errorMsg = element.parentNode.querySelector('.error-message');
         if (!errorMsg) {
             errorMsg = document.createElement('div');
@@ -160,30 +142,24 @@ document.addEventListener('DOMContentLoaded', function() {
         
         errorMsg.textContent = message;
         errorMsg.style.display = 'block';
-        
-        // Play error sound immediately
         playErrorSound();
         
-        // Add visual shake effect
         element.style.animation = 'shake 0.5s ease-in-out';
         setTimeout(() => {
             element.style.animation = '';
         }, 500);
     }
 
-    // Comprehensive form validation with immediate sound feedback
     function validateFormWithSound(formElement) {
         let hasErrors = false;
         let errorCount = 0;
         
-        // Clear all existing errors first
         const existingErrors = formElement.querySelectorAll('.error-message');
         existingErrors.forEach(error => error.style.display = 'none');
         
         const existingErrorInputs = formElement.querySelectorAll('.form-input.error');
         existingErrorInputs.forEach(input => input.classList.remove('error'));
         
-        // Validate required fields
         const requiredInputs = formElement.querySelectorAll('[required]');
         requiredInputs.forEach(input => {
             if (!input.value.trim()) {
@@ -193,7 +169,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Validate email fields
         const emailInputs = formElement.querySelectorAll('input[type="email"]');
         emailInputs.forEach(input => {
             if (input.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
@@ -203,7 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Validate password fields (registration form)
         const passwordField = formElement.querySelector('#password');
         if (passwordField && passwordField.value) {
             if (passwordField.value.length < 8) {
@@ -213,7 +187,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Validate password confirmation (registration form)
         const confirmField = formElement.querySelector('#confirm');
         if (confirmField && passwordField) {
             if (confirmField.value !== passwordField.value) {
@@ -223,7 +196,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Validate name field (registration form)
         const nameField = formElement.querySelector('#name');
         if (nameField && nameField.value) {
             if (nameField.value.length > 100) {
@@ -237,26 +209,21 @@ document.addEventListener('DOMContentLoaded', function() {
         return !hasErrors;
     }
 
-    // Add event listeners to all form submissions
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {
-        // Handle form submission
         form.addEventListener('submit', function(event) {
             console.log('Form submit event triggered');
             
-            // Initialize audio if not already done
             if (!isAudioInitialized) {
                 initializeAudio();
             }
             
-            // Validate form and play sound if errors exist
             const isValid = validateFormWithSound(this);
             
             if (!isValid) {
                 console.log('Form validation failed, preventing submission');
-                event.preventDefault(); // Prevent form submission
+                event.preventDefault();
                 
-                // Scroll to first error
                 const firstError = this.querySelector('.form-input.error');
                 if (firstError) {
                     firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -269,25 +236,21 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Form validation passed, allowing submission');
         });
         
-        // Handle button clicks specifically
         const submitButtons = form.querySelectorAll('button[type="submit"]');
         submitButtons.forEach(button => {
             button.addEventListener('click', function(event) {
                 console.log('Submit button clicked');
                 
-                // Initialize audio if not already done
                 if (!isAudioInitialized) {
                     initializeAudio();
                 }
                 
-                // Small delay to ensure audio context is ready
                 setTimeout(() => {
                     const isValid = validateFormWithSound(form);
                     if (!isValid) {
                         console.log('Button click validation failed');
                         event.preventDefault();
                         
-                        // Focus on first error field
                         const firstError = form.querySelector('.form-input.error');
                         if (firstError) {
                             firstError.focus();
@@ -298,7 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Check for server-side errors and play sound
     function checkServerErrors() {
         const serverErrorInputs = document.querySelectorAll('.form-input.error');
         const serverErrorMessages = document.querySelectorAll('.error-message');
@@ -307,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (serverErrorInputs.length > 0 || serverErrorMessages.length > 0 || alertErrors.length > 0) {
             console.log('Server errors detected, will play sound on user interaction');
             
-            // Play sound on first user interaction
             const playServerErrorSound = () => {
                 playErrorSound();
                 document.removeEventListener('click', playServerErrorSound);
@@ -320,11 +281,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('touchstart', playServerErrorSound);
         }
     }
-
-    // Check for server errors on page load
     checkServerErrors();
 
-    // Observer for dynamically added errors (if needed for AJAX)
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.type === 'childList') {
@@ -349,7 +307,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Start observing for dynamic changes
     observer.observe(document.body, {
         childList: true,
         subtree: true,
@@ -357,7 +314,6 @@ document.addEventListener('DOMContentLoaded', function() {
         attributeFilter: ['class']
     });
 
-    // Expose validation function globally
     window.validateFormWithSound = validateFormWithSound;
     window.playErrorSound = playErrorSound;
     
@@ -406,16 +362,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         document.querySelectorAll('.otp-input').forEach((input, index, inputs) => {
-    // Handle input
-    input.addEventListener('input', (e) => {
-        if (e.target.value.length === 1) {
-            if (index < inputs.length - 1) {
-                inputs[index + 1].focus();
-            }
-        }
-    });
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1) {
+                    if (index < inputs.length - 1) {
+                        inputs[index + 1].focus();
+                    }
+                }
+            });
     
-    // Handle backspace
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Backspace' && e.target.value === '') {
             if (index > 0) {
@@ -424,7 +378,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Handle paste
     input.addEventListener('paste', (e) => {
         e.preventDefault();
         const pasteData = e.clipboardData.getData('text/plain');
@@ -438,4 +391,145 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+if (document.getElementById('timer')) {
+    const expiryTime = new Date(
+        document.getElementById('timer').dataset.expiry
+    ).getTime();
+
+    const countdown = setInterval(function () {
+        const now = new Date().getTime();
+        const distance = expiryTime - now;
+
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        document.getElementById('timer').innerHTML = minutes + "m " + seconds + "s ";
+
+        if (distance < 0) {
+            clearInterval(countdown);
+            document.getElementById('timer').innerHTML = "EXPIRED";
+            const btn = document.querySelector('.btn-primary');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = "Code Expired";
+            }
+        }
+    }, 1000);
+}
+
+if (document.getElementById('password') && document.getElementById('confirm_password')) {
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm_password');
+
+    const requirements = {
+        length: document.getElementById('length'),
+        uppercase: document.getElementById('uppercase'),
+        lowercase: document.getElementById('lowercase'),
+        number: document.getElementById('number'),
+        special: document.getElementById('special'),
+        match: document.getElementById('match'),
+    };
+
+    function checkPasswordRequirements() {
+        const password = passwordInput.value;
+        const confirm = confirmInput.value;
+
+        const lengthValid = password.length >= 8 && password.length <= 128;
+        const uppercaseValid = /[A-Z]/.test(password);
+        const lowercaseValid = /[a-z]/.test(password);
+        const numberValid = /[0-9]/.test(password);
+        const specialValid = /[^A-Za-z0-9]/.test(password);
+        const matchValid = password === confirm && password !== '';
+
+        updateRequirement(requirements.length, lengthValid);
+        updateRequirement(requirements.uppercase, uppercaseValid);
+        updateRequirement(requirements.lowercase, lowercaseValid);
+        updateRequirement(requirements.number, numberValid);
+        updateRequirement(requirements.special, specialValid);
+        updateRequirement(requirements.match, matchValid);
+
+        let strength = 0;
+        if (lengthValid) strength++;
+        if (uppercaseValid) strength++;
+        if (lowercaseValid) strength++;
+        if (numberValid) strength++;
+        if (specialValid) strength++;
+
+        const strengthBar = document.getElementById('strength-bar');
+        const strengthText = document.getElementById('strength-text');
+        if (strengthBar && strengthText) {
+            const colors = ["red", "orange", "yellow", "lightgreen", "green", "darkgreen"];
+            const texts = ["Very Weak", "Weak", "Fair", "Good", "Strong", "Very Strong"];
+
+            strengthBar.style.width = (strength * 16.67) + "%";
+            strengthBar.style.background = colors[strength];
+            strengthText.textContent = texts[strength];
+        }
+    }
+
+    function updateRequirement(element, isValid) {
+        if (!element) return;
+        if (isValid) {
+            element.classList.remove('invalid');
+            element.classList.add('valid');
+            element.textContent = '✅ ' + element.textContent.replace(/✅ |❌ /, '');
+        } else {
+            element.classList.remove('valid');
+            element.classList.add('invalid');
+            element.textContent = '❌ ' + element.textContent.replace(/✅ |❌ /, '');
+        }
+    }
+
+    window.togglePassword = function (fieldId) {
+        const passwordField = document.getElementById(fieldId);
+        if (!passwordField) return;
+
+        const toggleButton = passwordField.parentNode.querySelector('.password-toggle');
+        const eyeIcon = toggleButton.querySelector('.eye-icon');
+
+        if (passwordField.type === 'password') {
+            passwordField.type = 'text';
+            eyeIcon.classList.remove('show', 'fas', 'fa-eye');
+            eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
+            eyeIcon.classList.add('state-change');
+            setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
+        } else {
+            passwordField.type = 'password';
+            eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
+            eyeIcon.classList.add('show', 'fas', 'fa-eye');
+            eyeIcon.classList.add('state-change');
+            setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
+        }
+    }
+
+    passwordInput.addEventListener('input', checkPasswordRequirements);
+    confirmInput.addEventListener('input', checkPasswordRequirements);
+}
+
+function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleButton = passwordField.parentNode.querySelector('.password-toggle');
+            const eyeIcon = toggleButton.querySelector('.eye-icon');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                eyeIcon.classList.remove('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
+            } else {
+                passwordField.type = 'password';
+                eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
+                eyeIcon.classList.add('show', 'fas', 'fa-eye');
+                eyeIcon.classList.add('state-change');
+                setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
+            }
+        }
+
+        document.getElementById('login_input').addEventListener('input', function() {
+            const input = this.value.trim();
+            const isEmail = input.includes('@');
+            const placeholder = isEmail ? 'Enter your email' : 'Enter your username';
+        });
 
