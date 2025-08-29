@@ -12,16 +12,16 @@
         <div class="header-container">
             <!-- Logo and Company Name -->
             <div class="logo-section">
-                <a href="adminpage.php">
+                <a href="../admin/adminpage.php">
                     <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
             
-                <!-- Page Header -->
-                <div class="page-header">
-                    <h1 style="text-align: center; margin: 0 auto;">Admin Page</h1>
-                </div>
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 style="text-align: center; margin: 0 auto;">Admin Page</h1>
+            </div>
 
             <!-- User Icons Section -->
             <div class="user-section">
@@ -35,8 +35,13 @@
                             </div>
                         </div>
                     <?php else: ?>
-                        <a href="adminlogin.php" class="user-icon"><i class="fas fa-user"></i></a>
+                        <a href="login.php" class="user-icon"><i class="fas fa-user"></i></a>
                     <?php endif; ?>
+                
+                    
+
+                    
+                
                 </div>
             </div>
         </div>

@@ -34,6 +34,9 @@ if (!empty($category)) {
     $params[] = $category;
 }
 
+// Always exclude removed products
+$where_conditions[] = "(p.status IS NULL OR p.status != 'removed')";
+
 if (!empty($search)) {
     $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ?)";
     $params[] = "%$search%";
@@ -215,7 +218,7 @@ $page_title = "Products";
                                     <a href="editproduct.php?id=<?php echo $product['prodID']; ?>" title="Edit Product" style="color: grey; font-size: 1.3em;">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <a href="removeproduct.php?id=<?php echo $product['prodID']; ?>" title="Delete Product" style="color: red; font-size: 1.3em;" onclick="return confirm('Are you sure you want to delete this product?');">
+                                    <a href="removeproduct.php?prodID=<?php echo $product['prodID']; ?>" title="Delete Product" style="color: red; font-size: 1.3em;" onclick="return confirm('Are you sure you want to delete this product?');">
                                         <i class="fas fa-trash-alt"></i>
                                     </a>
                                 </span>
