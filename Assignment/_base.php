@@ -49,9 +49,9 @@ function authenticateUser($loginInput, $password) {
     try {
         $isEmail = filter_var($loginInput, FILTER_VALIDATE_EMAIL);
         if ($isEmail) {
-            $stm = $_db->prepare('SELECT * FROM user WHERE email = ?');
+            $stm = $_db->prepare('SELECT * FROM user WHERE email = ? AND role = "Customer"');
         } else {
-            $stm = $_db->prepare('SELECT * FROM user WHERE username = ?');
+            $stm = $_db->prepare('SELECT * FROM user WHERE username = ? AND role = "Customer"');
         }
         $stm->execute([$loginInput]);
         $user = $stm->fetch();
@@ -79,6 +79,7 @@ function loginUser($user) {
         'username' => $user->username,
         'email' => $user->email,
         'name' => $user->name ?? '',
+        'user_role' => $user->role ?? 'Customer',
         'login_time' => time(),
         'logged_in' => true,
         'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
@@ -986,6 +987,127 @@ function getUserProfile($user_id, $db) {
 
 function money($n) {
     return 'RM '.number_format($n, 2);
+}
+
+// Role checking helper functions
+function hasRole($role) {
+    if (!isLoggedIn()) return false;
+    return $_SESSION['user_role'] === $role;
+}
+
+function isCustomer() {
+    return hasRole('Customer');
+}
+
+function isAdmin() {
+    return hasRole('Admin');
+}
+
+function isSupervisor() {
+    return hasRole('Supervisor');
+}
+
+// Staff authentication functions
+function authenticateStaff($loginInput, $password) {
+    global $_db;
+    try {
+        $isEmail = filter_var($loginInput, FILTER_VALIDATE_EMAIL);
+        if ($isEmail) {
+            $stm = $_db->prepare('SELECT * FROM user WHERE email = ? AND role IN ("Admin", "Supervisor", "SuperAdmin")');
+        } else {
+            $stm = $_db->prepare('SELECT * FROM user WHERE username = ? AND role IN ("Admin", "Supervisor", "SuperAdmin")');
+        }
+        $stm->execute([$loginInput]);
+        $user = $stm->fetch();
+        if (!$user) return false;
+        if (password_verify($password, $user->password)) {
+            if (password_needs_rehash($user->password, PASSWORD_DEFAULT)) {
+                $newHash = password_hash($password, PASSWORD_DEFAULT);
+                $update = $_db->prepare('UPDATE user SET password = ? WHERE userID = ?');
+                $update->execute([$newHash, $user->userID]);
+            }
+            return $user;
+        }
+        return false;
+    } catch (PDOException $e) {
+        error_log("Staff authentication error: " . $e->getMessage());
+        return false;
+    }
+}
+
+function loginUserStaff($user) {
+    global $_db;
+    session_regenerate_id(true);
+    $_SESSION = [
+        'staff_id' => $user->userID,
+        'username' => $user->username,
+        'email' => $user->email,
+        'name' => $user->name ?? '',
+        'staff_role' => $user->role ?? 'Admin',
+        'login_time' => time(),
+        'staff_logged_in' => true,
+        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+    ];
+    try {
+        $forceUpdate = $_db->prepare("UPDATE user SET last_login = NOW() WHERE userID = ?");
+        $forceUpdate->execute([$user->userID]);
+    } catch (Exception $e) {
+        error_log("Force update failed: " . $e->getMessage());
+    }
+    return true;
+}
+
+function isLoggedInStaff() {
+    if (!isset($_SESSION['staff_logged_in']) || !$_SESSION['staff_logged_in']) return false;
+    if (!isset($_SESSION['staff_id'])) return false;
+    if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time']) > 7200) {
+        logoutUserStaff();
+        return false;
+    }
+    return true;
+}
+
+function getCurrentStaff() {
+    global $_db;
+    if (!isLoggedInStaff()) return false;
+    try {
+        $stm = $_db->prepare('SELECT * FROM user WHERE userID = ?');
+        $stm->execute([$_SESSION['staff_id']]);
+        return $stm->fetch();
+    } catch (PDOException $e) {
+        error_log("Get current staff error: " . $e->getMessage());
+        return false;
+    }
+}
+
+function logoutUserStaff() {
+    $_SESSION = [];
+    if (isset($_COOKIE[session_name()])) {
+        setcookie(session_name(), '', time() - 3600, '/');
+    }
+    session_destroy();
+}
+
+function hasStaffRole($role) {
+    if (!isLoggedInStaff()) return false;
+    return $_SESSION['staff_role'] === $role;
+}
+
+function isStaffAdmin() {
+    return hasStaffRole('Admin');
+}
+
+function isStaffSupervisor() {
+    return hasStaffRole('Supervisor');
+}
+
+function isStaffSuperAdmin() {
+    return hasStaffRole('SuperAdmin');
+}
+
+function isAnyStaff() {
+    return isLoggedInStaff();
 }
 
 ?>

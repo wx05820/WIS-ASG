@@ -17,9 +17,20 @@ if (is_post()) {
         $_err['email'] = 'Maximum 100 characters';
     } elseif (!is_email($email)) {
         $_err['email'] = 'Invalid email';
-    } elseif (!is_unique($email, 'user', 'email')) {
-        $_err['email'] = 'Duplicated';
+    } else {
+        // Enhanced email existence check
+        $stm = $_db->prepare("SELECT COUNT(*) FROM user WHERE email = ?");
+        $stm->execute([$email]);
+        $emailExists = $stm->fetchColumn() > 0;
+        
+        if ($emailExists) {
+            $_err['email'] = 'Email already exists in database';
+            $email_exists_error = true; // Flag for dialog display
+        } elseif (!is_unique($email, 'user', 'email')) {
+            $_err['email'] = 'Duplicated';
+        }
     }
+    
     if (!$roles) {
      $_err['roles'] = 'Roles is required';
     } elseif (!in_array($roles, ['Admin', 'Supervisor'])) {
@@ -48,13 +59,31 @@ if (is_post()) {
         $m->addAddress($email);
         $m->isHTML(true);
         $m->Subject = 'Staff Registration';
+
+        // Embed the logo image and get the CID
+        $logoCid = 'aikunlogo';
+        $m->addEmbeddedImage(__DIR__ . '/../images/logo.png', $logoCid, 'AiKUN Furniture Logo');
+
+        // Build the HTML body with variables interpolated
         $m->Body = "
-            <p>Dear $email,</p>
-            <h1 style='color: red'>Staff Account Registration</h1>
-            <p>
-                Please click <a href='$url'>here</a> to create your staff account.
-            </p>
-            <p>From, Admin</p>
+            <div style='text-align: center; font-family: Arial, sans-serif;'>
+                <img src=\"cid:$logoCid\" alt=\"AiKUN Furniture Logo\" style=\"width: 120px; margin-bottom: 20px;\">
+                <h1 style='color: #2d7a2d; margin-bottom: 10px;'>Welcome to AiKUN Furniture!</h1>
+                <p style='font-size: 1.1em; color: #333;'>Dear <b>" . htmlspecialchars($email) . "</b>,</p>
+                <p style='font-size: 1.1em; color: #333;'>
+                    We are excited to invite you to join our team as <b>" . htmlspecialchars($roles) . "</b>!
+                </p>
+                <p style='font-size: 1.1em; color: #333;'>
+                    To complete your staff registration, please click the button below within <b>5 minutes</b>:
+                </p>
+                <a href='" . htmlspecialchars($url) . "' style='display: inline-block; background: #2d7a2d; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-size: 1.1em; margin: 20px 0;'>Register Now</a>
+                <p style='color: #888; font-size: 0.95em; margin-top: 20px;'>
+                    If you did not expect this invitation, you may safely ignore this email.<br>
+                    <br>
+                    Best regards,<br>
+                    <b>AiKUN Furniture Admin Team</b>
+                </p>
+            </div>
         ";
         $m->send();
 
@@ -137,6 +166,29 @@ if (is_post()) {
             </div>
         </form>
     </div>
+
+    <!-- Email Exists Dialog -->
+    <?php if (isset($email_exists_error) && $email_exists_error): ?>
+    <div id="emailExistsDialog" class="dialog">
+        <div class="dialog-content">
+            <span class="close-btn" onclick="closeEmailDialog()">&times;</span>
+            <h2>⚠️ Email Already Exists</h2>
+            <p>The email address <strong><?php echo htmlspecialchars(req('email')); ?></strong> is already registered in our database.</p>
+            <p>Please use a different email address or contact the administrator if you need to reset the existing account.</p>
+            <button class="btn" onclick="closeEmailDialog()">OK</button>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const dialog = document.getElementById("emailExistsDialog");
+            dialog.style.display = "flex";
+        });
+        function closeEmailDialog() {
+            const d = document.getElementById("emailExistsDialog");
+            if (d) d.style.display = "none";
+        }
+    </script>
+    <?php endif; ?>
 
     <!-- Success Dialog -->
     <?php if ($success_msg): ?>

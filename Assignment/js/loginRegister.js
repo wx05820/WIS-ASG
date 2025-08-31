@@ -532,4 +532,16 @@ function togglePassword() {
             const isEmail = input.includes('@');
             const placeholder = isEmail ? 'Enter your email' : 'Enter your username';
         });
-
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('.form-input');
+            
+            inputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    if (this.classList.contains('error')) {
+                        this.classList.remove('error');
+                        const errorMsg = this.parentNode.querySelector('.error-message');
+                        if (errorMsg) errorMsg.style.display = 'none';
+                    }
+                });
+            });
+        });
