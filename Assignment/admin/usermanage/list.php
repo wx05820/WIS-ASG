@@ -1,10 +1,15 @@
 <?php
 include '../../_base.php';
 
-// Handle user status updates
-if (!isAdmin() && !isStaffAdmin() && !isSuperAdmin()) {
+// Check if user is admin
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
     redirect('../loginstaff.php');
 }
+
+// Get current staff ID to exclude from list
+$current_staff_id = $_SESSION['staff_id'] ?? null;
+
+// Handle user status updates
 if (is_post() && isset($_POST['action'])) {
     $user_id = req('user_id');
     
@@ -25,25 +30,26 @@ if (is_post() && isset($_POST['action'])) {
     redirect($_SERVER['REQUEST_URI']);
 }
 
-// Get all users with pagination
+// Get all users with pagination (excluding current staff member)
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
-// Get total count
-$stm = $_db->prepare('SELECT COUNT(*) FROM user');
-$stm->execute();
+// Get total count (excluding current staff member)
+$stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE userID != ?');
+$stm->execute([$current_staff_id]);
 $total_users = $stm->fetchColumn();
 $total_pages = ceil($total_users / $limit);
 
-// Get users for current page
+// Get users for current page (excluding current staff member)
 $stm = $_db->prepare('
     SELECT userID, username, photo, role, status, last_login, created_at, email, name
     FROM user 
+    WHERE userID != ?
     ORDER BY created_at DESC 
     LIMIT ? OFFSET ?
 ');
-$stm->execute([$limit, $offset]);
+$stm->execute([$current_staff_id, $limit, $offset]);
 $users = $stm->fetchAll();
 
 $success_msg = get_temp('success');
@@ -58,6 +64,59 @@ $error_msg = get_temp('error');
     <title>User Management - AiKUN Furniture</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../../css/userlist.css">
+    <style>
+        .clear-filters-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(255, 107, 107, 0.2);
+            white-space: nowrap;
+        }
+        
+        .clear-filters-btn:hover {
+            background: linear-gradient(135deg, #ff5252, #e53935);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+        }
+        
+        .clear-filters-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(255, 107, 107, 0.2);
+        }
+        
+        .clear-filters-btn i {
+            font-size: 12px;
+        }
+        
+        .search-counter {
+            text-align: right;
+            margin: 10px 0;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .search-filters {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .search-input-group {
+            flex: 1;
+            min-width: 200px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -78,40 +137,7 @@ $error_msg = get_temp('error');
             </div>
         <?php endif; ?>
 
-        <!-- Statistics Cards -->
-        <div class="stats">
-            <div class="stat-card">
-                <div class="stat-number"><?php echo $total_users; ?></div>
-                <div class="stat-label">Total Users</div>
-            </div>
-            <?php
-            $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE status = "Active"');
-            $stm->execute();
-            $active_users = $stm->fetchColumn();
-            ?>
-            <div class="stat-card">
-                <div class="stat-number"><?php echo $active_users; ?></div>
-                <div class="stat-label">Active Users</div>
-            </div>
-            <?php
-            $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE role = "Admin"');
-            $stm->execute();
-            $admin_count = $stm->fetchColumn();
-            ?>
-            <div class="stat-card">
-                <div class="stat-number"><?php echo $admin_count; ?></div>
-                <div class="stat-label">Administrators</div>
-            </div>
-            <?php
-            $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE role = "Customer"');
-            $stm->execute();
-            $customer_count = $stm->fetchColumn();
-            ?>
-            <div class="stat-card">
-                <div class="stat-number"><?php echo $customer_count; ?></div>
-                <div class="stat-label">Customers</div>
-            </div>
-        </div>
+
 
         <!-- Search and Filter Bar -->
         <div class="search-bar">
@@ -141,6 +167,11 @@ $error_msg = get_temp('error');
                         <option value="Inactive">Ban</option>
                     </select>
                 </div>
+                
+                <!-- Clear Button -->
+                <button type="button" class="clear-filters-btn" id="clearFiltersBtn">
+                    <i class="fas fa-times"></i> Clear
+                </button>
             </div>
         </div>
 
@@ -297,17 +328,16 @@ $error_msg = get_temp('error');
     <script>
         // Search and filter functionality
         function filterUsers() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
             const roleFilter = document.getElementById('roleFilter').value;
             const statusFilter = document.getElementById('statusFilter').value;
             const userCards = document.querySelectorAll('.user-card');
-            const noUsersDiv = document.querySelector('.no-users');
             const usersGrid = document.getElementById('usersGrid');
             
             let visibleCount = 0;
             
             userCards.forEach(card => {
-                const userid = card.dataset.userid;
+                const userid = card.dataset.userid.toString().toLowerCase();
                 const username = card.dataset.username;
                 const email = card.dataset.email;
                 const name = card.dataset.name;
@@ -315,10 +345,13 @@ $error_msg = get_temp('error');
                 const status = card.dataset.status;
                 
                 // Check search term (ID, username, email, or name)
-                const matchesSearch = userid.includes(searchTerm) || 
-                                    username.includes(searchTerm) || 
-                                    email.includes(searchTerm) || 
-                                    name.includes(searchTerm);
+                let matchesSearch = true;
+                if (searchTerm) {
+                    matchesSearch = userid.includes(searchTerm) || 
+                                   username.includes(searchTerm) || 
+                                   email.includes(searchTerm) || 
+                                   name.includes(searchTerm);
+                }
                 
                 // Check role filter
                 const matchesRole = roleFilter === 'all' || role === roleFilter;
@@ -335,12 +368,14 @@ $error_msg = get_temp('error');
                 }
             });
             
-            // Show/hide "No record found" message
+            // Handle "No record found" message
+            let noUsersDiv = document.querySelector('.no-users-filtered');
+            
             if (visibleCount === 0) {
                 if (!noUsersDiv) {
                     // Create and insert the no-users message after the users-grid
                     const noUsersHTML = `
-                        <div class="no-users" style="display: block;">
+                        <div class="no-users no-users-filtered" style="display: block;">
                             <i class="fas fa-user-slash"></i>
                             <h3>No record found</h3>
                             <p>No users match the current search and filter criteria.</p>
@@ -357,10 +392,64 @@ $error_msg = get_temp('error');
             }
         }
         
+        // Clear search and filters
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('roleFilter').value = 'all';
+            document.getElementById('statusFilter').value = 'all';
+            filterUsers();
+        }
+        
         // Event listeners
-        document.getElementById('searchInput').addEventListener('input', filterUsers);
-        document.getElementById('roleFilter').addEventListener('change', filterUsers);
-        document.getElementById('statusFilter').addEventListener('change', filterUsers);
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('searchInput').addEventListener('input', filterUsers);
+            document.getElementById('roleFilter').addEventListener('change', filterUsers);
+            document.getElementById('statusFilter').addEventListener('change', filterUsers);
+            document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+        });
+        
+        // Enhanced search with better matching
+        function enhancedSearch(searchTerm, text) {
+            if (!searchTerm) return true;
+            
+            // Direct match
+            if (text.includes(searchTerm)) return true;
+            
+            // Split search term for multiple word search
+            const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
+            if (searchWords.length > 1) {
+                return searchWords.every(word => text.includes(word));
+            }
+            
+            return false;
+        }
+        
+        // Real-time search counter
+        function updateSearchCounter() {
+            const visibleCards = document.querySelectorAll('.user-card[style=""], .user-card:not([style*="display: none"])');
+            const totalCards = document.querySelectorAll('.user-card').length;
+            
+            let counterDiv = document.querySelector('.search-counter');
+            if (!counterDiv) {
+                counterDiv = document.createElement('div');
+                counterDiv.className = 'search-counter';
+                counterDiv.style.cssText = 'text-align: right; margin: 10px 0; color: #666; font-size: 14px;';
+                document.querySelector('.search-bar').appendChild(counterDiv);
+            }
+            
+            const visibleCount = Array.from(visibleCards).filter(card => 
+                card.style.display !== 'none'
+            ).length;
+            
+            counterDiv.textContent = `Showing ${visibleCount} of ${totalCards} users`;
+        }
+        
+        // Update the filterUsers function to include counter
+        const originalFilterUsers = filterUsers;
+        filterUsers = function() {
+            originalFilterUsers();
+            updateSearchCounter();
+        };
     </script>
 </body>
-</html> 
+</html>
