@@ -87,7 +87,7 @@ $page_title = 'Login';
 <body>
     <div class="login-container">
         <div class="login-header">
-            <button class="back-btn" onclick="window.location.href='index.php'">
+            <button class="back-btn" onclick="window.location.href='../index.php'">
                 <i class="fas fa-arrow-left"></i>
             </button>
             <h1>Welcome Back</h1>

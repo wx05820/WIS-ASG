@@ -86,20 +86,16 @@ if (is_post()) {
     } while ($stm->fetchColumn() > 0);
         
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
-        $defaultProfilePhoto = '../images/default-profile.jpg';
+        $defaultProfilePhoto = '../profilePhoto/default-profile.jpg';
         
         // Insert staff
         $stm = $_db->prepare('
         INSERT INTO user (username, email, password, photo, name, role, created_at, status)
         VALUES (?, ?, ?, ?, ?, ?, NOW(),?)
         ');
-        $stm->execute([$username, $email, $password_hash, $defaultProfilePhoto, $name,$rolesFromToken, "Active"]);
+        $stm->execute([$username, $email, $password_hash, $defaultProfilePhoto, $name,$roleFromToken, "Active"]);
 
-        /*        $stm = $_db->prepare('
-            INSERT INTO user (username, email, password, photo, role, created_at, status)   
-            VALUES (?, ?, ?, ?, ?, NOW(), ?)
-        ');
-        $stm->execute([$username, $email, $password_hash, $randomProfilePhoto, $role, $status]);
+
         // Delete used token*/
         $stm = $_db->prepare('DELETE FROM staffregistertoken WHERE id = ?');
         $stm->execute([$id]);
@@ -222,7 +218,7 @@ if (is_post()) {
         </form>
     </div>
 
-         <script src="../js/loginRegister.js"></script>
+    <script src="../js/loginRegister.js"></script>
      <script>
          document.addEventListener('DOMContentLoaded', function() {
              const inputs = document.querySelectorAll('.form-input');

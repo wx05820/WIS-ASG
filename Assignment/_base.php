@@ -264,7 +264,7 @@ function logFailedLoginAttempt($login_input, $reason) {
     global $_db;
     try {
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $stm = $_db->prepare("INSERT INTO failed_attempts (email, ip_address, reason, created_at) VALUES (?, ?, ?, NOW())");
+        $stm = $_db->prepare("INSERT INTO failed_attempts (email, ip_address, attempt_type, details, created_at) VALUES (?, ?, 'login_failed', ?, NOW())");
         $stm->execute([$login_input, $ip, $reason]);
     } catch (Exception $e) {
         error_log("Log failed attempt error: " . $e->getMessage());
@@ -1007,6 +1007,9 @@ function isSupervisor() {
     return hasRole('Supervisor');
 }
 
+function isSuperAdmin() {
+    return hasRole('SuperAdmin');
+}
 // Staff authentication functions
 function authenticateStaff($loginInput, $password) {
     global $_db;
@@ -1042,8 +1045,8 @@ function loginUserStaff($user) {
         'staff_id' => $user->userID,
         'username' => $user->username,
         'email' => $user->email,
-        'name' => $user->name ?? '',
-        'staff_role' => $user->role ?? 'Admin',
+        'name' => $user->name,
+        'staff_role' => $user->role,
         'login_time' => time(),
         'staff_logged_in' => true,
         'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',

@@ -50,7 +50,7 @@
         <nav class="main-navigation">
             <ul>
                 <li><a href="../product/list.php">All Products</a></li>
-                <li><a href="products.php">Users</a></li>
+                <li><a href="usermanage/list.php">Users</a></li>
                 <li><a href="about.php">Staff</a></li>
                 <li><a href="adduser.php">AddUsers</a></li>
             

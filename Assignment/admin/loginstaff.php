@@ -6,7 +6,6 @@ $show_captcha = false;
 if (is_post()) {
     $login_input = req('login_input');
     $password = req('password');
-    $captcha_response = req('captcha');
 
     if (isIPBlocked()) {
         $_err['general'] = 'Too many failed attempts from this IP. Please try again later.';
@@ -27,12 +26,6 @@ if (is_post()) {
         if (!$_err && isAccountLocked($login_input)) {
             $_err['general'] = 'Account temporarily locked due to multiple failed attempts. Please try again in 15 minutes.';
             logFailedLoginAttempt($login_input, 'Account locked - too many failed attempts');
-        }
-
-        $show_captcha = shouldShowCaptcha($login_input);
-        if (!$_err && $show_captcha && !verifyCaptcha($captcha_response)) {
-            $_err['captcha'] = 'Incorrect security answer. Please try again.';
-            logFailedLoginAttempt($login_input, 'CAPTCHA verification failed');
         }
 
         if (!$_err) {
@@ -59,10 +52,6 @@ if (is_post()) {
             }
         }
     }
-
-    if ($_err && isset($login_input)) {
-        $show_captcha = shouldShowCaptcha($login_input);
-    }
 }
 
 $page_title = 'Staff Login';
@@ -87,12 +76,6 @@ $page_title = 'Staff Login';
             <h1>Staff Login</h1>
                <p>Access restricted to Staff only</p>
         </div>
-
-        <?php if ($success_msg = get_temp('success')): ?>
-            <div class="alert alert-success">
-                <?php echo htmlspecialchars($success_msg); ?>
-            </div>
-        <?php endif; ?>
 
         <?php if ($error_msg = get_temp('error')): ?>
             <div class="alert alert-error">
@@ -148,30 +131,6 @@ $page_title = 'Staff Login';
                 <?php endif; ?>
             </div>
 
-            <?php if ($show_captcha): ?>
-            <!-- Security CAPTCHA (shown after failed attempts) -->
-            <div class="form-group">
-                <label for="captcha">Security Check</label>
-                <div class="captcha-container">
-                    <div class="captcha-question">
-                        <?php echo generateCaptcha(); ?>
-                    </div>
-                    <input 
-                        type="number" 
-                        id="captcha" 
-                        name="captcha" 
-                        class="form-input captcha-input <?php echo isset($_err['captcha']) ? 'error' : ''; ?>" 
-                        placeholder="Answer"
-                        required
-                    >
-                </div>
-                <?php if (isset($_err['captcha'])): ?>
-                    <div class="error-message"><?php echo htmlspecialchars($_err['captcha']); ?></div>
-                <?php endif; ?>
-                <small class="security-notice">🛡️ Security verification required due to previous failed attempts</small>
-            </div>
-            <?php endif; ?>
-
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
                     <span>Staff Login</span>
@@ -201,7 +160,7 @@ $page_title = 'Staff Login';
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="/js/loginRegister.js"></script>
+    <script src="../js/loginRegister.js"></script>
     <script>
         function togglePassword() {
             const passwordInput = document.getElementById('password');
