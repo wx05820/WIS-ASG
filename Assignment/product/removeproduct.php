@@ -3,22 +3,24 @@ include '../config.php';
 
 $message = '';
 
-// Get product ID from query string
-$productID = $_GET['id'] ?? null;
-
-if ($productID) {
-    // Delete product from database
-    $sql = "DELETE FROM product WHERE prodID = ?";
+if (isset($_GET['prodID'])) {
+    $prodID = $_GET['prodID'];
+    // Soft delete: set status to 'removed'
+    $sql = "UPDATE product SET status = 'removed' WHERE prodID = ?";
     $stmt = $_db->prepare($sql);
-    if ($stmt->execute([$productID])) {
-        $message = 'Product removed successfully!';
+    if ($stmt->execute([$prodID])) {
+        $message = 'Product removed.';
+        // Optionally redirect or show message
+        // header('Location: list.php?msg=Product+removed');
+        // exit;
     } else {
         $message = 'Failed to remove product.';
     }
 } else {
-    $message = 'No product specified.';
+    $message = 'Invalid product ID.';
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

@@ -21,12 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	}
 
 	if ($errorMsg === '') {
-		// Auto-generate prodID=
-		// Check for existing product with same name and category
+		// Auto-generate prodID
 		$exist_sql = "SELECT prodID FROM product WHERE name = ? AND catID = ? ORDER BY prodID ASC LIMIT 1";
 		$exist_stmt = $_db->prepare($exist_sql);
 		$exist_stmt->execute([$name, $catID]);
 		$existProd = $exist_stmt->fetch();
+
 		if ($existProd && isset($existProd['prodID'])) {
 			// Use existing base prodID
 			$baseStr = substr($existProd['prodID'], 1, 4);
@@ -38,26 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$newColor = str_pad((int)$maxColor + 1, 2, '0', STR_PAD_LEFT);
 			$prodID = 'P' . $baseStr . $newColor;
 		} else {
-			$base_sql = "
-				SELECT prodID 
-				FROM product 
-				WHERE prodID LIKE 'P____01' 
-				ORDER BY CAST(SUBSTRING(prodID, 2, 4) AS UNSIGNED) DESC 
-				LIMIT 1
-			";
+			// Get last base number regardless of color code
+			$base_sql = "SELECT MAX(CAST(SUBSTRING(prodID, 2, 4) AS UNSIGNED)) AS maxBase FROM product";
 			$base_stmt = $_db->prepare($base_sql);
 			$base_stmt->execute();
-			$lastProd = $base_stmt->fetch();
- 
-			if ($lastProd && isset($lastProd['prodID'])) {
-				// Get numeric part, increment by 1
-				$base = (int)substr($lastProd['prodID'], 1, 4) + 1;
-				$baseStr = str_pad($base, 4, '0', STR_PAD_LEFT);
-			} else {
-				$baseStr = '0001'; // First product
-			}
+			$maxBase = $base_stmt->fetchColumn();
 
-			// New ID based on largest number
+			$nextBase = $maxBase ? $maxBase + 1 : 1;
+			$baseStr = str_pad($nextBase, 4, '0', STR_PAD_LEFT);
+
+			// Always start new base with color code 01
 			$prodID = 'P' . $baseStr . '01';
 		}
 
@@ -76,6 +66,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 					}
 				}
 			}
+		}
+
+		// Check if user selected "Add New Category"
+		if ($catID === 'new' && !empty($_POST['newCategory'])) {
+			$newCatName = trim($_POST['newCategory']);
+
+			// Generate next catID
+			$cat_sql = "SELECT MAX(CAST(SUBSTRING(catID, 2) AS UNSIGNED)) FROM category";
+			$cat_stmt = $_db->prepare($cat_sql);
+			$cat_stmt->execute();
+			$maxCatID = $cat_stmt->fetchColumn();
+			$nextCatID = 'C' . str_pad(($maxCatID ? $maxCatID + 1 : 1), 4, '0', STR_PAD_LEFT);
+
+			// Insert new category
+			$insert_cat_sql = "INSERT INTO category (catID, name) VALUES (?, ?)";
+			$insert_cat_stmt = $_db->prepare($insert_cat_sql);
+			$insert_cat_stmt->execute([$nextCatID, $newCatName]);
+
+			// Use the new catID for the product insert
+			$catID = $nextCatID;
 		}
 
 		// Insert product with prodID
@@ -221,12 +231,41 @@ $categories = $cat_stmt->fetchAll();
 					<span style="color: red; font-weight: bold;">&#33;</span>
 				<?php endif; ?>
 			</label>
-			<select name="catID" required style="width: 300px; padding: 0.5rem 0.7rem">
+			<select name="catID" required style="width: 300px; padding: 0.5rem 0.7rem" id="catID">
 				<option value="">Select Category</option>
+				<option value="new">+ Add New Category</option>
 				<?php foreach ($categories as $cat): ?>
 					<option value="<?php echo $cat['catID']; ?>" <?php echo ($catID == $cat['catID']) ? 'selected' : ''; ?>> <?php echo htmlspecialchars($cat['name']); ?> </option>
 				<?php endforeach; ?>
 			</select>
+			<div id="new-category-div" style="display: none; margin-top: 10px;">
+				<label for="newCategory">New Category Name:</label>
+				<input type="text" name="newCategory" id="newCategory" style="width: 300px; padding: 0.5rem 0.7rem">
+			</div>
+			<script>
+				const catSelect = document.getElementById('catID');
+				const newCatDiv = document.getElementById('new-category-div');
+				const newCatInput = document.getElementById('newCategory');
+				const addProductForm = document.querySelector('.addproduct-form');
+
+				catSelect.addEventListener('change', function() {
+					if (this.value === 'new') {
+						newCatDiv.style.display = 'block';
+						newCatInput.setAttribute('required', 'required');
+					} else {
+						newCatDiv.style.display = 'none';
+						newCatInput.removeAttribute('required');
+					}
+				});
+
+				addProductForm.addEventListener('submit', function(e) {
+					if (catSelect.value === 'new' && newCatInput.value.trim() === '') {
+						alert('Please enter a new category name.');
+						newCatInput.focus();
+						e.preventDefault();
+					}
+				});
+			</script>
 
 			<label>Product Images:</label>
 			<input type="file" name="images[]" style="width: 400px" accept="image/*" multiple>
