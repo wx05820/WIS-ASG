@@ -525,7 +525,7 @@ switch ($logout_type) {
 $_SESSION['temp_' . $message_type] = $message;
 
 // Redirect URL
-$redirect_url = 'index.php';
+$redirect_url = '/index.php';
 
 // Show enhanced logout success page
 ?>

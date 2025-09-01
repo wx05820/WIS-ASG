@@ -988,4 +988,45 @@ function money($n) {
     return 'RM '.number_format($n, 2);
 }
 
+function checkLogin(){
+    if (!isset($_SESSION['user_id'])) {
+        $_SESSION['error'] = "Please log in to continue";
+        $_SESSION['redirect_after_login'] = $_SERVER['HTTP_REFERER'] ?? '/product/productList.php';
+        header('Location: /user/login.php');
+        exit;
+    }
+}function getCartCount($user_id) {
+    global $_db;
+    
+    if (!$user_id) {
+        return 0;
+    }
+    
+    try {
+        $stmt = $_db->prepare("
+            SELECT SUM(ci.qty) as total_count
+            FROM cart_items ci
+            LEFT JOIN cart c ON c.cartID = ci.cartID
+            WHERE c.userID = ?
+        ");
+        $stmt->execute([$user_id]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return (int)($result['total_count'] ?? 0);
+    } catch (Exception $e) {
+        error_log("Cart count error: " . $e->getMessage());
+        return 0;
+    }
+}
+
+// Function to refresh cart count after operations
+function refreshCartCount($user_id) {
+    if (!$user_id) {
+        return 0;
+    }
+    
+    // Clear any cached cart data if you have any
+    return getCartCount($user_id);
+}
+
 ?>

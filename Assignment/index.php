@@ -16,7 +16,7 @@
             <div class="hero-content">
                 <h1>Premium Malaysian Furniture</h1>
                 <p>Handcrafted with quality materials and timeless designs</p>
-                <a href="products.php" class="cta-button">Shop Now</a>
+                <a href="/userProduct/productList.php" class="cta-button">Shop Now</a>
             </div>
 
             

@@ -56,9 +56,10 @@ if (is_post()) {
                 temp('success', 'Login successful! Welcome back, ' . htmlspecialchars($display_name) . '!');
                 
                 // Redirect
-                $redirect_to = isset($_SESSION['intended_url']) ? $_SESSION['intended_url'] : 'index.php';
+                /* $redirect_to = isset($_SESSION['intended_url']) ? $_SESSION['intended_url'] : '../index.php';
                 unset($_SESSION['intended_url']);
-                redirect($redirect_to);
+                redirect($redirect_to); */
+                redirect('../index.php');
             } else {
                 $_err['password'] = 'Invalid email/username or password';
                 logFailedLoginAttempt($login_input, 'Invalid credentials');
@@ -87,7 +88,7 @@ $page_title = 'Login';
 <body>
     <div class="login-container">
         <div class="login-header">
-            <button class="back-btn" onclick="window.location.href='index.php'">
+            <button class="back-btn" onclick="window.location.href='../index.php'">
                 <i class="fas fa-arrow-left"></i>
             </button>
             <h1>Welcome Back</h1>

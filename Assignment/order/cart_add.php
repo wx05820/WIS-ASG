@@ -1,0 +1,91 @@
+<?php
+require_once '../_base.php';
+
+$user_id = $_SESSION['user_id'] ?? null;
+
+// Redirect to login if not logged in
+if (!$user_id) {
+    $_SESSION['error'] = "Please log in to add items to your cart";
+    $_SESSION['redirect_after_login'] = $_SERVER['HTTP_REFERER'] ?? '/userProduct/productList.php';
+    redirect('/user/login.php');
+}
+
+$prodID = $_POST['prodID'] ?? $_GET['prodID'] ?? null;
+$qty = max(1, (int)($_POST['qty'] ?? $_GET['qty'] ?? 1));
+
+if (!$prodID) {
+    $_SESSION['error'] = "Unable to find product information";
+    redirect($_SERVER['HTTP_REFERER'] ?? '/userProduct/productList.php');
+}
+
+try {
+    $_db->beginTransaction();
+
+    // Ensure cart exists for user
+    $stmt = $_db->prepare("SELECT cartID FROM cart WHERE userID=?");
+    $stmt->execute([$user_id]);
+    $cartID = $stmt->fetchColumn();
+
+    if (!$cartID) {
+        $stmt = $_db->prepare("INSERT INTO cart(userID) VALUES(?)");
+        $stmt->execute([$user_id]);
+        $cartID = $_db->lastInsertId();
+    }
+
+    // Check product exists and get stock
+    $stmt = $_db->prepare("SELECT name, qty FROM product WHERE prodID=?");
+    $stmt->execute([$prodID]);
+    $product = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$product) {
+        $_SESSION['error'] = "Unable to find product information";
+        redirect($_SERVER['HTTP_REFERER'] ?? '/userProduct/productList.php');
+    }
+    
+    $stock = (int)$product['qty'];
+    if ($stock <= 0) {
+        $_SESSION['error'] = "This product is currently out of stock";
+        redirect($_SERVER['HTTP_REFERER'] ?? '/userProduct/productList.php');
+    }
+
+    // Check if already in cart
+    $stmt = $_db->prepare("SELECT qty FROM cart_items WHERE cartID=? AND prodID=?");
+    $stmt->execute([$cartID, $prodID]);
+    $current = $stmt->fetchColumn();
+
+    if ($current !== false) {
+        // Update existing item
+        $newQty = min((int)$current + $qty, $stock);
+        if ($newQty > $stock) {
+            $_SESSION['error'] = "Not enough stock available for this item";
+            redirect($_SERVER['HTTP_REFERER'] ?? '/userProduct/productList.php');
+        }
+
+        $stmt = $_db->prepare("UPDATE cart_items SET qty=? WHERE cartID=? AND prodID=?");
+        $stmt->execute([$newQty, $cartID, $prodID]);
+        $_SESSION['success'] = "Updated quantity in your cart successfully";
+    } else {
+        // Add new item
+        if ($qty > $stock) {
+            $_SESSION['error'] = "Not enough stock available for this item";
+            redirect($_SERVER['HTTP_REFERER'] ?? '/userProduct/productList.php');
+        }
+
+        $stmt = $_db->prepare("INSERT INTO cart_items(cartID, prodID, qty) VALUES(?,?,?)");
+        $stmt->execute([$cartID, $prodID, $qty]);
+        $_SESSION['success'] = "Added item to your cart successfully";
+    }
+
+    $_db->commit();
+
+} catch (Exception $e) {
+    if ($_db->inTransaction()) {
+        $_db->rollBack();
+    }
+    error_log("Cart add error: " . $e->getMessage());
+    $_SESSION['error'] = "Unable to add item to your cart";
+}
+
+// Redirect back to the previous page
+redirect($_SERVER['HTTP_REFERER'] ?? '/userProduct/productList.php');
+?>

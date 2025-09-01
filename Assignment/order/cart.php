@@ -3,18 +3,7 @@ require_once __DIR__ . '/../_base.php';
 
 $user_id = $_SESSION['user_id'] ?? null;
 
-function jsonResponse($payload, $status = 200) {
-    http_response_code($status);
-    header("Content-Type: application/json");
-    echo json_encode($payload);
-    exit;
-}
-
-// Read JSON from frontend, turn into PHP array 
-$payload = json_decode(file_get_contents("php://input"), true) ?? [];
-
-// Also check GET parameters for action
-$action = $payload['action'] ?? ($_GET['action'] ?? '');
+checkLogin();
 
 // Fetch cart items from DB
 function get_cart($user_id){
@@ -87,102 +76,52 @@ function ensureCart($user_id) {
     return $cartID;
 }
 
-// Handle AJAX requests
-if (
-    !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
-) {
-    // If no user is logged in, return error for AJAX requests
-    if (!$user_id) {
-        jsonResponse(["error" => "Please log in"], 401);
-    }
+if(isset($_GET['action']) && $_GET['action'] === 'count') {
+    header('Content-Type: text/plain');
+    echo getCartCount($user_id);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $redirect_url = $_POST['redirect'] ?? $_SERVER['HTTP_REFERER'] ?? '/order/cart_page.php';
     
-    try{
-        error_log("Cart API - Action: " . $action . ", Payload: " . json_encode($payload));
-
+    try {
         switch($action){
-            case "add":
-                $prodID = $payload['id'] ?? null;
-                $qty = max(1, (int)($payload['qty'] ?? 1));
-
-                if (!$prodID) {
-                    jsonResponse(['error' => 'Invalid product ID'], 400);
-                }
-                
-                $cartID = ensureCart($user_id);
-                if (!$cartID) {
-                    jsonResponse(['error' => 'Unable to create cart'], 500);
-                }
-
-                // Check product exists and get stock
-                $stmt = $_db->prepare("SELECT qty FROM product WHERE prodID=?");
-                $stmt->execute([$prodID]);
-                $stock = $stmt->fetchColumn();
-                
-                if ($stock === false) {
-                    jsonResponse(['error' => 'Product not found'], 404);
-                }
-                
-                $stock = (int)$stock;
-                if ($stock <= 0) {
-                    jsonResponse(['error' => 'Out of stock'], 400);
-                }
-
-                // Check if already in cart
-                $stmt = $_db->prepare("SELECT qty FROM cart_items WHERE cartID=? AND prodID=?");
-                $stmt->execute([$cartID, $prodID]);
-                $current = $stmt->fetchColumn();
-
-                if ($current !== false) {
-                    // Update existing item
-                    $newQty = min((int)$current + $qty, $stock);
-                    if ($newQty > $stock) {
-                        jsonResponse(['error' => 'Not enough stock available'], 400);
-                    }
-
-                    $stmt = $_db->prepare("UPDATE cart_items SET qty=? WHERE cartID=? AND prodID=?");
-                    $stmt->execute([$newQty, $cartID, $prodID]);
-                } else {
-                    // Add new item
-                    if ($qty > $stock) {
-                        jsonResponse(['error' => 'Not enough stock available'], 400);
-                    }
-
-                    $stmt = $_db->prepare("INSERT INTO cart_items(cartID, prodID, qty) VALUES(?,?,?)");
-                    $stmt->execute([$cartID, $prodID, $qty]);
-                }
-                break;
-
             case "update_qty":
-                $prodID = $payload['id'] ?? null;
-                $qty = max(1, (int)($payload['qty'] ?? 1));
+                $prodID = $_POST['id'] ?? $_GET['prodID'] ?? null;
+                $qty = max(1, (int)($_POST['qty'] ?? $_GET['qty'] ?? 1));
 
                 if (!$prodID) {
-                    jsonResponse(['error' => 'Invalid product ID'], 400);
+                    $_SESSION['error'] = "Invalid product ID";
+                    redirect('/order/cart_page.php');
                 }
 
                 // Get stock
                 $stmt = $_db->prepare("SELECT qty FROM product WHERE prodID=?");
                 $stmt->execute([$prodID]);
-                $stock = $stmt->fetchColumn();
+                $stock = (int) $stmt->fetchColumn();
                 
                 if ($stock === false) {
-                    jsonResponse(['error' => 'Product not found'], 404);
+                    $_SESSION['error'] = "Product not found";
+                    redirect('/order/cart_page.php');
                 }
                 
-                $stock = (int)$stock;
                 if ($stock <= 0) {
-                    jsonResponse(['error' => 'Product is out of stock'], 400);
+                    $_SESSION['error'] = "Product is out of stock";
+                    redirect('/order/cart_page.php');
                 }
                 
                 if ($qty > $stock) {
-                    jsonResponse(['error' => 'Not enough stock available. Available: ' . $stock], 400);
+                    $_SESSION['error'] = "Not enough stock available. Available: " . $stock;
+                    redirect('/order/cart_page.php');
                 }
 
                 // Get cartID
                 $cartID = ensureCart($user_id);
                 if (!$cartID) {
-                    jsonResponse(['error' => 'Cart not found'], 404);
+                    $_SESSION['error'] = "Cart not found";
+                    redirect('/order/cart_page.php');
                 }
 
                 // Check if item exists in cart
@@ -190,86 +129,78 @@ if (
                 $stmt->execute([$cartID, $prodID]);
                 
                 if ($stmt->fetchColumn() === false) {
-                    jsonResponse(['error' => 'Item not found in cart'], 404);
+                    $_SESSION['error'] = "Item not found in cart";
+                    redirect('/order/cart_page.php');
                 }
 
                 // Update quantity
                 $stmt = $_db->prepare("UPDATE cart_items SET qty=? WHERE cartID=? AND prodID=?");
                 $stmt->execute([$qty, $cartID, $prodID]);
+
+                $_SESSION['success'] = "Cart updated successfully";
+                redirect('/order/cart_page.php');
                 break;
 
             case "remove":
-                $prodID = $payload['id'] ?? null;
+                $prodID = $_POST['id'] ?? $_GET['prodID'] ?? null;
 
                 if (!$prodID) {
-                    jsonResponse(['error' => 'Invalid product ID'], 400);
+                    $_SESSION['error'] = "Invalid product ID";
+                    redirect('/order/cart_page.php');
                 }
 
                 $cartID = ensureCart($user_id);
                 if (!$cartID) {
-                    jsonResponse(['error' => 'Cart not found'], 404);
+                    $_SESSION['error'] = "Cart not found";
+                    redirect('/order/cart_page.php');
                 }
 
                 $stmt = $_db->prepare("DELETE FROM cart_items WHERE cartID=? AND prodID=?");
                 $stmt->execute([$cartID, $prodID]);
                 
                 if ($stmt->rowCount() === 0) {
-                    jsonResponse(['error' => 'Item not found in cart'], 404);
+                    $_SESSION['error'] = "Item not found in cart";
+                    redirect('/order/cart_page.php');
                 }
-                break;
 
-            case "clear_all":
-                $cartID = ensureCart($user_id);
-                if ($cartID) {
-                    $stmt = $_db->prepare("DELETE FROM cart_items WHERE cartID=?");
-                    $stmt->execute([$cartID]);
-                }
-                break;
-
-            case "count":
-                $cart = get_cart($user_id);
-                $totals = cartTotals($cart);
-                jsonResponse([
-                    "success" => true,
-                    "totals" => $totals,
-                    "count" => $totals['itemCount']
-                ]);
-                break;
-
-            case "":
-                // Just return current cart data
+                $_SESSION['success'] = "Item removed from cart";
+                redirect('/order/cart_page.php');
                 break;
 
             default:
-                jsonResponse(['error' => 'Invalid action'], 400);
+                $_SESSION['error'] = "Invalid action";
+                redirect('/order/cart_page.php');
         }
 
-        // Always return updated cart data after any operation
         $cart = get_cart($user_id);
         $totals = cartTotals($cart);
-        
-        jsonResponse([
-            "success" => true,
-            "cart" => $cart,
-            "totals" => $totals
-        ]);
 
     } catch (Exception $e) {
         error_log("Cart error: " . $e->getMessage());
-        jsonResponse(['error' => 'An error occurred while processing your request'], 500);
+        $_SESSION['error'] = "An error occurred while processing your request";
+        redirect('/order/cart_page.php');
     }
 }
 
-// For non-AJAX requests, just return current cart data
-$cart = get_cart($user_id);
-$totals = cartTotals($cart);
+// Handle GET requests (for count only)
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $action = $_GET['action'] ?? '';
 
-// If this is a direct access (not included), show cart data
+    if ($action === 'count') {
+        if (!isset($_SESSION['user_id'])) {
+            echo "0";
+            exit;
+        }
+        $cartID = ensureCart($_SESSION['user_id']);
+        $stmt = $_db->prepare("SELECT COALESCE(SUM(qty),0) FROM cart_items WHERE cartID=?");
+        $stmt->execute([$cartID]);
+        echo (int)$stmt->fetchColumn();
+        exit;
+    }
+}
+
+// For direct access, redirect to cart page
 if (basename($_SERVER['PHP_SELF']) === 'cart.php') {
-    jsonResponse([
-        "success" => true,
-        "cart" => $cart,
-        "totals" => $totals
-    ]);
+    redirect('/order/cart_page.php');
 }
 ?>

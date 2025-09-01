@@ -1,0 +1,349 @@
+.product-list {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 15px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+}
+
+.product-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+}
+
+.product-img-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 160px;
+    overflow: hidden;
+    background: #f8f9fa;
+}
+
+.product-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover .product-img {
+    transform: scale(1.05);
+}
+
+.product-info {
+    padding: 15px;
+}
+
+.product-info h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: #2c3e50;
+    font-weight: 600;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2; 
+    overflow: hidden;
+}
+
+.category {
+    font-size: 12px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 10px;
+}
+
+.price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #e74c3c;
+    margin: 10px 0;
+}
+
+.stock {
+    font-size: 13px;
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+
+.stock.in-stock {
+    color: #27ae60;
+}
+
+.stock.out-stock {
+    color: #e74c3c;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-add, .btn-checkout {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    min-width: 80px;
+}
+
+.btn-add {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.btn-add:hover {
+    background: linear-gradient(135deg, #219a52, #27ae60);
+    transform: translateY(-1px);
+}
+
+.btn-checkout {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+}
+
+.btn-checkout:hover {
+    background: linear-gradient(135deg, #d68910, #d35400);
+    transform: translateY(-1px);
+}
+
+.btn-disabled {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: #ecf0f1;
+    color: #95a5a6;
+    cursor: not-allowed;
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 80px;
+}
+
+.no-results {
+    text-align: center;
+    font-size: 16px;
+    color: #7f8c8d;
+    grid-column: 1 / -1;
+    padding: 40px 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.pager-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 40px 0;
+    gap: 15px;
+}
+
+.pager-info {
+    font-size: 14px;
+    color: #6c757d;
+    text-align: center;
+}
+
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #fff;
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef; 
+}
+
+.pager a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 12px;
+    text-decoration: none;
+    color: #495057;
+    background-color: transparent;
+    border-radius: 8px;
+    border: none;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 14px;
+    position: relative;
+    user-select: none;
+}
+
+.pager a:hover:not(.active):not(.disabled) {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+    transform: translateY(-1px);
+}
+
+.pager a.active {
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.3);
+    pointer-events: none;
+}
+
+.pager a.disabled {
+    color: #adb5bd;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Navigation buttons styling */
+.pager a.first,
+.pager a.last,
+.pager a.prev,
+.pager a.next {
+    font-weight: 600;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.pager a.first:hover:not(.disabled),
+.pager a.last:hover:not(.disabled),
+.pager a.prev:hover:not(.disabled),
+.pager a.next:hover:not(.disabled) {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.pager .ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+    color: #6c757d;
+    font-weight: bold;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Add icons for navigation (using CSS pseudo-elements) */
+.pager a.first::before {
+    content: "⏮";
+    margin-right: 4px;
+}
+
+.pager a.prev::before {
+    content: "◀";
+    margin-right: 4px;
+}
+
+.pager a.next::after {
+    content: "▶";
+    margin-left: 4px;
+}
+
+.pager a.last::after {
+    content: "⏭";
+    margin-left: 4px;
+}
+
+@media (max-width: 768px) {
+    .product-list {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        padding: 0 10px;
+    }
+
+    .product-info {
+        padding: 12px;
+    }
+
+    .product-info h3 {
+        font-size: 15px;
+    }
+
+    .price {
+        font-size: 16px;
+    }
+
+    .btn-add, .btn-checkout, .btn-disabled {
+        padding: 7px 10px;
+        font-size: 12px;
+        min-width: 70px;
+    }
+
+    .pager-container {
+        margin: 20px 0;
+    }
+
+    .pager {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 2px;
+        padding: 6px;
+    }
+
+    .pager a {
+        min-width: 36px;
+        height: 36px;
+        font-size: 13px;
+        padding: 0 8px;
+    }
+
+    /* Hide text on small screens, keep only icons */
+    .pager a.first,
+    .pager a.last,
+    .pager a.prev,
+    .pager a.next {
+        font-size: 0;
+        min-width: 36px;
+    }
+
+    .pager a.first::before,
+    .pager a.prev::before,
+    .pager a.next::after,
+    .pager a.last::after {
+        font-size: 14px;
+        margin: 0;
+    }
+}
+
+.actions form {
+    display: contents;
+}
+
+.pager-compact .pager {
+    gap: 2px;
+}
+
+.pager-large .pager a {
+    min-width: 48px;
+    height: 48px;
+    font-size: 16px;
+}
+
+.pager-loading .pager a:not(.active) {
+    opacity: 0.6;
+    pointer-events: none;
+}

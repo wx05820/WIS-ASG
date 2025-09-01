@@ -18,6 +18,7 @@ $current_path = $_SERVER['PHP_SELF'];
 $is_in_subdirectory = (strpos($current_path, '/product/') !== false || 
                       strpos($current_path, '/order/') !== false || 
                       strpos($current_path, '/user/') !== false ||
+                      strpos($current_path, '/userProduct/') !== false ||
                       preg_match('/\/[^\/]+\/[^\/]+\.php$/', $current_path)); // Any subdirectory pattern
 
 $image_base_path = $is_in_subdirectory ? '../' : '';
@@ -38,19 +39,19 @@ if (isset($_SESSION['user_id'])) {
                                  $image_base_path . 'images/default-avatar.png';
         }
         
-        /* // Get cart count for logged-in user
-        $cart_stm = $_db->prepare('SELECT COUNT(*) as count FROM cart_items JOIN cart ON cart_items.cartID = cart.cartID WHERE userID = ?');
+        // Get cart count for logged-in user
+        $cart_stm = $_db->prepare('SELECT SUM(ci.qty) as count FROM cart_items  ci LEFT JOIN cart c ON ci.cartID = c.cartID WHERE c.userID = ?');
         $cart_stm->execute([$_SESSION['user_id']]);
         $cart_data = $cart_stm->fetch();
-        $cart_count = $cart_data ? $cart_data->count : 0; */
+        $cart_count = $cart_data ? (int)$cart_data->count : 0;
         
     } catch (PDOException $e) {
         // Log error and continue with defaults
         error_log("Header database error: " . $e->getMessage());
+        $cart_count = 0;
     }
 } else {
-    // For non-logged-in users, check session cart
-    $cart_count = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
+    $cart_count = 0;
 }
 
 // Get current page for navigation highlighting
@@ -73,7 +74,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/index.css">
-    <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/products.css">
+    <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/userProduct.css">
 </head>
 <body data-user-id="<?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : ''; ?>">
     <header class="wooden-header">
@@ -81,16 +82,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <!-- Logo and Company Name -->
             <div class="logo-section">
                 <a href="/index.php" aria-label="AiKUN Furniture Homepage">
-                    <img src="<?php echo $image_base_path; ?>/images/logo.png" alt="AiKUN Furniture Logo" class="logo">
+                    <img src="<?php echo $image_base_path; ?>images/logo.png" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
             
             <!-- Search Bar and Filters -->
             <div class="search-section">
-                <form action="/search.php" method="GET" class="search-form" role="search">
+                <form action="/userProduct/productList.php" method="GET" class="search-filter-form" role="search" id="searchFilterForm">
                     <div class="search-input-container">
-                        <input type="text" 
+                        <input type="search" 
                                name="query" 
                                placeholder="Search for furniture..." 
                                class="search-input"
@@ -100,29 +101,38 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
+                    <div class="filter-options">
+                        <select name="category" class="filter-select" aria-label="Filter by category" onchange="document.getElementById('searchFilterForm').submit()">
+                            <option value="">All Categories</option>
+                            <option value="Sofa" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Sofa') ? 'selected' : ''; ?>>Sofa</option>
+                            <option value="Desk" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Desk') ? 'selected' : ''; ?>>Desk</option>
+                            <option value="Dining Table" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Dining Table') ? 'selected' : ''; ?>>Dining Table</option>
+                            <option value="Chair" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Chair') ? 'selected' : ''; ?>>Chair</option>
+                            <option value="Cabinet" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Cabinet') ? 'selected' : ''; ?>>Cabinet</option>
+                            <option value="Wardrobe" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Wardrobe') ? 'selected' : ''; ?>>Wardrobe</option>
+                            <option value="TV Cabinet" <?php echo (isset($_GET['category']) && $_GET['category'] === 'TV Cabinet') ? 'selected' : ''; ?>>TV Cabinet</option>
+                            <option value="Children's small furniture" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Children\'s small furniture') ? 'selected' : ''; ?>>Children's Furniture</option>
+                        </select>
+                        <select name="room" class="filter-select" aria-label="Filter by room" onchange="document.getElementById('searchFilterForm').submit()">
+                            <option value="">All Rooms</option>
+                            <option value="living-room" <?php echo (isset($_GET['room']) && $_GET['room'] === 'living-room') ? 'selected' : ''; ?>>Living Room</option>
+                            <option value="bedroom" <?php echo (isset($_GET['room']) && $_GET['room'] === 'bedroom') ? 'selected' : ''; ?>>Bedroom</option>
+                            <option value="kitchen" <?php echo (isset($_GET['room']) && $_GET['room'] === 'kitchen') ? 'selected' : ''; ?>>Kitchen</option>
+                            <option value="dining" <?php echo (isset($_GET['room']) && $_GET['room'] === 'dining') ? 'selected' : ''; ?>>Dining Area</option>
+                            <option value="office" <?php echo (isset($_GET['room']) && $_GET['room'] === 'office') ? 'selected' : ''; ?>>Home Office</option>
+                            <option value="outdoor" <?php echo (isset($_GET['room']) && $_GET['room'] === 'outdoor') ? 'selected' : ''; ?>>Outdoor</option>
+                        </select>
+                        <select name="sort" class="filter-select" aria-label="Sort products" onchange="document.getElementById('searchFilterForm').submit()">
+                            <option value="">Sort by...</option>
+                            <option value="name_asc" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'name_asc') ? 'selected' : ''; ?>>Name (A-Z)</option>
+                            <option value="name_desc" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'name_desc') ? 'selected' : ''; ?>>Name (Z-A)</option>
+                            <option value="price_asc" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'price_asc') ? 'selected' : ''; ?>>Price (Low to High)</option>
+                            <option value="price_desc" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'price_desc') ? 'selected' : ''; ?>>Price (High to Low)</option>
+                            <option value="stock_asc" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'stock_asc') ? 'selected' : ''; ?>>Stock (Low to High)</option>
+                            <option value="stock_desc" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'stock_desc') ? 'selected' : ''; ?>>Stock (High to Low)</option>
+                        </select>
+                    </div>
                 </form>
-                <div class="filter-options">
-                    <select name="category" class="filter-select" aria-label="Filter by category" onchange="applyFilters()">
-                        <option value="">All Categories</option>
-                        <option value="sofa" <?php echo (isset($_GET['category']) && $_GET['category'] === 'sofa') ? 'selected' : ''; ?>>Sofa</option>
-                        <option value="desk" <?php echo (isset($_GET['category']) && $_GET['category'] === 'desk') ? 'selected' : ''; ?>>Desk</option>
-                        <option value="dining-table" <?php echo (isset($_GET['category']) && $_GET['category'] === 'dining-table') ? 'selected' : ''; ?>>Dining Table</option>
-                        <option value="chair" <?php echo (isset($_GET['category']) && $_GET['category'] === 'chair') ? 'selected' : ''; ?>>Chair</option>
-                        <option value="cabinet" <?php echo (isset($_GET['category']) && $_GET['category'] === 'cabinet') ? 'selected' : ''; ?>>Cabinet</option>
-                        <option value="tv-cabinet" <?php echo (isset($_GET['category']) && $_GET['category'] === 'tv-cabinet') ? 'selected' : ''; ?>>TV Cabinet</option>
-                        <option value="children-furniture" <?php echo (isset($_GET['category']) && $_GET['category'] === 'children-furniture') ? 'selected' : ''; ?>>Children's Furniture</option>
-                    </select>
-                    
-                    <select name="room" class="filter-select" aria-label="Filter by room" onchange="applyFilters()">
-                        <option value="">All Rooms</option>
-                        <option value="living-room" <?php echo (isset($_GET['room']) && $_GET['room'] === 'living-room') ? 'selected' : ''; ?>>Living Room</option>
-                        <option value="bedroom" <?php echo (isset($_GET['room']) && $_GET['room'] === 'bedroom') ? 'selected' : ''; ?>>Bedroom</option>
-                        <option value="kitchen" <?php echo (isset($_GET['room']) && $_GET['room'] === 'kitchen') ? 'selected' : ''; ?>>Kitchen</option>
-                        <option value="dining" <?php echo (isset($_GET['room']) && $_GET['room'] === 'dining') ? 'selected' : ''; ?>>Dining Area</option>
-                        <option value="office" <?php echo (isset($_GET['room']) && $_GET['room'] === 'office') ? 'selected' : ''; ?>>Home Office</option>
-                        <option value="outdoor" <?php echo (isset($_GET['room']) && $_GET['room'] === 'outdoor') ? 'selected' : ''; ?>>Outdoor</option>
-                    </select>
-                </div>
             </div>
             
             <!-- User Icons Section -->
@@ -170,24 +180,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php endif; ?>
                     
                     <!-- Cart Icon -->                        
-                    <?php 
-                        require_once 'order/cart.php';
-                        $user_id = $_SESSION['user_id'] ?? null;
-                        $cart_count = 0;
-
-                        if($user_id){
-                            try {
-                                $cart_items = get_cart($user_id);
-                                $cart_count = $cart_items ? array_sum(array_column($cart_items, 'qty')) : 0;
-                            } catch (Exception $e) {
-                                $cart_count = 0;
-                            }
-                        }                        
-                    ?>
-                    <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)" id="mini-cart">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>
-                    </a>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)" id="mini-cart">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>
+                        </a>
+                    <?php else: ?>
+                        <button class="cart-icon" aria-label="Shopping cart - Login required" id="mini-cart" onclick="checkLogin()">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="cart-count" id="cart-count">0</span>
+                        </button>
+                    <?php endif; ?>
                     
                     <!-- Shipping Dropdown -->
                     <div class="shipping-dropdown">
@@ -222,7 +225,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <nav class="main-navigation" role="navigation" aria-label="Main navigation">
             <ul>
                 <li><a href="/index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
-                <li><a href="/product/list.php" class="<?php echo ($current_page === 'products.php' || $current_page === 'list.php') ? 'active' : ''; ?>">All Products</a></li>
+                <li><a href="/userProduct/productList.php" class="<?php echo ($current_page === '/userProduct/productList.php' || $current_page === 'list.php') ? 'active' : ''; ?>">All Products</a></li>
                 <li><a href="/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
                 <li><a href="/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
             </ul>
@@ -322,4 +325,4 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="/js/script.js"></script>
-    <script src="/js/cart.js" defer></script>
+<!--     <script src="/js/cart.js" defer></script> -->
