@@ -1,5 +1,10 @@
 <?php
-include '../_base.php'; // loads config.php internally via _base
+include '../../_base.php'; // loads config.php internally via _base
+
+// Check if user is admin
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    redirect('../loginstaff.php');
+}
 
 // Retrieve one-time flash messages
 $success_msg = get_temp('success');
@@ -62,7 +67,7 @@ if (is_post()) {
 
         // Embed the logo image and get the CID
         $logoCid = 'aikunlogo';
-        $m->addEmbeddedImage(__DIR__ . '/../images/logo.png', $logoCid, 'AiKUN Furniture Logo');
+        $m->addEmbeddedImage(__DIR__ . '/../../images/logo.png', $logoCid, 'AiKUN Furniture Logo');
 
         // Build the HTML body with variables interpolated
         $m->Body = "
@@ -100,11 +105,15 @@ if (is_post()) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AiKUN Furniture - Add Staff Email</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-<link rel="stylesheet" href="../css/loginRegister.css">
+<link rel="stylesheet" href="/css/index.css">
+<link rel="stylesheet" href="../../css/loginRegister.css">
 </head>
 <body class="bodylr">
     <div class="login-container">
         <div class="login-header">
+            <button class="back-btn" onclick="window.location.href='../adminpage.php'">
+            <i class="fas fa-arrow-left"></i>
+            </button>
             <h1>Add Staff Email</h1>
             <p>Please enter the email you want to register</p>
         </div>

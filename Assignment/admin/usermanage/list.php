@@ -41,12 +41,15 @@ $stm->execute([$current_staff_id]);
 $total_users = $stm->fetchColumn();
 $total_pages = ceil($total_users / $limit);
 
-// Get users for current page (excluding current staff member)
+// Determine ID sort order
+$id_order = isset($_GET['id_order']) && strtoupper($_GET['id_order']) === 'ASC' ? 'ASC' : 'DESC';
+
+// Get users for current page (excluding current staff member) with userID sort
 $stm = $_db->prepare('
     SELECT userID, username, photo, role, status, last_login, created_at, email, name
     FROM user 
     WHERE userID != ?
-    ORDER BY created_at DESC 
+    ORDER BY userID ' . $id_order . ' 
     LIMIT ? OFFSET ?
 ');
 $stm->execute([$current_staff_id, $limit, $offset]);
@@ -63,62 +66,11 @@ $error_msg = get_temp('error');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management - AiKUN Furniture</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/index.css">
     <link rel="stylesheet" href="../../css/userlist.css">
-    <style>
-        .clear-filters-btn {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(255, 107, 107, 0.2);
-            white-space: nowrap;
-        }
-        
-        .clear-filters-btn:hover {
-            background: linear-gradient(135deg, #ff5252, #e53935);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
-        }
-        
-        .clear-filters-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(255, 107, 107, 0.2);
-        }
-        
-        .clear-filters-btn i {
-            font-size: 12px;
-        }
-        
-        .search-counter {
-            text-align: right;
-            margin: 10px 0;
-            color: #666;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        
-        .search-filters {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        
-        .search-input-group {
-            flex: 1;
-            min-width: 200px;
-        }
-    </style>
 </head>
 <body>
+    <?php include '../adminheader.php'; ?>
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-users"></i> User Management</h1>
@@ -141,15 +93,25 @@ $error_msg = get_temp('error');
 
         <!-- Search and Filter Bar -->
         <div class="search-bar">
+             <?php
+             $toggle_order = $id_order === 'ASC' ? 'DESC' : 'ASC';
+             $toggle_label = $id_order === 'ASC' ? 'ID Desc' : 'ID Asc';
+             $toggle_icon = $id_order === 'ASC' ? 'fa-sort-numeric-down' : 'fa-sort-numeric-up';
+              ?>
+                <a class="id-sort-btn" href="?id_order=<?php echo $toggle_order; ?>">
+                    <i class="fas <?php echo $toggle_icon; ?>"></i> <?php echo $toggle_label; ?>
+                </a>
             <div class="search-filters">
                 <!-- Search Input -->
                 <div class="search-input-group">
                     <input type="text" class="search-input" placeholder="Search by ID, username, email, or name..." id="searchInput">
+                    <button type="button" class="search-btn" id="searchBtn" aria-label="Search">
+                        <i class="fas fa-search"></i>
+                    </button>
                 </div>
                 
                 <!-- Role Filter -->
                 <div class="filter-group">
-                    <label for="roleFilter">Role:</label>
                     <select id="roleFilter" class="filter-select">
                         <option value="all">All Roles</option>
                         <option value="Admin">Admin</option>
@@ -160,20 +122,29 @@ $error_msg = get_temp('error');
                 
                 <!-- Status Filter -->
                 <div class="filter-group">
-                    <label for="statusFilter">Status:</label>
                     <select id="statusFilter" class="filter-select">
                         <option value="all">All Status</option>
                         <option value="Active">Active</option>
                         <option value="Inactive">Ban</option>
                     </select>
                 </div>
+
+
+
+                <!-- Adduser Button -->
+                <button type="button" class="adduser-btn" onclick="window.location.href='adduser.php'">
+                <i class="fas fa-user-plus"></i> Add Staff
+                </button>
                 
                 <!-- Clear Button -->
                 <button type="button" class="clear-filters-btn" id="clearFiltersBtn">
                     <i class="fas fa-times"></i> Clear
                 </button>
+
             </div>
+
         </div>
+
 
         <!-- Users Cards -->
         <div class="users-section">
@@ -324,7 +295,7 @@ $error_msg = get_temp('error');
             </div>
         <?php endif; ?>
     </div>
-
+    <?php include '../../footer.php'; ?>
     <script>
         // Search and filter functionality
         function filterUsers() {
@@ -403,7 +374,8 @@ $error_msg = get_temp('error');
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('searchInput').addEventListener('input', filterUsers);
-            document.getElementById('roleFilter').addEventListener('change', filterUsers);
+            document.getElementById('searchBtn').addEventListener('click', filterUsers);
+                document.getElementById('roleFilter').addEventListener('change', filterUsers);
             document.getElementById('statusFilter').addEventListener('change', filterUsers);
             document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
         });
