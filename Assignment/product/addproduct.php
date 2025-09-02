@@ -119,29 +119,7 @@ $categories = $cat_stmt->fetchAll();
 <link rel="stylesheet" href="../style.css">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-
-<header class="wooden-header">
-    <div class="header-container">
-        <!-- Logo and Company Name -->
-        <div class="logo-section">
-            <a href="../admin/adminpage.php">
-                <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
-                <span class="company-name">AiKUN</span>
-            </a>
-        </div>
-
-        <!-- Product Management Buttons -->
-		<div class="product-management" style="display: flex; gap: 15px; align-items: center;">
-			<a href="list.php" title="All Product" style="color: white; font-size: 1.5em;">
-				<i class="fas fa-list"></i>
-			</a>
-            <a href="../admin/adminpage.php" title="Home" style="color: white; font-size: 1.5em;">
-				<i class="fas fa-home"></i>
-			</a>
-		</div>
-    </div>
-</header>
-
+<?php include '../admin/adminheader.php'; ?>
 <body main class="add-product-main" style="background: #fff;">
 
 	<div class="container">
@@ -280,5 +258,5 @@ $categories = $cat_stmt->fetchAll();
 		</form>
 	</div>
 </body>
-
+<?php include '../footer.php'; ?>
 </html>

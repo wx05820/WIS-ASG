@@ -1,14 +1,29 @@
 <?php
 include '../_base.php';
 
-// Check if user is logged in
-if (!isLoggedIn()) {
+// Check if user (customer) or staff is logged in
+$is_staff_session = isLoggedInStaff();
+if (!isLoggedIn() && !$is_staff_session) {
     temp('error', 'Please login to access your profile.');
     redirect('login.php');
 }
 
-$user_id = $_SESSION['user_id'];
-$current_user = getCurrentUser();
+// Resolve current user context (customer or staff)
+if ($is_staff_session) {
+    $user_id = $_SESSION['staff_id'];
+    $current_user = getCurrentStaff();
+} else {
+    $user_id = $_SESSION['user_id'];
+    // Fallback if a helper exists; otherwise fetch directly
+    if (function_exists('getCurrentUser')) {
+        $current_user = getCurrentUser();
+    } else {
+        $current_user = getUserProfile($user_id, $_db);
+        if (is_array($current_user)) {
+            $current_user = (object)$current_user;
+        }
+    }
+}
 
 if (!$current_user) {
     temp('error', 'Unable to load user profile.');

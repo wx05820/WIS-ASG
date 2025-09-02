@@ -151,6 +151,9 @@ body {
 .search-input-group {
     flex: 1;
     min-width: 300px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .filter-group {
@@ -220,6 +223,47 @@ body {
     color: var(--wood-dark);
     transition: all 0.3s ease;
     font-family: 'Georgia', serif;
+}
+
+.search-btn {
+    background: var(--wood-primary);
+    color: var(--text-light);
+    border: 2px solid var(--wood-primary);
+    border-radius: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.search-btn:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    border-color: var(--gold-accent);
+}
+
+.id-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid var(--wood-light);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--wood-dark);
+    transition: all 0.3s ease;
+    font-family: 'Georgia', serif;
+    white-space: nowrap;
+}
+
+.id-sort-btn:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    border-color: var(--gold-accent);
+    transform: translateY(-1px);
 }
 
 .search-input:focus {
@@ -562,6 +606,24 @@ body {
     font-size: 24px;
 }
 
+.adduser-btn {
+    background-color: #a0522d; /* wood color */
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.7em 2em;
+    font-size: 1rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 6px rgba(160, 82, 45, 0.08);
+}
+
+.adduser-btn:hover,
+.adduser-btn:focus {
+    background-color: #8b4513; /* darker wood on hover */
+    outline: none;
+}
         .clear-filters-btn {
             background: linear-gradient(135deg, #ff6b6b, #ee5a52);
             color: white;
