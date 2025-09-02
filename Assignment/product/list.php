@@ -6,12 +6,19 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Get filter parameters
-$category = isset($_GET['category']) ? $_GET['category'] : '';
-$search = isset($_GET['query']) ? $_GET['query'] : '';
+// Initialize variables
+$products = [];
+$categories = [];
+$total_products = 0;
+$total_pages = 0;
+$error_message = '';
+
+// Get filter parameters with proper sanitization
+$category = isset($_GET['category']) && !empty($_GET['category']) ? $_GET['category'] : '';
+$search = isset($_GET['query']) && !empty($_GET['query']) ? trim($_GET['query']) : '';
 $sort = isset($_GET['sort']) ? $_GET['sort'] : 'name';
 $order = isset($_GET['order']) ? $_GET['order'] : 'ASC';
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $per_page = 12;
 
 // Validate sort and order parameters
@@ -25,61 +32,97 @@ if (!in_array($order, $allowed_orders)) {
     $order = 'ASC';
 }
 
-// Build the WHERE clause
-$where_conditions = [];
-$params = [];
-
-if (!empty($category)) {
-    $where_conditions[] = "p.catID = ?";
-    $params[] = $category;
-}
-
-// Always exclude removed products
-$where_conditions[] = "(p.status IS NULL OR p.status != 'removed')";
-
-if (!empty($search)) {
-    $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ?)";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-}
-
-$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-
-// Get total count for pagination
-$count_sql = "SELECT COUNT(*) as total FROM product p JOIN category c ON p.catID = c.catID $where_clause";
-$count_stmt = $_db->prepare($count_sql);
-$count_stmt->execute($params);
-$total_products = $count_stmt->fetch()['total'];
-$total_pages = ceil($total_products / $per_page);
-
-// Ensure page is within valid range
-if ($total_pages < 1) {
-    $page = 1;
-    $offset = 0;
+// Check database connection
+if (!isset($_db) || $_db === null) {
+    $error_message = "Database connection not available. Please check your configuration.";
 } else {
-    if ($page < 1) $page = 1;
-    if ($page > $total_pages) $page = $total_pages;
-    $offset = ($page - 1) * $per_page;
-    if ($offset < 0) $offset = 0;
+    try {
+        // Test database connection
+        $_db->query("SELECT 1");
+        
+        // Build the WHERE clause
+        $where_conditions = [];
+        $params = [];
+
+        if (!empty($category)) {
+            $where_conditions[] = "p.catID = ?";
+            $params[] = $category;
+        }
+
+        // Always exclude removed products
+        $where_conditions[] = "(p.status IS NULL OR p.status != 'removed')";
+
+        if (!empty($search)) {
+            $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ?)";
+            $params[] = "%$search%";
+            $params[] = "%$search%";
+        }
+
+        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
+        // Get total count for pagination - Simplified query first
+        $count_sql = "SELECT COUNT(*) as total FROM product p $where_clause";
+        $count_stmt = $_db->prepare($count_sql);
+        if ($count_stmt === false) {
+            throw new Exception("Failed to prepare count query");
+        }
+        
+        $count_stmt->execute($params);
+        $count_result = $count_stmt->fetch(PDO::FETCH_ASSOC);
+        $total_products = $count_result ? (int)$count_result['total'] : 0;
+        $total_pages = $total_products > 0 ? ceil($total_products / $per_page) : 1;
+
+        // Ensure page is within valid range
+        if ($page < 1) $page = 1;
+        if ($page > $total_pages) $page = $total_pages;
+        $offset = ($page - 1) * $per_page;
+        if ($offset < 0) $offset = 0;
+
+        // Get products with pagination - Fixed query structure
+        $sql = "SELECT p.prodID, p.name, p.price, p.qty, p.color, p.material, p.image1, p.description, 
+                       COALESCE(c.name, 'Uncategorized') as categoryName
+                FROM product p 
+                LEFT JOIN category c ON p.catID = c.catID
+                $where_clause
+                ORDER BY p.$sort $order 
+                LIMIT $per_page OFFSET $offset";
+
+        $stmt = $_db->prepare($sql);
+        if ($stmt === false) {
+            throw new Exception("Failed to prepare products query");
+        }
+        
+        $stmt->execute($params);
+        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get categories for filter dropdown
+        $cat_sql = "SELECT catID, name as categoryName FROM category ORDER BY name";
+        $cat_stmt = $_db->prepare($cat_sql);
+        if ($cat_stmt === false) {
+            throw new Exception("Failed to prepare categories query");
+        }
+        
+        $cat_stmt->execute();
+        $categories = $cat_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        // Handle PDO database errors
+        error_log("PDO Database error in product list: " . $e->getMessage());
+        $error_message = "Database error: " . $e->getMessage();
+        $products = [];
+        $categories = [];
+        $total_products = 0;
+        $total_pages = 0;
+    } catch (Exception $e) {
+        // Handle other errors
+        error_log("Error in product list: " . $e->getMessage());
+        $error_message = "Error loading products: " . $e->getMessage();
+        $products = [];
+        $categories = [];
+        $total_products = 0;
+        $total_pages = 0;
+    }
 }
-
-// Get products with pagination (temporarily without category join)
-$sql = "SELECT p.*, c.name as categoryName
-    FROM product p
-    JOIN category c ON p.catID = c.catID
-    $where_clause
-    ORDER BY p.$sort $order 
-    LIMIT $per_page OFFSET $offset";
-
-$stmt = $_db->prepare($sql);
-$stmt->execute($params);
-$products = $stmt->fetchAll();
-
-// Get categories for filter dropdown (temporarily simplified)
-$cat_sql = "SELECT c.catID, c.name as categoryName FROM category c ORDER BY c.name";
-$cat_stmt = $_db->prepare($cat_sql);
-$cat_stmt->execute();
-$categories = $cat_stmt->fetchAll();
 
 $page_title = "Products";
 ?>
@@ -87,18 +130,127 @@ $page_title = "Products";
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="../style.css">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-<link rel="stylesheet" href="../css/userlist.css">
-<?php include '../admin/adminheader.php'; ?>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($page_title); ?></title>
+    <link rel="stylesheet" href="../style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/userlist.css">
+    <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
+    <style>
+        .products-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 2rem;
+        }
+        
+        .product-list-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            min-height: 120px; /* Match with image height + padding */
+            align-items: center;
+        }
+        
+        .product-list-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #d0d0d0;
+        }
+        
+        .product-image {
+            flex-shrink: 0;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .product-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80px;
+        }
+        
+        .product-main-info {
+            margin-bottom: 12px;
+        }
+        
+        .product-name a:hover {
+            color: #8B4513 !important;
+        }
+        
+        .product-pricing {
+            margin-top: auto;
+        }
+        
+        .product-actions a:hover {
+            color: #8B4513 !important;
+        }
+        
+        @media (max-width: 768px) {
+            .product-list-item {
+                flex-direction: column;
+                text-align: center;
+                gap: 12px;
+                padding: 16px;
+            }
+            
+            .product-meta {
+                justify-content: center;
+            }
+            
+            .product-pricing {
+                flex-direction: column;
+                gap: 12px;
+                align-items: center;
+            }
+            
+            .price-stock {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+            }
+        }
+    </style>
 </head>
 
-
-<body main class="product-list-main">
+<body class="product-list-main">
+    <?php include '../admin/adminheader.php'; ?>
+    
     <div class="container">
-        <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
+        <!-- Display error message if any -->
+        <?php if (!empty($error_message)): ?>
+            <div class="error-message" style="background-color: #fee; color: #c33; padding: 1rem; margin: 1rem 0; border-radius: 4px; border: 1px solid #fcc;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <?php echo htmlspecialchars($error_message); ?>
+                <br><small>Please check the browser console for more details or contact your administrator.</small>
+            </div>
+        <?php endif; ?>
+
+        <!-- Debug Information (remove in production) -->
+        <?php if (isset($_GET['debug']) && $_GET['debug'] == '1'): ?>
+            <div class="debug-info" style="background: #f0f0f0; padding: 1rem; margin: 1rem 0; border-radius: 4px; font-family: monospace; font-size: 0.9em;">
+                <strong>Debug Information:</strong><br>
+                Database Connection: <?php echo isset($_db) ? 'Connected' : 'Not Connected'; ?><br>
+                Total Products Found: <?php echo $total_products; ?><br>
+                Current Page: <?php echo $page; ?><br>
+                Products Array Count: <?php echo count($products); ?><br>
+                Categories Array Count: <?php echo count($categories); ?><br>
+                Search Query: "<?php echo htmlspecialchars($search); ?>"<br>
+                Category Filter: <?php echo htmlspecialchars($category); ?><br>
+                Sort: <?php echo htmlspecialchars($sort); ?> <?php echo htmlspecialchars($order); ?>
+            </div>
+        <?php endif; ?>
         
         <!-- Page Header -->
         <div class="page-header">
@@ -112,16 +264,17 @@ $page_title = "Products";
 
                 <!-- Search Bar -->
                 <div class="search-filter">
-                    <form method="GET" action="" class="filter-form">
+                    <form method="GET" action="" class="filter-form" style="display: flex; gap: 10px; align-items: center;">
                         <input type="text" 
                                name="query" 
                                placeholder="Search products..." 
                                value="<?php echo htmlspecialchars($search); ?>"
-                               class="search-input">
-                        <button type="submit" class="search-btn">
+                               class="search-input"
+                               style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem;">
+                        <button type="submit" class="search-btn" style="padding: 0.5rem 1rem; font-size: 1.1rem;">
                             <i class="fas fa-search"></i>
                         </button>
-                        <select name="category" onchange="this.form.submit()" class="filter-select">
+                        <select name="category" onchange="this.form.submit()" class="filter-select" style="width: 180px; padding: 0.5rem 0.7rem; font-size: 1rem;">
                             <option value="">All Categories</option>
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo htmlspecialchars($cat['catID']); ?>" 
@@ -140,7 +293,7 @@ $page_title = "Products";
                         <option value="price" <?php echo ($sort === 'price') ? 'selected' : ''; ?>>Sort by Price</option>
                         <option value="qty" <?php echo ($sort === 'qty') ? 'selected' : ''; ?>>Sort by Stock</option>
                     </select>
-                    <button type="button" onclick="toggleOrder()" class="order-btn" title="Toggle sort order" style="background: wooden; border: none; cursor: pointer;">
+                    <button type="button" onclick="toggleOrder()" class="order-btn" title="Toggle sort order" style="background: #8B4513; border: none; cursor: pointer; color: white; padding: 8px; border-radius: 4px;">
                         <i class="fas fa-sort-<?php echo ($order === 'ASC') ? 'up' : 'down'; ?>"></i>
                     </button>
                     <button type="button" class="adduser-btn" onclick="window.location.href='addproduct.php'" style="margin-left: 10px;">
@@ -156,51 +309,76 @@ $page_title = "Products";
             </div>
         </div>
 
-        <!-- Products Grid -->
+        <!-- Products List -->
         <?php if (!empty($products)): ?>
-            <div class="products-grid">
+            <div class="products-list">
                 <?php foreach ($products as $product): ?>
-                    <div class="product-card">
+                    <div class="product-list-item">
                         <div class="product-image">
-                            <a href="detail.php?id=<?php echo $product['prodID']; ?>">
+                            <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>">
                                 <?php if (!empty($product['image1'])): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
-                                    alt="<?php echo htmlspecialchars($product['name']); ?>"
-                                    loading="lazy">
+                                    <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
+                                         alt="<?php echo htmlspecialchars($product['name']); ?>"
+                                         loading="lazy"
+                                         style="max-width:80px; max-height:80px; object-fit: cover; border-radius: 8px;">
                                 <?php else: ?>
-                                    <div class="no-image">
+                                    <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
                                         <i class="fas fa-image"></i>
-                                        <span>No Image</span>
                                     </div>
                                 <?php endif; ?>
                             </a>
                         </div>
 
-                        <div class="product-info">
-                            <h3 class="product-name">
-                                <a href="detail.php?id=<?php echo $product['prodID']; ?>">
-                                    <?php echo htmlspecialchars($product['name']); ?>
-                                </a>
-                            </h3>
-                            
-                            <div class="product-meta">
-                                <span class="category">Category: <?php echo htmlspecialchars($product['categoryName']); ?></span>
-                                <span class="stock <?php echo $product['qty'] > 0 ? 'in-stock' : 'out-of-stock'; ?>">
-                                    <?php if ($product['qty'] > 0): ?>
-                                        In Stock (<?php echo $product['qty']; ?>)
-                                    <?php else: ?>
-                                        Out of Stock
-                                    <?php endif; ?>
-                                </span>
+                        <div class="product-details">
+                            <div class="product-main-info">
+                                <h3 class="product-name" style="margin:0 0 8px 0; font-size:1.2em;">
+                                    <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>" style="text-decoration:none; color:#333;">
+                                        <?php echo htmlspecialchars($product['name']); ?>
+                                    </a>
+                                </h3>
+                                <p class="product-id" style="margin:0; color:#666; font-size:0.9em;">
+                                    Product ID: <?php echo htmlspecialchars($product['prodID']); ?>
+                                </p>
                             </div>
                             
-                            <div class="product-price" style="display: flex; align-items: center; justify-content: space-between;">
-                                <span class="price">RM <?php echo number_format($product['price'], 2); ?></span>
-                                <span class="product-actions" style="display: flex; gap: 10px;">
-                                    <a href="updateproduct.php?prodID=<?php echo $product['prodID']; ?>" title="Edit Product" style="color: grey; font-size: 1.3em;">
+                            <div class="product-meta" style="display:flex; gap:20px; margin:12px 0; flex-wrap:wrap;">
+                                <span class="category" style="background:#e8f4f8; padding:4px 8px; border-radius:4px; font-size:0.85em;">
+                                    <?php echo htmlspecialchars($product['categoryName']); ?>
+                                </span>
+                                <?php if (!empty($product['color'])): ?>
+                                    <span class="color" style="color:#666; font-size:0.9em;">
+                                        Color: <?php echo htmlspecialchars($product['color']); ?>
+                                    </span>
+                                <?php endif; ?>
+                                <?php if (!empty($product['material'])): ?>
+                                    <span class="material" style="color:#666; font-size:0.9em;">
+                                        Material: <?php echo htmlspecialchars($product['material']); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div class="product-pricing" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div class="price-stock">
+                                    <span class="price" style="font-size:1.1em; font-weight:600; color:#2c5530;">
+                                        RM <?php echo number_format((float)$product['price'], 2); ?>
+                                    </span>
+                                    <span class="stock <?php echo ($product['qty'] > 0) ? 'in-stock' : 'out-of-stock'; ?>" 
+                                          style="margin-left:15px; padding:4px 8px; border-radius:4px; font-size:0.85em; <?php echo ($product['qty'] > 0) ? 'background:#e8f5e8; color:#2c5530;' : 'background:#fee; color:#c33;'; ?>">
+                                        <?php if ($product['qty'] > 0): ?>
+                                            In Stock (<?php echo (int)$product['qty']; ?>)
+                                        <?php else: ?>
+                                            Out of Stock
+                                        <?php endif; ?>
+                                    </span>
+                                </div>
+                                
+                                <div class="product-actions">
+                                    <a href="updateproduct.php?prodID=<?php echo urlencode($product['prodID']); ?>" 
+                                       title="Edit Product" 
+                                       style="color: #666; font-size: 1.3em; text-decoration:none; padding:8px;">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -210,92 +388,156 @@ $page_title = "Products";
             <!-- Pagination -->
             <?php if ($total_pages > 1): ?>
                 <div class="pagination">
+                    <!-- First Page -->
+                    <?php if ($page > 1): ?>
+                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => 1])); ?>" 
+                        class="page-link">⏮ First</a>
+                    <?php else: ?>
+                        <span class="page-link disabled">⏮ First</span>
+                    <?php endif; ?>
+                    
+                    <!-- Previous Page -->
                     <?php if ($page > 1): ?>
                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" 
-                           class="page-link">&laquo; Previous</a>
+                        class="page-link">◀ Previous</a>
+                    <?php else: ?>
+                        <span class="page-link disabled">◀ Previous</span>
                     <?php endif; ?>
                     
-                    <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
-                           class="page-link <?php echo ($i == $page) ? 'active' : ''; ?>">
-                            <?php echo $i; ?>
-                        </a>
-                    <?php endfor; ?>
+                    <!-- Page Numbers -->
+                    <?php
+                    // Calculate the range of pages to show
+                    $start_page = max(1, $page - 2);
+                    $end_page = min($total_pages, $page + 2);
                     
-                    <?php if ($page < $total_pages): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
-                           class="page-link">Next &raquo;</a>
-                    <?php endif; ?>
-                </div>
+                    // Ensure we show at least 5 pages if available
+                    if ($end_page - $start_page < 4) {
+                        if ($start_page == 1) {
+                            $end_page = min($total_pages, $start_page + 4);
+                        } else {
+                            $start_page = max(1, $end_page - 4);
+                        }
+                    }
+            ?>
+        
+        <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+            <?php if ($i == $page): ?>
+                <span class="page-link active"><?php echo $i; ?></span>
+            <?php else: ?>
+                <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
+                   class="page-link"><?php echo $i; ?></a>
             <?php endif; ?>
+        <?php endfor; ?>
+        
+        <!-- Next Page -->
+        <?php if ($page < $total_pages): ?>
+            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
+               class="page-link">Next ▶</a>
         <?php else: ?>
-            <div class="no-products">
-                <i class="fas fa-search"></i>
+            <span class="page-link disabled">Next ▶</span>
+        <?php endif; ?>
+        
+        <!-- Last Page -->
+        <?php if ($page < $total_pages): ?>
+            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $total_pages])); ?>" 
+               class="page-link">Last ⏭</a>
+        <?php else: ?>
+            <span class="page-link disabled">Last ⏭</span>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+        <?php else: ?>
+            <div class="no-products" style="text-align: center; padding: 3rem 1rem; color: #666;">
+                <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
                 <h3>No products found</h3>
-                <p>Try adjusting your search criteria or browse all products.</p>
-                <a href="list.php" class="btn btn-primary">View All Products</a>
+                <?php if (!empty($search) || !empty($category)): ?>
+                    <p>No products match your search criteria.</p>
+                    <p>Search: "<?php echo htmlspecialchars($search); ?>" 
+                       <?php if (!empty($category)): ?>
+                           | Category: <?php echo htmlspecialchars($category); ?>
+                       <?php endif; ?>
+                    </p>
+                    <a href="?" class="btn btn-primary" style="display: inline-block; padding: 10px 20px; background: #8B4513; color: white; text-decoration: none; border-radius: 4px; margin-top: 1rem;">Clear Filters</a>
+                <?php else: ?>
+                    <p>No products are available at the moment.</p>
+                    <button type="button" class="btn btn-primary" onclick="window.location.reload()" style="padding: 10px 20px; background: #8B4513; color: white; border: none; border-radius: 4px; margin-top: 1rem; cursor: pointer;">
+                        <i class="fas fa-refresh"></i> Refresh Page
+                    </button>
+                <?php endif; ?>
+                
+                <!-- Add debug link -->
+                <?php if (!isset($_GET['debug'])): ?>
+                    <br><br>
+                    <a href="?debug=1" style="color: #666; font-size: 0.9em;">Show debug information</a>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
     </div>
-</body>
-<?php include '../footer.php'; ?>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    initializeProductList();
-});
 
-function toggleOrder() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentOrder = urlParams.get('order') || 'ASC';
-    const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
-    urlParams.set('order', newOrder);
-    urlParams.set('page', '1'); // Reset to first page
-    window.location.href = '?' + urlParams.toString();
-}
+    <?php include '../footer.php'; ?>
 
-function initializeProductList() {
-    // Initialize quick view modal
-    const modal = document.getElementById('quickViewModal');
-    const closeBtn = modal.querySelector('.close');
-    
-    closeBtn.onclick = function() {
-        modal.style.display = 'none';
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeProductList();
+    });
+
+    function toggleOrder() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentOrder = urlParams.get('order') || 'ASC';
+        const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
+        urlParams.set('order', newOrder);
+        urlParams.set('page', '1'); // Reset to first page
+        window.location.href = '?' + urlParams.toString();
     }
-    
-    window.onclick = function(event) {
-        if (event.target == modal) {
-            modal.style.display = 'none';
+
+    function initializeProductList() {
+        // Initialize quick view modal if it exists
+        const modal = document.getElementById('quickViewModal');
+        if (modal) {
+            const closeBtn = modal.querySelector('.close');
+            
+            if (closeBtn) {
+                closeBtn.onclick = function() {
+                    modal.style.display = 'none';
+                }
+            }
+            
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            }
         }
     }
-}
 
-function updateSort(sortValue) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('sort', sortValue);
-    urlParams.set('page', '1'); // Reset to first page
-    window.location.href = '?' + urlParams.toString();
-}
+    function updateSort(sortValue) {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('sort', sortValue);
+        urlParams.set('page', '1'); // Reset to first page
+        window.location.href = '?' + urlParams.toString();
+    }
 
-function showNotification(message, type) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-        <span>${message}</span>
-    `;
-    
-    // Add to page
-    document.body.appendChild(notification);
-    
-    // Show notification
-    setTimeout(() => notification.classList.add('show'), 100);
-    
-    // Remove notification after 3 seconds
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-</script>
+    function showNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            <span>${message}</span>
+        `;
+        
+        // Add to page
+        document.body.appendChild(notification);
+        
+        // Show notification
+        setTimeout(() => notification.classList.add('show'), 100);
+        
+        // Remove notification after 3 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+    </script>
+</body>
+</html>

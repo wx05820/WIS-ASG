@@ -66,7 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
         $stmt = $_db->prepare($sql);
         if ($stmt->execute([$name, $price, $qty, $description, $color, $measurement, $material, $image1, $image2, $image3, $catID, $prodID])) {
             $message = "Product updated successfully!";
-            echo '<div class="message" id="form-message" style="color: green; background: #fff; border: 2px solid green; margin-bottom: 1rem; text-align: center; font-weight: bold;">'.htmlspecialchars($message).'</div>';
             echo '<script>setTimeout(function(){ window.location.href = "list.php"; }, 2000);</script>';
             exit;
         } else {
