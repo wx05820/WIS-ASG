@@ -19,9 +19,6 @@ if ($prodID) {
     $errorMsg = "No product ID provided.";
 }
 
-$catID = $_POST['catID'] ?? ($_GET['catID'] ?? '');
-$message = '';
-
 // Get categories for dropdown
 $cat_sql = "SELECT catID, name FROM category ORDER BY name";
 $cat_stmt = $_db->prepare($cat_sql);
@@ -29,71 +26,85 @@ $cat_stmt->execute();
 $categories = $cat_stmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
-	$name = $_POST['name'] ?? '';
-	$price = $_POST['price'] ?? '';
-	$qty = $_POST['qty'] ?? '';
-	$description = $_POST['description'] ?? '';
-	$color = $_POST['color'] ?? '';
-	$measurement = $_POST['measurement'] ?? '';
-	$material = $_POST['material'] ?? '';
+    $name = $_POST['name'] ?? '';
+    $price = $_POST['price'] ?? '';
+    $qty = $_POST['qty'] ?? '';
+    $description = $_POST['description'] ?? '';
+    $color = $_POST['color'] ?? '';
+    $measurement = $_POST['measurement'] ?? '';
+    $material = $_POST['material'] ?? '';
     $catID = $_POST['catID'] ?? '';
-	$image1 = $product['image1'];
+    
+    // Keep existing images by default
+    $image1 = $product['image1'];
     $image2 = $product['image2'];
     $image3 = $product['image3'];
 
-	if (empty($name) || $price === '' || $qty === '' || empty($description) || empty($color) || empty($measurement) || empty($material) || empty($catID)) {
+    if (empty($name) || $price === '' || $qty === '' || empty($description) || empty($color) || empty($measurement) || empty($material) || empty($catID)) {
         $errorMsg = "All fields are required.";
     }
 
-    // Handle image uploads (replace only if new file uploaded)
-    if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
-        $targetDir = '../bin/';
-        for ($i = 0; $i < min(3, count($_FILES['images']['name'])); $i++) {
-            if ($_FILES['images']['error'][$i] === UPLOAD_ERR_OK) {
-                $fileName = basename($_FILES['images']['name'][$i]);
-                $targetFile = $targetDir . $fileName;
-                if (move_uploaded_file($_FILES['images']['tmp_name'][$i], $targetFile)) {
-                    if ($i === 0) $image1 = $fileName;
-                    if ($i === 1) $image2 = $fileName;
-                    if ($i === 2) $image3 = $fileName;
-                }
-            }
-        }
+    // Check if user selected "Add New Category"
+    if ($catID === 'new' && !empty($_POST['newCategory'])) {
+        $newCatName = trim($_POST['newCategory']);
+
+        // Generate next catID
+        $cat_sql = "SELECT MAX(CAST(SUBSTRING(catID, 2) AS UNSIGNED)) FROM category";
+        $cat_stmt = $_db->prepare($cat_sql);
+        $cat_stmt->execute();
+        $maxCatID = $cat_stmt->fetchColumn();
+        $nextCatID = 'C' . str_pad(($maxCatID ? $maxCatID + 1 : 1), 4, '0', STR_PAD_LEFT);
+
+        // Insert new category
+        $insert_cat_sql = "INSERT INTO category (catID, name) VALUES (?, ?)";
+        $insert_cat_stmt = $_db->prepare($insert_cat_sql);
+        $insert_cat_stmt->execute([$nextCatID, $newCatName]);
+
+        // Use the new catID for the product update
+        $catID = $nextCatID;
     }
 
-	if ($errorMsg === '') {
+    // Handle individual image uploads (only if no error)
+    if ($errorMsg === '') {
+        $targetDir = '../bin/';
+        
+        // Handle image1
+        if (isset($_FILES['image1']) && $_FILES['image1']['error'] === UPLOAD_ERR_OK) {
+            $fileName = basename($_FILES['image1']['name']);
+            $targetFile = $targetDir . $fileName;
+            if (move_uploaded_file($_FILES['image1']['tmp_name'], $targetFile)) {
+                $image1 = $fileName;
+            }
+        }
+        
+        // Handle image2
+        if (isset($_FILES['image2']) && $_FILES['image2']['error'] === UPLOAD_ERR_OK) {
+            $fileName = basename($_FILES['image2']['name']);
+            $targetFile = $targetDir . $fileName;
+            if (move_uploaded_file($_FILES['image2']['tmp_name'], $targetFile)) {
+                $image2 = $fileName;
+            }
+        }
+        
+        // Handle image3
+        if (isset($_FILES['image3']) && $_FILES['image3']['error'] === UPLOAD_ERR_OK) {
+            $fileName = basename($_FILES['image3']['name']);
+            $targetFile = $targetDir . $fileName;
+            if (move_uploaded_file($_FILES['image3']['tmp_name'], $targetFile)) {
+                $image3 = $fileName;
+            }
+        }
+
+        // Update product in database
         $sql = "UPDATE product SET name=?, price=?, qty=?, description=?, color=?, measurement=?, material=?, image1=?, image2=?, image3=?, catID=? WHERE prodID=?";
         $stmt = $_db->prepare($sql);
         if ($stmt->execute([$name, $price, $qty, $description, $color, $measurement, $material, $image1, $image2, $image3, $catID, $prodID])) {
             $message = "Product updated successfully!";
             echo '<script>setTimeout(function(){ window.location.href = "list.php"; }, 2000);</script>';
-            exit;
         } else {
             $errorMsg = "Failed to update product.";
         }
-
-		// Check if user selected "Add New Category"
-		if ($catID === 'new' && !empty($_POST['newCategory'])) {
-			$newCatName = trim($_POST['newCategory']);
-
-			// Generate next catID
-			$cat_sql = "SELECT MAX(CAST(SUBSTRING(catID, 2) AS UNSIGNED)) FROM category";
-			$cat_stmt = $_db->prepare($cat_sql);
-			$cat_stmt->execute();
-			$maxCatID = $cat_stmt->fetchColumn();
-			$nextCatID = 'C' . str_pad(($maxCatID ? $maxCatID + 1 : 1), 4, '0', STR_PAD_LEFT);
-
-			// Insert new category
-			$insert_cat_sql = "INSERT INTO category (catID, name) VALUES (?, ?)";
-			$insert_cat_stmt = $_db->prepare($insert_cat_sql);
-			$insert_cat_stmt->execute([$nextCatID, $newCatName]);
-
-			// Use the new catID for the product insert
-			$catID = $nextCatID;
-		}
-	} else {
-		$message = '';
-	}
+    }
 }
 ?>
 
@@ -118,20 +129,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
         </div>
 
         <!-- Product Management Buttons -->
-		<div class="product-management" style="display: flex; gap: 15px; align-items: center;">
-			<a href="list.php" title="All Product" style="color: white; font-size: 1.5em;">
-				<i class="fas fa-list"></i>
-			</a>
+        <div class="product-management" style="display: flex; gap: 15px; align-items: center;">
+            <a href="list.php" title="All Product" style="color: white; font-size: 1.5em;">
+                <i class="fas fa-list"></i>
+            </a>
             <a href="../admin/adminpage.php" title="Home" style="color: white; font-size: 1.5em;">
-				<i class="fas fa-home"></i>
-			</a>
-		</div>
+                <i class="fas fa-home"></i>
+            </a>
+        </div>
     </div>
 </header>
 
 <body main class="update-product-main" style="background: #fff;">
 
-	<div class="container">
+    <div class="container">
         <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
 
         <!-- Page Header -->
@@ -140,22 +151,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
             <p>Handcrafted with quality materials and timeless designs</p>
         </div>
 
-		<!-- Update Product -->
-		<?php if ($errorMsg): ?>
-			<div class="message" style="color: red; background: #fff; border: 2px solid red; margin-bottom: 1rem; text-align: center; font-weight: bold;">
-				<?php echo htmlspecialchars($errorMsg); ?>
-			</div>
-		<?php endif; ?>
+        <!-- Update Product -->
+        <?php if ($errorMsg): ?>
+            <div class="message" style="color: red; background: #fff; border: 2px solid red; margin-bottom: 1rem; text-align: center; font-weight: bold;">
+                <?php echo htmlspecialchars($errorMsg); ?>
+            </div>
+        <?php endif; ?>
 
-		<?php if (!empty($message)): ?>
-			<div class="message" id="form-message"> <?php echo htmlspecialchars($message); ?> </div>
-			<script>
-				setTimeout(function() {
-					var msg = document.getElementById('form-message');
-					if (msg) { msg.style.display = 'none'; }
-				}, 2000);
-			</script>
-		<?php endif; ?>
+        <?php if (!empty($message)): ?>
+            <div class="message" id="form-message"> <?php echo htmlspecialchars($message); ?> </div>
+            <script>
+                setTimeout(function() {
+                    var msg = document.getElementById('form-message');
+                    if (msg) { msg.style.display = 'none'; }
+                }, 2000);
+            </script>
+        <?php endif; ?>
 
         <?php if ($product): ?>
             <form class="addproduct-form" method="POST" enctype="multipart/form-data">
@@ -181,7 +192,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                     </label>
                     <input type="number" name="qty" min="0" required style="width: 100px; font-size: 0.95rem; padding: 0.5rem 0.7rem;" value="<?php echo htmlspecialchars($product['qty']); ?>">
                 </div>
-
 
                 <label>Description:
                     <?php if (!empty($errorMsg)): ?>
@@ -212,15 +222,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                 <input type="text" name="material" required style="width: 500px; padding: 0.5rem 0.7rem" value="<?php echo htmlspecialchars($product['material']); ?>">
 
                 <label>Category:</label>
-                    <select name="catID" required style="width: 300px; padding: 0.5rem 0.7rem" id="catID">>
-                        <option value="new">+ Add New Category</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?php echo $cat['catID']; ?>" <?php echo ($product['catID'] == $cat['catID']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($cat['name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div id="new-category-div" style="display: none; margin-top: 10px;">
+                <select name="catID" required style="width: 300px; padding: 0.5rem 0.7rem" id="catID">
+                    <option value="">Select Category</option>
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?php echo $cat['catID']; ?>" <?php echo ($product['catID'] == $cat['catID']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($cat['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                    <option value="new">+ Add New Category</option>
+                </select>
+                <div id="new-category-div" style="display: none; margin-top: 10px;">
                     <label for="newCategory">New Category Name:</label>
                     <input type="text" name="newCategory" id="newCategory" style="width: 300px; padding: 0.5rem 0.7rem">
                 </div>
@@ -250,8 +261,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                     });
                 </script>
 
-                <label>Product Images (upload to replace):</label>
-                <input type="file" name="images[]" accept="image/*" multiple>
+                <label>Product Images:</label>
+                <div class="product-images-container" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <!-- Image 1 -->
+                    <div class="image-upload-box" style="position: relative; width: 150px; height: 150px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;">
+                        <input type="file" id="image1-input" name="image1" accept="image/*" style="display: none;" onchange="previewImage(this, 'preview1')">
+                        <div id="preview1" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                            <?php if (!empty($product['image1'])): ?>
+                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" alt="Product Image 1" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="document.getElementById('image1-input').click();">
+                            <?php else: ?>
+                                <div onclick="document.getElementById('image1-input').click();" style="text-align:center;color:#666;">
+                                    <i class="fas fa-plus" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+                                    <span>Add Image 1</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Image 2 -->
+                    <div class="image-upload-box" style="position: relative; width: 150px; height: 150px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;">
+                        <input type="file" id="image2-input" name="image2" accept="image/*" style="display: none;" onchange="previewImage(this, 'preview2')">
+                        <div id="preview2" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                            <?php if (!empty($product['image2'])): ?>
+                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image2']); ?>" alt="Product Image 2" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="document.getElementById('image2-input').click();">
+                            <?php else: ?>
+                                <div onclick="document.getElementById('image2-input').click();" style="text-align:center;color:#666;">
+                                    <i class="fas fa-plus" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+                                    <span>Add Image 2</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Image 3 -->
+                    <div class="image-upload-box" style="position: relative; width: 150px; height: 150px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;">
+                        <input type="file" id="image3-input" name="image3" accept="image/*" style="display: none;" onchange="previewImage(this, 'preview3')">
+                        <div id="preview3" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                            <?php if (!empty($product['image3'])): ?>
+                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image3']); ?>" alt="Product Image 3" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="document.getElementById('image3-input').click();">
+                            <?php else: ?>
+                                <div onclick="document.getElementById('image3-input').click();" style="text-align:center;color:#666;">
+                                    <i class="fas fa-plus" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+                                    <span>Add Image 3</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    function previewImage(input, previewId) {
+                        if (input.files && input.files[0]) {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const previewBox = document.getElementById(previewId);
+                                previewBox.innerHTML = '';
+                                const img = document.createElement('img');
+                                img.src = e.target.result;
+                                img.alt = 'Preview';
+                                img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;';
+                                img.onclick = function() { input.click(); };
+                                previewBox.appendChild(img);
+                            };
+                            reader.readAsDataURL(input.files[0]);
+                        }
+                    }
+                </script>
 
                 <?php if (!empty($errorMsg)): ?>
                     <textarea readonly style="color: red; background: #fff; border: none; width: 100%;">Error: <?php echo htmlspecialchars($errorMsg); ?></textarea>
@@ -266,6 +341,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
 
             </form>
         <?php endif; ?>
-	</div>
+    </div>
 </body>
 </html>
