@@ -11,16 +11,6 @@
 }
 
 /* Header Styles */
-.wooden-header {
-    background-color: var(--wood-primary);
-    color: var(--text-light);
-    padding: 15px 0 0;
-    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
-    border-bottom: 3px solid var(--wood-dark);
-    position: relative;
-    z-index: 1000;
-}
-
 .header-container {
     display: flex;
     justify-content: space-between;

@@ -1,5 +1,5 @@
 /* Admin Header Styles */
-.wooden-header { width: 100%; margin-bottom: 24px; }
+.wooden-header { width: 100%; }
 .wooden-header .header-container { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; }
 .wooden-header .logo-section { display: flex; align-items: center; gap: 14px; }
 .wooden-header .logo { height: 48px; width: 48px; border-radius: 50%; object-fit: cover; }
