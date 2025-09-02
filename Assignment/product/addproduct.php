@@ -254,7 +254,7 @@ $categories = $cat_stmt->fetchAll();
 						newCatInput.setAttribute('required', 'required');
 					} else {
 						newCatDiv.style.display = 'none';
-						newCatInput.removeAttribute('required');
+						newCatInput. Attribute('required');
 					}
 				});
 

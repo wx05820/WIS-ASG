@@ -86,7 +86,6 @@ $page_title = "Products";
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -94,27 +93,27 @@ $page_title = "Products";
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 
-<header class="wooden-header">
-    <div class="header-container">
-        <!-- Logo and Company Name -->
-        <div class="logo-section">
-            <a href="../admin/adminpage.php">
-                <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
-                <span class="company-name">AiKUN</span>
-            </a>
-        </div>
+    <header class="wooden-header">
+        <div class="header-container">
+            <!-- Logo and Company Name -->
+            <div class="logo-section">
+                <a href="../admin/adminpage.php">
+                    <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
+                    <span class="company-name">AiKUN</span>
+                </a>
+            </div>
 
-        <!-- Product Management Buttons -->
-        <div class="product-management" style="display: flex; gap: 15px; align-items: center;">
-            <a href="addproduct.php" title="Add Product" style="color: white; font-size: 2em;">
-                <i class="fas fa-plus-circle"></i>
-            </a>
-            <a href="../admin/adminpage.php" title="Home" style="color: white; font-size: 1.5em;">
-				<i class="fas fa-home"></i>
-			</a>
+            <!-- Product Management Buttons -->
+            <div class="product-management" style="display: flex; gap: 15px; align-items: center;">
+                <a href="addproduct.php" title="Add Product" style="color: white; font-size: 2em;">
+                    <i class="fas fa-plus-circle"></i>
+                </a>
+                <a href="../admin/adminpage.php" title="Home" style="color: white; font-size: 1.5em;">
+                    <i class="fas fa-home"></i>
+                </a>
+            </div>
         </div>
-    </div>
-</header>
+    </header>
 
 <body main class="product-list-main">
 
@@ -215,11 +214,8 @@ $page_title = "Products";
                             <div class="product-price" style="display: flex; align-items: center; justify-content: space-between;">
                                 <span class="price">RM <?php echo number_format($product['price'], 2); ?></span>
                                 <span class="product-actions" style="display: flex; gap: 10px;">
-                                    <a href="editproduct.php?id=<?php echo $product['prodID']; ?>" title="Edit Product" style="color: grey; font-size: 1.3em;">
+                                    <a href="updateproduct.php?prodID=<?php echo $product['prodID']; ?>" title="Edit Product" style="color: grey; font-size: 1.3em;">
                                         <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="removeproduct.php?prodID=<?php echo $product['prodID']; ?>" title="Delete Product" style="color: red; font-size: 1.3em;" onclick="return confirm('Are you sure you want to delete this product?');">
-                                        <i class="fas fa-trash-alt"></i>
                                     </a>
                                 </span>
                             </div>
