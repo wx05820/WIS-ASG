@@ -74,7 +74,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/index.css">
-    <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/userProduct.css">
 </head>
 <body data-user-id="<?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : ''; ?>">
     <header class="wooden-header">
@@ -163,6 +162,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 <hr class="dropdown-divider">
                                 <a href="/user/profile.php" class="dropdown-item" role="menuitem">
                                     <i class="fas fa-user-edit"></i> Edit Profile
+                                </a>
+                                <a href="/user/wishlist.php" class="dropdown-item" role="menuitem">
+                                    <i class="fas fa-heart"></i> Wishlist
+                                </a>
+                                <a href="/user/addresses.php" class="dropdown-item" role="menuitem">
+                                    <i class="fas fa-map-marker-alt"></i> Addresses
                                 </a>
                                 <hr class="dropdown-divider">
                                 <a href="/user/logout.php" class="dropdown-item logout-item" role="menuitem">

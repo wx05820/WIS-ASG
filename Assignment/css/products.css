@@ -432,6 +432,32 @@ body {
     transform: translateY(-2px);
 }
 
+/* Wishlist button styling on product cards */
+.btn-wishlist {
+    background: #fff;
+    border: 1px solid var(--wood-light);
+    color: var(--wood-dark);
+    padding: 0.6rem 1rem;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.btn-wishlist:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+}
+.btn-wishlist i { color: #B22222; }
+.btn-wishlist.added {
+    background: linear-gradient(135deg, #D2691E, #8B4513);
+    color: #fff;
+    border-color: #8B4513;
+}
+.btn-wishlist.added i { color: #fff; }
+
 .add-to-cart-btn.disabled {
     background: #6c757d;
     cursor: not-allowed;

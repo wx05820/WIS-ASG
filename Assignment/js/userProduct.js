@@ -11,6 +11,7 @@ async function addToCart(productId, qty = 1) {
         const userId = document.body.dataset.userId || document.querySelector('.container')?.dataset.userId;
         if (!userId) {
             showError("Please log in to add items to your cart");
+            setTimeout(() => { window.location.href = "/user/login.php"; }, 1500);
             return;
         }
 
@@ -19,13 +20,22 @@ async function addToCart(productId, qty = 1) {
         formData.append('prodID', productId);
         formData.append('qty', qty);
 
-        const response = await fetch('/order/cart_add.php', {
+        // Resolve endpoint from the form's action attribute (avoid collision with input[name="action"]) 
+        const cartForm = document.querySelector('form.cart-form');
+        const endpoint = (cartForm && cartForm.getAttribute('action')) || '/order/cart_add.php';
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData
         });
+
+        // If server redirects to login, follow it
+        if (response.redirected && response.url.includes('/user/login.php')) {
+            window.location.href = response.url;
+            return;
+        }
 
         if (!response.ok) {
             throw new Error('Unable to add item to your cart');
@@ -185,7 +195,8 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             
-            let productId = this.dataset.productId || this.closest('.product-card')?.dataset.id || this.closest('form')?.querySelector('input[name="prodID"]')?.value;
+            const formEl = this.closest('form');
+            let productId = this.dataset.productId || this.closest('.product-card')?.dataset.id || formEl?.querySelector('input[name="prodID"]').value;
             
             if (!productId) {
                 showError('Unable to find product information');
@@ -201,21 +212,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 const userId = document.body.dataset.userId;
                 if (!userId) {
                     showError("Please log in to add items to your cart");
+                    setTimeout(() => { window.location.href = "/user/login.php"; }, 1500);
                     return;
                 }
 
                 const formData = new FormData();
                 formData.append('action', 'add');
                 formData.append('prodID', productId);
-                formData.append('qty', 1);
+                // Prefer quantity from associated input if present
+                const qtyInput = formEl?.querySelector('input[name="qty"], input[id^="list-qty-"], #detail-qty');
+                const qtyVal = qtyInput ? parseInt(qtyInput.value || '1', 10) : 1;
+                formData.append('qty', Math.max(1, qtyVal));
 
-                const response = await fetch('/order/cart_add.php', {
+                const endpoint = (formEl && formEl.getAttribute('action')) ? formEl.getAttribute('action') : '/order/cart_add.php';
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: formData
                 });
+
+                // Handle redirect to login
+                if (response.redirected && response.url.includes('/user/login.php')) {
+                    window.location.href = response.url;
+                    return;
+                }
 
                 if (!response.ok) {
                     throw new Error('Unable to add item to your cart');
@@ -234,6 +256,53 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 this.disabled = false;
                 this.textContent = originalText;
+            }
+        });
+    });
+
+    // AJAX wishlist add/remove on product pages/lists
+    document.querySelectorAll('.wishlist-form').forEach(form => {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            // Confirm remove
+            const action = (this.querySelector('input[name="action"]')?.value || '').toLowerCase();
+            if (action === 'remove') {
+                const title = this.closest('.product-card')?.querySelector('.product-name')?.textContent?.trim() || 'this item';
+                if (!confirm(`Remove ${title} from wishlist?`)) {
+                    return;
+                }
+            }
+            const userId = document.body.dataset.userId;
+            if (!userId) {
+                showError("Please log in to use wishlist");
+                setTimeout(() => { window.location.href = "/user/login.php"; }, 1200);
+                return;
+            }
+            const btn = this.querySelector('button[type="submit"]');
+            const actionInput = this.querySelector('input[name="action"]');
+            const original = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-heart"></i> Saving...';
+            try {
+                const formData = new FormData(this);
+                const res = await fetch(this.getAttribute('action'), { method: 'POST', body: formData, headers: {'X-Requested-With':'XMLHttpRequest'} });
+                if (!res.ok) throw new Error('Wishlist request failed');
+                // Toggle UI/state
+                if (formData.get('action') === 'add') {
+                    btn.classList.add('added');
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Added';
+                    if (actionInput) actionInput.value = 'remove';
+                } else {
+                    btn.classList.remove('added');
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Wishlist';
+                    if (actionInput) actionInput.value = 'add';
+                }
+                showSuccess('Wishlist updated');
+            } catch (err) {
+                console.error(err);
+                showError('Unable to update wishlist');
+            } finally {
+                btn.disabled = false;
             }
         });
     });
@@ -266,6 +335,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.disabled = false;
                 this.textContent = originalText;
             }
+        });
+    });
+
+    // Quantity +/- controls
+    document.querySelectorAll('.qty-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetSel = this.getAttribute('data-target');
+            const input = document.querySelector(targetSel);
+            if (!input) return;
+            const max = parseInt(input.getAttribute('max') || '9999', 10);
+            const min = parseInt(input.getAttribute('min') || '1', 10);
+            let val = parseInt(input.value || '1', 10);
+            const isPlus = this.getAttribute('data-op') === 'plus';
+            val = isPlus ? Math.min(max, val + 1) : Math.max(min, val - 1);
+            input.value = val;
+            // Trigger change for any listeners
+            input.dispatchEvent(new Event('change'));
         });
     });
 });

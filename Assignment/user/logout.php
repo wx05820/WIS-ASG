@@ -297,7 +297,7 @@ if (!isset($_GET['confirm'])) {
 
         <!-- Play confirmation sound -->
         <audio autoplay>
-            <source src="images/beforelogOut.mp3" type="audio/mpeg">
+            <source src="/images/beforelogOut.mp3" type="audio/mpeg">
         </audio>
     </body>
     </html>
@@ -777,7 +777,7 @@ $redirect_url = '/index.php';
 
     <!-- Play logout success sound -->
     <audio autoplay>
-        <source src="images/logOutSuccess.mp3" type="audio/mpeg">
+        <source src="/images/logOutSuccess.mp3" type="audio/mpeg">
     </audio>
 
     <script>

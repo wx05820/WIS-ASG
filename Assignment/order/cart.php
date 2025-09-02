@@ -90,7 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch($action){
             case "update_qty":
                 $prodID = $_POST['id'] ?? $_GET['prodID'] ?? null;
-                $qty = max(1, (int)($_POST['qty'] ?? $_GET['qty'] ?? 1));
+                $qtyRaw = (int)($_POST['qty'] ?? $_GET['qty'] ?? 1);
+                $qty = $qtyRaw;
 
                 if (!$prodID) {
                     $_SESSION['error'] = "Invalid product ID";
@@ -107,6 +108,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     redirect('/order/cart_page.php');
                 }
                 
+                // If new qty is 0, remove the item
+                if ($qty <= 0) {
+                    $cartID = ensureCart($user_id);
+                    if ($cartID) {
+                        $stmt = $_db->prepare("DELETE FROM cart_items WHERE cartID=? AND prodID=?");
+                        $stmt->execute([$cartID, $prodID]);
+                        $_SESSION['success'] = "Item removed from cart";
+                    }
+                    redirect('/order/cart_page.php');
+                }
+
                 if ($stock <= 0) {
                     $_SESSION['error'] = "Product is out of stock";
                     redirect('/order/cart_page.php');
@@ -166,10 +178,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['success'] = "Item removed from cart";
                 redirect('/order/cart_page.php');
                 break;
-
-            default:
-                $_SESSION['error'] = "Invalid action";
-                redirect('/order/cart_page.php');
         }
 
         $cart = get_cart($user_id);

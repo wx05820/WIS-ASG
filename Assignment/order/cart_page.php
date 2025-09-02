@@ -72,14 +72,14 @@ include '../header.php'; ?>
                                 <?php if ($stock <= 10 && $stock > 0): ?>
                                     <p class="stock-warning">Only <?= $stock ?> left in stock</p>
                                 <?php elseif ($stock === 0): ?>
-                                    <p class="out-of-stock">Out of stock</p>
+                                    <p class="out-of-stock">❌ Out of stock</p>
                                 <?php endif; ?>
                             </div>
                         </div>
                         
                         <div class="qty">
-                            <button type="button" class="dec" data-id="<?= htmlspecialchars($prodID)?>" <?= $row['qty'] <= 1 ? 'disabled' : '' ?> aria-label="Decrease quantity">-</button>
-                            <input type="number" value="<?= $row['qty']?>" class="qty-input" min="1" max="<?= $stock ?>" data-id="<?= htmlspecialchars($prodID)?>">
+                            <button type="button" class="dec" data-id="<?= htmlspecialchars($prodID)?>" aria-label="Decrease quantity">-</button>
+                            <input type="number" value="<?= $row['qty']?>" class="qty-input" min="0" max="<?= $stock ?>" data-id="<?= htmlspecialchars($prodID)?>">
                             <button type="button" class="inc" data-id="<?= htmlspecialchars($prodID)?>" <?= $row['qty'] >= $stock ? 'disabled' : '' ?> aria-label="Increase quantity">+</button>
                         </div>
                                                 
@@ -105,9 +105,7 @@ include '../header.php'; ?>
                     </div>
                     
                     <div class="cart-checkout">
-                        <button class="btn-primary btn-large checkout-btn" 
-                                onclick="proceedToCheckout()"
-                                <?= empty($cart) ? 'disabled' : '' ?>>
+                        <button class="btn-primary btn-large checkout-btn" onclick="proceedToCheckout()"<?= empty($cart) ? 'disabled' : '' ?>>
                             Checkout
                         </button>
                     </div>
@@ -139,13 +137,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
 document.addEventListener('DOMContentLoaded', function() {
     // Handle quantity buttons
+    function postUpdateQty(prodID, qty) {
+        const formData = new FormData();
+        formData.append('action', 'update_qty');
+        formData.append('prodID', prodID);
+        formData.append('qty', qty);
+        fetch('/order/cart.php?action=update_qty', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(() => window.location.reload());
+    }
+
     document.querySelectorAll('.dec').forEach(button => {
         button.addEventListener('click', function() {
             const qtyInput = this.parentElement.querySelector('.qty-input');
-            const currentQty = parseInt(qtyInput.value);
+            const currentQty = parseInt(qtyInput.value || '0', 10);
+            const prodID = this.dataset.id;
             if (currentQty > 1) {
-                qtyInput.value = currentQty - 1;
-                qtyInput.form.submit();
+                postUpdateQty(prodID, currentQty - 1);
+            } else {
+                // Going from 1 to 0 will remove the item – ask for confirmation
+                const prodName = this.closest('.cart-row')?.querySelector('.title')?.textContent?.trim() || 'this item';
+                if (confirm(`Remove ${prodName} from cart?`)) {
+                    postUpdateQty(prodID, 0);
+                }
             }
         });
     });
@@ -155,10 +171,33 @@ document.addEventListener('DOMContentLoaded', function() {
             const qtyInput = this.parentElement.querySelector('.qty-input');
             const maxQty = parseInt(qtyInput.max);
             const currentQty = parseInt(qtyInput.value);
+            const prodID = this.dataset.id;
             if (currentQty < maxQty) {
-                qtyInput.value = currentQty + 1;
-                qtyInput.form.submit();
+                postUpdateQty(prodID, currentQty + 1);
             }
+        });
+    });
+
+    // Confirm when user manually types 0
+    document.querySelectorAll('.qty-input').forEach(input => {
+        input.addEventListener('change', function() {
+            let val = parseInt(this.value || '0', 10);
+            const max = parseInt(this.getAttribute('max') || '9999', 10);
+            const min = parseInt(this.getAttribute('min') || '0', 10);
+            const prodID = this.dataset.id;
+
+            // Clamp between min & max
+            if (val > max) val = max;
+            if (val < min) val = min;
+
+            if (val === 0) {
+                const prodName = this.closest('.cart-row')?.querySelector('.title')?.textContent?.trim() || 'this item';
+                if (!confirm(`Remove ${prodName} from cart?`)) {
+                    this.value = 1;
+                    return;
+                }
+            }
+            postUpdateQty(prodID, val);
         });
     });
 

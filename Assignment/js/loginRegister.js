@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('.form-input');
     
     const errorSounds = [
-        new Audio('images/errorAudio.mp3')
+        new Audio('/images/errorAudio.mp3')
     ];
     
     errorSounds.forEach(sound => sound.volume = 0.6);
