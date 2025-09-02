@@ -101,7 +101,7 @@ function updateOrderSummary() {
     const discount = selectedVoucher ? selectedVoucher.discount : 0;
     const total = subtotal + shippingFee - discount;
 
-    // CHANGED: Added null checks for elements
+    // null checks for elements
     const itemsCountEl = document.getElementById('items-count');
     const subtotalEl = document.getElementById('subtotal-amount');
     const shippingEl = document.getElementById('shipping-fee');
@@ -126,8 +126,8 @@ function updateOrderSummary() {
 
     // Enable place order button if we have items and address
     const placeOrderBtn = document.querySelector('.place-order-btn');
-    const hasAddress = document.querySelector('input[name="selected_address"]:checked') || 
-                      !window.checkoutData?.hasAddresses;
+    const hasAddresses = window.checkoutData?.hasAddresses;
+    const hasAddress = !hasAddresses || document.querySelector('input[name="selected_address"]:checked');
     
     if (placeOrderBtn) {
         placeOrderBtn.disabled = itemsCount === 0 || !hasAddress;
@@ -141,24 +141,6 @@ document.addEventListener('change', function(e) {
         updateOrderSummary();
     }
 });
-
-// Address modal functions
-function showAddAddressModal() {
-    const modal = document.getElementById('addAddressModal');
-    if (modal) {
-        modal.style.display = 'block';
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function hideAddAddressModal() {
-    const modal = document.getElementById('addAddressModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-        clearFormErrors();
-    }
-}
 
 // Voucher modal functions
 function showVoucherModal() {
@@ -366,7 +348,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// CHANGED: Improved place order function with better validation
 async function placeOrder() {
     const placeOrderBtn = document.querySelector('.place-order-btn');
     if (!placeOrderBtn) return;
@@ -379,7 +360,14 @@ async function placeOrder() {
     const selectedShipping = document.querySelector('input[name="shipping_method"]:checked');
     const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
     
-    if (!selectedAddress && window.checkoutData?.hasAddresses) {
+    const hasAddresses = window.checkoutData?.hasAddresses;
+    if (hasAddresses && !selectedAddress) {
+        showError('Please select a delivery address');
+        return;
+    }
+
+    // Check if addresses are required
+    if (window.checkoutData?.hasAddresses && !selectedAddress) {
         showError('Please select a delivery address');
         return;
     }
@@ -394,7 +382,7 @@ async function placeOrder() {
         return;
     }
     
-    if (checkoutItems.length === 0) {
+    if (!checkoutItems || checkoutItems.length === 0) {
         showError('No items to checkout');
         return;
     }
@@ -407,42 +395,84 @@ async function placeOrder() {
     placeOrderBtn.disabled = true;
     
     try {
-        const orderData = {
-            address_id: selectedAddress ? selectedAddress.value : null,
-            shipping_method: selectedShipping.value,
-            payment_method: selectedPayment.value,
-            voucher_id: selectedVoucher ? selectedVoucher.id : null,
-            items: checkoutItems,
-            subtotal: checkoutItems.reduce((sum, item) => sum + item.subtotal, 0),
-            shipping_fee: shippingFee,
-            discount: selectedVoucher ? selectedVoucher.discount : 0,
-            total: checkoutItems.reduce((sum, item) => sum + item.subtotal, 0) + shippingFee - (selectedVoucher ? selectedVoucher.discount : 0)
-        };
+        const formData = new FormData();
+        
+        if (hasAddresses && selectedAddress) {
+            formData.append('address_id', selectedAddress.value);
+        }
+
+        // Add address if selected
+        if (selectedAddress) {
+            formData.append('address_id', selectedAddress.value);
+        }
+        
+        formData.append('shipping_method', selectedShipping.value);
+        formData.append('payment_method', selectedPayment.value);
+        
+        // Add order totals for verification
+        const subtotal = checkoutItems.reduce((sum, item) => sum + item.subtotal, 0);
+        const discount = selectedVoucher ? selectedVoucher.discount : 0;
+        
+        formData.append('subtotal', subtotal.toFixed(2));
+        formData.append('shipping_fee', shippingFee.toFixed(2));
+        formData.append('discount', discount.toFixed(2));
+        
+        // Add selected items properly
+        checkoutItems.forEach((item, index) => {
+            formData.append(`selected_items[${index}]`, item.id);
+        });
         
         const response = await fetch('/order/place_order.php', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: JSON.stringify(orderData)
+            body: formData
         });
         
-        const data = await response.json();
-        
-        if (!response.ok || data.error) {
-            throw new Error(data.error || 'Unable to place order');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        // Clear checkout items from session storage
-        sessionStorage.removeItem('checkoutItems');
-        
-        showSuccess('Order placed successfully!');
-        
-        // Redirect to order confirmation or success page
-        setTimeout(() => {
-            window.location.href = `/order/success.php?order_id=${data.order_id}`;
-        }, 1500);
+        // Handle response
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            showSuccess('Order placed successfully!');
+            
+            // Clear checkout items from memory
+            checkoutItems = [];
+            selectedVoucher = null;
+            
+            setTimeout(() => {
+                window.location.href = `/order/success.php?order_id=${data.order_id}`;
+            }, 1500);
+        } else {
+            // Handle HTML response or redirect
+            const text = await response.text();
+            if (text.includes('success') || response.redirected) {
+                showSuccess('Order placed successfully!');
+                
+                // Clear checkout items
+                checkoutItems = [];
+                selectedVoucher = null;
+                
+                setTimeout(() => {
+                    window.location.href = response.url || '/order/success.php';
+                }, 1500);
+            } else {
+                // Check if it's an error page
+                if (text.includes('error') || text.includes('Error')) {
+                    throw new Error('Order processing failed');
+                }
+                throw new Error('Unexpected response format');
+            }
+        }
         
     } catch (error) {
         console.error('Error placing order:', error);
@@ -456,8 +486,6 @@ async function placeOrder() {
         placeOrderBtn.disabled = false;
     }
 }
-
-// CHANGED: Improved utility functions with better styling
 function showError(message) {
     showMessage(message, 'error');
 }

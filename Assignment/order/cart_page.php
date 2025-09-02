@@ -246,7 +246,7 @@ function updateTotals() {
 }
 
 function proceedToCheckout() {
-    const selectedItems = document.querySelectorAll('.item-check:checked');
+    const selectedItems = [...document.querySelectorAll(".cart-row")].filter(row => row.querySelector(".item-check")?.checked);
     
     if (selectedItems.length === 0) {
         alert('Please select items to checkout');
@@ -266,7 +266,34 @@ function proceedToCheckout() {
         return;
     }
 
-    // Create form with selected items
+    // Store selected items properly for checkout page
+    const selectedData = selectedItems.map(row => {
+        const qtyInput = row.querySelector('.qty-input');
+        const priceEl = row.querySelector('.price');
+        return {
+            id: row.dataset.id,
+            qty: parseInt(qtyInput.value) || 1,
+            price: parseFloat(priceEl.textContent.replace(/[^\d.]/g, '')) || 0
+        };
+    });
+    
+    // Store in window object for checkout page to access
+    window.checkoutSelectedItems = selectedData;
+    
+    // Also send via form POST
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/order/checkout.php';
+    
+    selectedData.forEach((item, index) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = `selected_items[${index}]`;
+        input.value = item.id;
+        form.appendChild(input);
+    });
+
+    /* // Create form with selected items
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/order/checkout.php';
@@ -278,7 +305,7 @@ function proceedToCheckout() {
         input.name = `selected_items[${index}]`;
         input.value = row.dataset.id;
         form.appendChild(input);
-    });
+    }); */
     
     document.body.appendChild(form);
     form.submit();

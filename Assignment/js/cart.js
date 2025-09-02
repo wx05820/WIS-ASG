@@ -1,4 +1,3 @@
-// Simplified cart functions that work with your existing PHP structure
 async function loadCartData() {
   try {
     const userId = document.body.dataset.userId;
@@ -7,7 +6,6 @@ async function loadCartData() {
       return null;
     }
 
-    // Your cart.php doesn't have a "get" action, so we'll call cart_page.php to get the HTML
     const response = await fetch('/order/cart_page.php', {
       method: 'GET',
       headers: { 
@@ -149,7 +147,7 @@ function addCartItemEventListeners() {
       
       const success = await updateCartQuantity(id, newQty);
       if (success) {
-        // Update UI directly without reload for better UX
+        // Update UI directly 
         qtyInput.value = newQty;
         updateSingleRowSubtotal(row);
         updateSubtotal();

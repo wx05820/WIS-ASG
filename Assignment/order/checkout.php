@@ -15,17 +15,27 @@ if (isset($_SESSION['error'])) {
 }
 
 $selected_product_ids = [];
+$buyNow = false;
 
-// Product page
+// Handle Buy Now from product page
 if (isset($_POST['buy_now']) && isset($_POST['prodID'])) {
     $prodID = $_POST['prodID'];
     $selected_product_ids = [$prodID];
+    $buyNow = true;
     $_SESSION['checkout_items'] = $selected_product_ids;
+    $_SESSION['buyNow'] = true;
 }
-// Cart page
+// Handle selected items from cart page
 elseif (isset($_POST['selected_items']) && is_array($_POST['selected_items'])) {
-    $selected_product_ids = array_map('intval', $_POST['selected_items']);
+    $selected_product_ids = array_map('intval', array_filter($_POST['selected_items']));
+    $buyNow = false;
     $_SESSION['checkout_items'] = $selected_product_ids;
+    $_SESSION['buyNow'] = false;
+}
+// Try to get from session if direct access
+elseif (isset($_SESSION['checkout_items']) && is_array($_SESSION['checkout_items'])) {
+    $selected_product_ids = $_SESSION['checkout_items'];
+    $buyNow = $_SESSION['buyNow'] ?? false;
 }
 
 if (empty($selected_product_ids)) {
@@ -33,8 +43,8 @@ if (empty($selected_product_ids)) {
     redirect('cart_page.php');
 }
 
+// Get user address
 if($user_id){
-    // Get user address
     $stmt = $_db->prepare("
         SELECT ID, recipient_name, phoneNo, unitNo, address_line_1, address_line_2, 
             postcode, city, state, isDefault 
@@ -43,39 +53,59 @@ if($user_id){
         ORDER BY isDefault DESC
     ");
     $stmt->execute([$user_id]);
-    $address = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $addresses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }else{
-    $address = [];
+    $addresses = [];
 }
 
 $stmt = $_db->prepare("SELECT name, email FROM user WHERE userID = ?");
 $stmt->execute([$user_id]);
 $user_info = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Get cart items for checkout
-$placeholders = str_repeat('?,', count($selected_product_ids) - 1) . '?';
+$cart_items = [];
 
-if(isset($_POST['buy_now'])){
-    $sql = "SELECT p.prodID, 1 as qty, p.name, p.price, p.image1, p.color, p.qty as stock
-            FROM product p WHERE p.prodID = ?";
-    $params = [$prodID];
+if($buyNow){
+    $stmt = $_db->prepare("SELECT prodID, name, price, image1, color, qty as stock FROM product WHERE prodID = ?");
+    $stmt->execute([$selected_product_ids[0]]);
+    $product = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($product) {
+        $cart_items[] = [
+            'prodID' => $product['prodID'],
+            'qty' => 1, 
+            'name' => $product['name'],
+            'price' => $product['price'],
+            'image1' => $product['image1'],
+            'color' => $product['color'],
+            'stock' => $product['stock']
+        ];
+    }
 }else{
-    $sql = "SELECT ci.prodID, ci.qty, p.name, p.price, p.image1, p.color
+    // For Cart checkout: get selected items from cart
+    $placeholders = str_repeat('?,', count($selected_product_ids) - 1) . '?';
+    $sql = "SELECT ci.prodID, ci.qty, p.name, p.price, p.image1, p.color, p.qty as stock
             FROM cart_items ci
             JOIN cart c ON ci.cartID = c.cartID
             JOIN product p ON ci.prodID = p.prodID
             WHERE c.userID = ? AND ci.prodID IN ($placeholders)";
 
     $params = array_merge([$user_id], $selected_product_ids);
+    $stmt = $_db->prepare($sql);
+    $stmt->execute($params);
+    $cart_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Filter out invalid items
+    $selected_product_ids = array_intersect($selected_product_ids, $cart_items);
+    
+    if (empty($selected_product_ids)) {
+        $_SESSION['error'] = "Selected items are no longer in your cart. Please refresh and try again.";
+        redirect('cart_page.php');
+    }
 }
 
-$stmt = $_db->prepare($sql);
-$stmt->execute($params);
-$cart_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 if (empty($cart_items)) {
-    $_SESSION['error'] = "Selected items not found in your cart. Please try again.";
-    redirect('cart_page.php');
+    $_SESSION['error'] = "Selected items not found. Please try again.";
+    redirect($buyNow ? '/userProduct/productList.php' : 'cart_page.php');
 }
 
 // Check stock availability
@@ -88,11 +118,13 @@ foreach ($cart_items as $item) {
 
 if (!empty($stock_errors)) {
     $_SESSION['error'] = "Stock issues: " . implode(', ', $stock_errors);
-    redirect('cart_page.php');
+    redirect($buyNow ? '/userProduct/productList.php' : 'cart_page.php');
 }
 
 $subtotal = 0;
 $item_count = 0;
+$checkout_items_js = [];
+
 foreach ($cart_items as $item) {
     $item_subtotal = $item['price'] * $item['qty'];
     $subtotal += $item_subtotal;
@@ -100,10 +132,21 @@ foreach ($cart_items as $item) {
 
     $item['subtotal'] = $item_subtotal;
     $item['image'] = !empty($item['image1']) ? 'data:image/jpeg;base64,' . base64_encode($item['image1']) : '/images/placeholder.jpg';
+
+    // Prepare JS data
+    $checkout_items_js[] = [
+        'id' => $item['prodID'],
+        'title' => $item['name'],
+        'price' => (float)$item['price'],
+        'qty' => (int)$item['qty'],
+        'image' => $item['image'],
+        'color' => $item['color'] ?? '',
+        'subtotal' => $item_subtotal
+    ];
 }
-unset($item);
 
 $shipping_fee = 8.00; 
+$is_buy_now = $buyNow;
 
 include '../header.php'; 
 ?>
@@ -128,7 +171,7 @@ include '../header.php';
                 <input type="hidden" name="selected_items[]" value="<?= htmlspecialchars($prodID) ?>">
             <?php endforeach; ?>    
         
-            <?php if (isset($_POST['buy_now'])): ?>
+            <?php if ($buyNow): ?>
                 <input type="hidden" name="buy_now" value="1">
             <?php endif; ?>
 
@@ -136,8 +179,8 @@ include '../header.php';
             <div class="checkout-section">
                 <h2 class="section-title">🚚 Delivery Address</h2>
                 <div class="address-section">
-                    <?php if (empty($address)): ?>
-                        <div class="selection-box address-selection" onclick="showAddAddressModal()">
+                    <?php if (empty($addresses)): ?>
+                        <div class="selection-box address-selection" onclick="window.location.href='/user/addresses.php'">
                             <div class="selection-content">
                                 <div class="selection-icon">📍</div>
                                 <div class="selection-text">
@@ -149,13 +192,13 @@ include '../header.php';
                         </div>
                     <?php else: ?>
                         <div class="address-list">
-                            <?php foreach ($address as $index => $addr): ?>
+                            <?php foreach ($addresses as $index => $addr): ?>
                                 <div class="address-item">
-                                    <input type="radio" id="addr_<?= $addr['addressID'] ?>" 
+                                    <input type="radio" id="addr_<?= $addr['ID'] ?>" 
                                         name="selected_address" 
-                                        value="<?= $addr['addressID'] ?>" 
+                                        value="<?= $addr['ID'] ?>" 
                                         <?= $index === 0 ? 'checked' : '' ?> required>
-                                    <label for="addr_<?= $addr['addressID'] ?>" class="address-label">
+                                    <label for="addr_<?= $addr['ID'] ?>" class="address-label">
                                         <div class="address-header">
                                             <strong><?= htmlspecialchars($addr['recipient_name']) ?></strong>
                                             <span class="phone"><?= htmlspecialchars($addr['phoneNo']) ?></span>
@@ -174,7 +217,7 @@ include '../header.php';
                                 </div>
                             <?php endforeach; ?>
                         </div>
-                        <button type="button" class="btn-link" onclick="showAddAddressModal()">+ Add New Address</button>
+                        <button type="button" class="btn-link" onclick="window.location.href='/user/addresses.php'">+ Add New Address</button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -219,9 +262,6 @@ include '../header.php';
                         </div>
                     <?php endforeach; ?>
                 </div>
-                <div class="back-to-cart">
-                    <a href="cart_page.php" class="btn-link">← Back to Cart to Change Selection</a>
-                </div>
             </div>
 
             <!-- Shipping & Payment Section -->
@@ -257,28 +297,28 @@ include '../header.php';
                 <div class="payment-methods">
                     <h3>Payment Method</h3>
                     <div class="payment-item">
-                        <input type="radio" id="card" name="pay_method" value="card" checked required>
+                        <input type="radio" id="card" name="payment_method" value="card" checked required>
                         <label for="card">
                             <span class="payment-icon">💳</span>
                             Credit/Debit Card
                         </label>
                     </div>
                     <div class="payment-item">
-                        <input type="radio" id="online_banking" name="pay_method" value="online_banking">
+                        <input type="radio" id="online_banking" name="payment_method" value="online_banking">
                         <label for="online_banking">
                             <span class="payment-icon">🏦</span>
                             Online Banking
                         </label>
                     </div>
                     <div class="payment-item">
-                        <input type="radio" id="ewallet" name="pay_method" value="ewallet">
+                        <input type="radio" id="ewallet" name="payment_method" value="ewallet">
                         <label for="ewallet">
                             <span class="payment-icon">📱</span>
                             E-Wallet (GrabPay, Touch 'n Go)
                         </label>
                     </div>
                     <div class="payment-item">
-                        <input type="radio" id="cod" name="pay_method" value="cod">
+                        <input type="radio" id="cod" name="payment_method" value="cod">
                         <label for="cod">
                             <span class="payment-icon">💰</span>
                             Cash on Delivery
@@ -293,83 +333,62 @@ include '../header.php';
                     <h2 class="section-title">📋 Order Summary</h2>
                     <div class="summary-row">
                         <span>Subtotal (<span id="items-count"><?= $item_count ?></span> items)</span>
-                        <span><span id="subtotal-amount"><?= money($subtotal) ?></span></span>
+                        <span>RM <span id="subtotal-amount"><?= number_format($subtotal, 2) ?></span></span>
                     </div>
                     <div class="summary-row">
                         <span>Shipping Fee</span>
-                        <span><span id="shipping-fee"><?= money($shipping_fee) ?></span></span>
+                        <span>RM <span id="shipping-fee"><?= number_format($shipping_fee, 2) ?></span></span>
                     </div>
                     <div class="summary-row discount-row" id="discount-row" style="display: none;">
                         <span>Discount</span>
-                        <span>- <span id="discount-amount">0.00</span></span>
+                        <span>- RM <span id="discount-amount">0.00</span></span>
                     </div>
                     <hr>
                     <div class="summary-row total-row">
                         <span><strong>Total</strong></span>
-                        <span><strong><span id="total-amount"><?= money($subtotal + $shipping_fee) ?></span></strong></span>
+                        <span><strong>RM <span id="total-amount"><?= number_format($subtotal + $shipping_fee, 2) ?></span></strong></span>
                     </div>
                 </div>
             </div>
 
             <!-- Place Order Button -->
             <div class="checkout-actions">
-                <button type="button" class="btn-primary btn-large place-order-btn" onclick="placeOrder()" <?= empty($address) ? 'disabled' : '' ?>>
+                <button type="button" class="btn-primary btn-large place-order-btn" onclick="placeOrder()" <?= empty($addresses) ? 'disabled' : '' ?>>
                     <span class="btn-text">Place Order</span>
                     <span class="btn-loading" style="display: none;">Processing...</span>
                 </button>
-                <a href="cart_page.php" class="btn-secondary">Back to Cart</a>
+                <a href="<?= $buyNow ? '/userProduct/productList.php' : 'cart_page.php' ?>" class="btn-secondary">Back to <?= $buyNow ? 'Products' : 'Cart' ?></a>
             </div>
         </form>
     </section>
 </main>
 
 <script>
+    // Pre-populate checkout items to avoid AJAX call
+    window.checkoutSelectedItems = <?= json_encode($checkout_items_js) ?>;
+
     // Initialize checkout data
     window.checkoutData = {
         hasAddresses: <?= !empty($addresses) ? 'true' : 'false' ?>,
         subtotal: <?= $subtotal ?>,
+        standardShipping: 8.00,
+        isBuyNow: <?= $is_buy_now ? 'true' : 'false' ?>
     };
 
-    // Prevent double form submission
-    document.getElementById('checkoutForm').addEventListener('submit', function(e) {
-        const submitBtn = this.querySelector('.place-order-btn');
-        const btnText = submitBtn.querySelector('.btn-text');
-        const btnLoading = submitBtn.querySelector('.btn-loading');
-        
-        if (submitBtn.disabled) {
-            e.preventDefault();
-            return;
-        }
-        
-        // Validate required selections
-        const selectedAddress = document.querySelector('input[name="selected_address"]:checked');
-        const selectedShipping = document.querySelector('input[name="shipping_method"]:checked');
-        const selectedPayment = document.querySelector('input[name="pay_method"]:checked');
-        
-        if (!selectedAddress && window.checkoutData.hasAddresses) {
-            showError('Please select a delivery address');
-            return;
-        }
-        
-        if (!selectedShipping) {
-            showError('Please select a shipping method');
-            return;
-        }
-        
-        if (!selectedPayment) {
-            showError('Please select a payment method');
-            return;
-        }
+    // Initialize checkout items array for checkout.js
+    checkoutItems = window.checkoutSelectedItems || [];
 
-        // Show loading state
-        btnText.style.display = 'none';
-        btnLoading.style.display = 'inline';
-        submitBtn.disabled = true;
-
-        this.submit();
-    });
-    
     document.addEventListener('DOMContentLoaded', function() {
+        displayCheckoutItems();
+        updateOrderSummary();
+        
+        // Listen for address selection changes
+        document.addEventListener('change', function(e) {
+            if (e.target.name === 'selected_address') {
+                updateOrderSummary();
+            }
+        });
+
         const checkoutForm = document.getElementById('checkout-form');
         if (checkoutForm) {
             checkoutForm.addEventListener('submit', function(e) {

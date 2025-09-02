@@ -7,11 +7,9 @@ function showLoginPrompt() {
 
 async function addToCart(productId, qty = 1) {
     try {
-        // Check if user is logged in first
         const userId = document.body.dataset.userId || document.querySelector('.container')?.dataset.userId;
         if (!userId) {
-            showError("Please log in to add items to your cart");
-            setTimeout(() => { window.location.href = "/user/login.php"; }, 1500);
+            showLoginPrompt();
             return;
         }
 
@@ -54,10 +52,8 @@ async function addToCart(productId, qty = 1) {
     }
 }
 
-// CHANGED: Improved buy now function with proper validation
 async function buyNow(productId) {
     try {
-        // Check if user is logged in first
         const userId = document.body.dataset.userId || document.querySelector('.container')?.dataset.userId;
         if (!userId) {
             showError("Please log in to make a purchase");
@@ -65,10 +61,10 @@ async function buyNow(productId) {
             return;
         }
 
-        // Create form for buy now (this needs to be a form submission for proper checkout flow)
+        // Create form for buy now
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '../order/checkout.php';
+        form.action = '/order/checkout.php';
         
         const prodInput = document.createElement('input');
         prodInput.type = 'hidden';
@@ -91,7 +87,6 @@ async function buyNow(productId) {
     }
 }
 
-// CHANGED: Added notification functions for better user feedback
 function showError(message) {
     showNotification(message, 'error');
 }
@@ -162,34 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        // Skip for add address form
-        if (form.id === 'addAddressForm') return;
-        
-        form.addEventListener('submit', function(e) {
-            const submitBtn = this.querySelector('button[type="submit"], input[type="submit"]');
-            if (submitBtn) {
-                const originalText = submitBtn.textContent || submitBtn.value;
-                submitBtn.disabled = true;
-                
-                if (submitBtn.classList.contains('btn-add') || submitBtn.classList.contains('add-to-cart')) {
-                    submitBtn.textContent = 'Adding...';
-                } else if (submitBtn.classList.contains('btn-checkout')) {
-                    submitBtn.textContent = 'Processing...';
-                } else {
-                    submitBtn.textContent = 'Processing...';
-                }
-                
-                // Re-enable after 3 seconds in case of error
-                setTimeout(() => {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
-                }, 3000);
-            }
-        });
-    });
-
     document.querySelectorAll('.add-to-cart, .btn-add').forEach(btn => {
         btn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -208,11 +175,9 @@ document.addEventListener('DOMContentLoaded', function() {
             this.textContent = 'Adding...';
             
             try {
-                // Check if user is logged in
                 const userId = document.body.dataset.userId;
                 if (!userId) {
-                    showError("Please log in to add items to your cart");
-                    setTimeout(() => { window.location.href = "/user/login.php"; }, 1500);
+                    showLoginPrompt();
                     return;
                 }
 
@@ -245,7 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 showSuccess('Added item to your cart successfully');
                 
-                // Update mini cart if function exists
                 if (typeof updateMiniCart === 'function') {
                     updateMiniCart();
                 }
@@ -307,10 +271,57 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Handle buy now buttons
+    // AJAX wishlist add/remove on product pages/lists
+    document.querySelectorAll('.wishlist-form').forEach(form => {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            // Confirm remove
+            const action = (this.querySelector('input[name="action"]')?.value || '').toLowerCase();
+            if (action === 'remove') {
+                const title = this.closest('.product-card')?.querySelector('.product-name')?.textContent?.trim() || 'this item';
+                if (!confirm(`Remove ${title} from wishlist?`)) {
+                    return;
+                }
+            }
+            const userId = document.body.dataset.userId;
+            if (!userId) {
+                showError("Please log in to use wishlist");
+                setTimeout(() => { window.location.href = "/user/login.php"; }, 1200);
+                return;
+            }
+            const btn = this.querySelector('button[type="submit"]');
+            const actionInput = this.querySelector('input[name="action"]');
+            const original = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-heart"></i> Saving...';
+            try {
+                const formData = new FormData(this);
+                const res = await fetch(this.getAttribute('action'), { method: 'POST', body: formData, headers: {'X-Requested-With':'XMLHttpRequest'} });
+                if (!res.ok) throw new Error('Wishlist request failed');
+                // Toggle UI/state
+                if (formData.get('action') === 'add') {
+                    btn.classList.add('added');
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Added';
+                    if (actionInput) actionInput.value = 'remove';
+                } else {
+                    btn.classList.remove('added');
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Wishlist';
+                    if (actionInput) actionInput.value = 'add';
+                }
+                showSuccess('Wishlist updated');
+            } catch (err) {
+                console.error(err);
+                showError('Unable to update wishlist');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    });
+
+    // Buy now buttons
     document.querySelectorAll('.btn-checkout').forEach(btn => {
         btn.addEventListener('click', async function(e) {
-
+            // If inside a form, let the form handle submission
             if (this.closest('form')) {
                 return; 
             }
@@ -352,6 +363,35 @@ document.addEventListener('DOMContentLoaded', function() {
             input.value = val;
             // Trigger change for any listeners
             input.dispatchEvent(new Event('change'));
+        });
+    });
+
+    // Handle form submissions for buy now and add to cart
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        // Skip for add address form or other specific forms
+        if (form.id === 'addAddressForm') return;
+        
+        form.addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                const originalText = submitBtn.textContent || submitBtn.value;
+                submitBtn.disabled = true;
+                
+                if (submitBtn.classList.contains('btn-add') || submitBtn.classList.contains('add-to-cart')) {
+                    submitBtn.textContent = 'Adding...';
+                } else if (submitBtn.classList.contains('btn-checkout')) {
+                    submitBtn.textContent = 'Processing...';
+                } else {
+                    submitBtn.textContent = 'Processing...';
+                }
+                
+                // Re-enable after 3 seconds in case of error
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }, 3000);
+            }
         });
     });
 });

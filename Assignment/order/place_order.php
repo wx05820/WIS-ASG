@@ -35,10 +35,32 @@ $_SESSION['checkout_items'] = $selected_items;
 
 $address_id = $_POST['address_id'] ?? null;
 $shipping_method = $_POST['shipping_method'] ?? null;
-$pay_method = $_POST['pay_method'] ?? null;
+$pay_method = $_POST['payment_method'] ?? null;
 
-if (!$address_id || !$shipping_method || !$pay_method) {
-    $_SESSION['error'] = "Please fill in all required fields";
+//Check if user has addresses and validate address selection
+$stmt = $_db->prepare("SELECT COUNT(*) FROM user_address WHERE userID = ?");
+$stmt->execute([$user_id]);
+$has_addresses = $stmt->fetchColumn() > 0;
+
+if ($has_addresses && (empty($address_id) || !is_numeric($address_id))) {
+    $_SESSION['error'] = "Please select a delivery address";
+    redirect('/order/checkout.php');
+}
+
+// If user has addresses, validate the selected address belongs to them
+if ($has_addresses) {
+    $stmt = $_db->prepare("SELECT ID FROM user_address WHERE userID = ? AND ID = ?");
+    $stmt->execute([$user_id, $address_id]);
+    $valid_address = $stmt->fetchColumn();
+    
+    if (!$valid_address) {
+        $_SESSION['error'] = "Invalid delivery address selected";
+        redirect('/order/checkout.php');
+    }
+}
+
+if (!$shipping_method || !$pay_method) {
+    $_SESSION['error'] = "Please select shipping method and payment method";
     redirect('/order/checkout.php');
 }
 
@@ -48,7 +70,7 @@ try {
     // Convert array to comma-separated string for SQL IN clause
     $placeholders = str_repeat('?,', count($selected_items) - 1) . '?';
 
-    $stmt = "SELECT ci.prodID, ci.qty, p.name, p.price 
+    $sql = "SELECT ci.prodID, ci.qty, p.name, p.price 
             FROM cart_items ci
             JOIN cart c ON ci.cartID = c.cartID
             JOIN product p ON ci.prodID = p.prodID
@@ -101,19 +123,22 @@ try {
     // Get the last inserted payment ID
     $payID = $_db->lastInsertId();
 
-    // Insert order
-    $stmt = $_db->prepare("INSERT INTO `order` 
-        (orderDate, userID, status, shipping_method, subtotal, shipping_fee, discount, total, payID)
-        VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
-        $user_id,
-        $status,
-        $shipping_method,
-        $subtotal,
-        $shipping_fee,
-        $discount,
-        $total
-    ]);
+    if ($has_addresses && $address_id) {
+        // Include address_id if user has addresses
+        $stmt = $_db->prepare("INSERT INTO `order` 
+            (orderDate, userID, status, shipping_method, subtotal, shipping_fee, discount, total)/*, recipient_name, phoneNo, unitNo, address_line_1, address_line_2, city)*/
+            VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $user_id,
+            $status,
+            $shipping_method,
+            $subtotal,
+            $shipping_fee,
+            $discount,
+            $total,
+        ]);
+    }
+    
     $order_id = $_db->lastInsertId();
 
     // Insert order items

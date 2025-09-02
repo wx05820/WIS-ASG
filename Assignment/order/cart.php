@@ -82,6 +82,51 @@ if(isset($_GET['action']) && $_GET['action'] === 'count') {
     exit;
 }
 
+// Handle GET requests
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $action = $_GET['action'] ?? '';
+
+    if ($action === 'count') {
+        header('Content-Type: text/plain');
+        if (!isset($_SESSION['user_id'])) {
+            echo "0";
+            exit;
+        }
+        $cartID = ensureCart($_SESSION['user_id']);
+        $stmt = $_db->prepare("SELECT COALESCE(SUM(qty),0) FROM cart_items WHERE cartID=?");
+        $stmt->execute([$cartID]);
+        echo (int)$stmt->fetchColumn();
+        exit;
+    }
+
+    // NEW: Handle get_all action for checkout
+    if ($action === 'get_all') {
+        header('Content-Type: application/json');
+        
+        if (!$user_id) {
+            echo json_encode(['error' => 'User not logged in']);
+            exit;
+        }
+
+        try {
+            $cart = get_cart($user_id);
+            
+            if (empty($cart)) {
+                echo json_encode(['error' => 'Cart is empty']);
+                exit;
+            }
+
+            echo json_encode(['cart' => $cart]);
+            exit;
+            
+        } catch (Exception $e) {
+            error_log("Get cart error: " . $e->getMessage());
+            echo json_encode(['error' => 'Failed to load cart items']);
+            exit;
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $redirect_url = $_POST['redirect'] ?? $_SERVER['HTTP_REFERER'] ?? '/order/cart_page.php';
