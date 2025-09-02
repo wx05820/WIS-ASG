@@ -9,7 +9,44 @@
 <?php include 'adminheader.php'; ?>
 </head>
 
-    <header class="wooden-header">        
+    <header class="wooden-header">
+        <div class="header-container">
+            <!-- Logo and Company Name -->
+            <div class="logo-section">
+                <a href="../admin/adminpage.php">
+                    <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
+                    <span class="company-name">AiKUN</span>
+                </a>
+            </div>
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 style="text-align: center; margin: 0 auto;">Admin Page</h1>
+            </div>
+
+            <!-- User Icons Section -->
+            <div class="user-section">
+                <div class="user-actions">
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <div class="user-dropdown">
+                            <button class="user-icon"><i class="fas fa-user"></i></button>
+                            <div class="dropdown-content">
+                                <a href="account.php">My Account</a>
+                                <a href="logout.php">Logout</a>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <a href="login.php" class="user-icon"><i class="fas fa-user"></i></a>
+                    <?php endif; ?>
+                
+                    
+
+                    
+                
+                </div>
+            </div>
+        </div>
+        
         <!-- Main Navigation -->
         <nav class="main-navigation">
             <ul>
@@ -51,20 +88,8 @@
                 <li><a href="contact.php">Contact</a></li>
             </ul>
         </div>
-    </header>
-
-
-<body>
-
-
-
-
-
-
-
-
-
-
+        </section>
+    </main>
 
 
 

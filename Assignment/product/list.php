@@ -95,27 +95,6 @@ $page_title = "Products";
 <?php include '../admin/adminheader.php'; ?>
 </head>
 
-<header class="wooden-header">
-    <div class="header-container">
-        <!-- Logo and Company Name -->
-        <div class="logo-section">
-            <a href="../admin/adminpage.php">
-                <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
-                <span class="company-name">AiKUN</span>
-            </a>
-        </div>
-
-        <!-- Product Management Buttons -->
-        <div class="product-management" style="display: flex; gap: 15px; align-items: center;">
-            <a href="addproduct.php" title="Add Product" style="color: white; font-size: 2em;">
-                <i class="fas fa-plus-circle"></i>
-            </a>
-            <a href="../admin/adminpage.php" title="Home" style="color: white; font-size: 1.5em;">
-				<i class="fas fa-home"></i>
-			</a>
-        </div>
-    </div>
-</header>
 
 <body main class="product-list-main">
     <div class="container">
