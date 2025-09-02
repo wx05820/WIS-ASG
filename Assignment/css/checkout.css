@@ -88,6 +88,14 @@
     color: #333;
 }
 
+.address-selection{
+    cursor: pointer;
+}
+
+.selection-text{
+    color: #333;
+}
+
 .phone {
     color: #666;
     font-size: 14px;
@@ -120,9 +128,16 @@
 
 /* Order Items */
 .order-items {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: auto 80px 1fr auto auto auto;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background: white;
+    flex-wrap: wrap;
 }
 
 .checkout-item {
@@ -134,8 +149,20 @@
     border-radius: 8px;
 }
 
-.item-info {
-    flex: 1;
+.item-image{
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+.item-details {
+    font-size: 1rem;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
 }
 
 .item-title {
@@ -152,6 +179,10 @@
     font-weight: 600;
     color: #333;
     font-size: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
 }
 
 .no-items {
@@ -164,6 +195,7 @@
 /* Shipping & Payment */
 .shipping-options, .payment-methods {
     margin-bottom: 25px;
+    color: #333;
 }
 
 .shipping-options h3, .payment-methods h3 {
@@ -226,6 +258,7 @@
     background: #f8f9fa;
     padding: 20px;
     border-radius: 8px;
+    color: #333;
 }
 
 .summary-row {

@@ -487,22 +487,36 @@ if (rand(1, 100) === 1) {
 }
 
 function getRandomProfilePhoto() {
+    // Web paths for storage
     $profilePhotos = [
-        '/profilePhoto/profile1.jpg',
-        '/profilePhoto/profile2.jpg',
-        '/profilePhoto/profile3.jpg',
-        '/profilePhoto/profile4.jpg',
-        '/profilePhoto/profile5.jpg',
-        '/profilePhoto/profile6.jpg',
-        '/profilePhoto/profile7.jpg',
+        'profilePhoto/profile1.jpg',
+        'profilePhoto/profile2.jpg',
+        'profilePhoto/profile3.jpg',
+        'profilePhoto/profile4.jpg',
+        'profilePhoto/profile5.jpg',
+        'profilePhoto/profile6.jpg',
+        'profilePhoto/profile7.jpg',
     ];
-    $availablePhotos = array_filter($profilePhotos, function($photo) {
-        return file_exists($photo);
-    });
+
+    // Resolve absolute filesystem paths for reliable existence checks
+    $baseDir = __DIR__ . DIRECTORY_SEPARATOR;
+    $availablePhotos = [];
+    foreach ($profilePhotos as $webPath) {
+        $fsPath = $baseDir . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $webPath);
+        if (file_exists($fsPath)) {
+            $availablePhotos[] = $webPath;
+        }
+    }
+
     if (!empty($availablePhotos)) {
         $randomIndex = array_rand($availablePhotos);
         return $availablePhotos[$randomIndex];
     }
+
+    // Fallback to default
+    $defaultWeb = 'profilePhoto/default-profile.jpg';
+    $defaultFs = $baseDir . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $defaultWeb);
+    return file_exists($defaultFs) ? $defaultWeb : '';
 }
 
 function generateCSRFToken($expiration = 3600) {
@@ -1120,7 +1134,9 @@ function checkLogin(){
         header('Location: /user/login.php');
         exit;
     }
-}function getCartCount($user_id) {
+}
+
+function getCartCount($user_id) {
     global $_db;
     
     if (!$user_id) {

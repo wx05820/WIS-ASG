@@ -219,14 +219,22 @@ if (is_post()) {
     
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
+        // Generate a unique placeholder phone number (12 digits) to satisfy NOT NULL + UNIQUE
+        do {
+            $placeholderPhone = str_pad((string)random_int(0, 999999999999), 12, '0', STR_PAD_LEFT);
+            $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE phoneNo = ?');
+            $stm->execute([$placeholderPhone]);
+            $isPhoneTaken = $stm->fetchColumn() > 0;
+        } while ($isPhoneTaken);
+
         $role = "Customer";
         $status = "Active";
         
         $stm = $_db->prepare('
-            INSERT INTO user (username, email, password, photo, role, created_at, status)   
-            VALUES (?, ?, ?, ?, ?, NOW(), ?)
+            INSERT INTO user (username, email, phoneNo, password, photo, role, created_at, status)   
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
         ');
-        $stm->execute([$username, $email, $password_hash, $randomProfilePhoto, $role, $status]);
+        $stm->execute([$username, $email, $placeholderPhone, $password_hash, $randomProfilePhoto, $role, $status]);
         
         if ($stm->rowCount()) {
             unset($_SESSION['registration_email'], $_SESSION['registration_otp'], $_SESSION['registration_otp_expiry']);
@@ -459,7 +467,7 @@ $page_title = $page_titles[$step] ?? 'Register';
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="js/loginRegister.js"></script>
+    <script src="../js/loginRegister.js"></script>
     
     <?php if ($step == 2 && isset($_SESSION['registration_otp_expiry'])): ?>
         <div id="timer" data-expiry="<?= $_SESSION['registration_otp_expiry']; ?>"></div>

@@ -94,8 +94,17 @@ if ($product) {
                 <div class="actions">
                     <?php if ($product['qty'] > 0): ?>
                         <?php if ($user_id): ?>
+                            <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                                <label for="detail-qty" style="min-width:60px;">Qty</label>
+                                <div class="qty-control" style="display:flex;align-items:center;gap:6px;">
+                                    <button type="button" class="qty-btn" data-target="#detail-qty" aria-label="Decrease quantity" style="padding:6px 10px;">−</button>
+                                    <input id="detail-qty" name="qty" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;">
+                                    <button type="button" class="qty-btn" data-target="#detail-qty" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">+</button>
+                                </div>
+                            </div>
+
                             <!-- Add to Cart Form -->
-                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form" onsubmit="return handleFormSubmit(this)">
+                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form" onsubmit="return setQtyFromInput(this)">
                                 <input type="hidden" name="action" value="add">
                                 <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
                                 <input type="hidden" name="qty" value="1">
@@ -104,14 +113,27 @@ if ($product) {
                             </form>
                             
                             <!-- Buy Now Form -->
-                            <form action="../order/checkout.php" method="POST" class="action-form" onsubmit="return handleFormSubmit(this)">
+                            <form action="../order/checkout.php" method="POST" class="action-form" onsubmit="return setQtyForBuyNow(this)">
                                 <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
                                 <input type="hidden" name="buy_now" value="1">
+                                <input type="hidden" name="qty" value="1">
                                 <button type="submit" class="btn-checkout">Buy Now</button>
                             </form>
+
+                            <!-- Add to Wishlist -->
+                            <form action="../user/wishlist.php" method="POST" class="action-form" style="margin-top:8px;">
+                                <input type="hidden" name="action" value="add">
+                                <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
+                                <button type="submit" class="btn-secondary btn-wishlist"><i class="fas fa-heart"></i> Add to Wishlist</button>
+                            </form>
                         <?php else: ?>
+                            <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                                <label for="detail-qty" style="min-width:60px;">Qty</label>
+                                <input id="detail-qty" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;" disabled>
+                            </div>
                             <button type="button" class="btn-add" onclick="showLoginPrompt()">Add to Cart</button>
                             <button type="button" class="btn-checkout" onclick="showLoginPrompt()">Buy Now</button>
+                            <button type="button" class="btn-secondary btn-wishlist" onclick="showLoginPrompt()"><i class="fas fa-heart"></i> Add to Wishlist</button>
                         <?php endif; ?>
                     <?php else: ?>
                         <button class="btn-disabled" disabled>Out of Stock</button>
@@ -142,6 +164,26 @@ function handleFormSubmit(form) {
         }, 3000);
     }
     return true;
+}
+
+function setQtyFromInput(form){
+    const qtyInput = document.getElementById('detail-qty');
+    const hiddenQty = form.querySelector('input[name="qty"]');
+    if(qtyInput && hiddenQty){
+        const val = parseInt(qtyInput.value) || 1;
+        hiddenQty.value = Math.max(1, val);
+    }
+    return handleFormSubmit(form);
+}
+
+function setQtyForBuyNow(form){
+    const qtyInput = document.getElementById('detail-qty');
+    const hiddenQty = form.querySelector('input[name="qty"]');
+    if(qtyInput && hiddenQty){
+        const val = parseInt(qtyInput.value) || 1;
+        hiddenQty.value = Math.max(1, val);
+    }
+    return handleFormSubmit(form);
 }
 
 function showLoginPrompt() {

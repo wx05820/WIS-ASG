@@ -519,22 +519,23 @@ body::before {
 
 .password-toggle {
     position: absolute;
-    right: 1rem;
+    right: 0.75rem;
+    left: auto;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
+    background: transparent;
     border: none;
     color: var(--wood-medium);
     cursor: pointer;
     font-size: 1.125rem;
     transition: var(--transition-normal);
-    padding: 0.5rem;
+    padding: 0.25rem;
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2rem;
+    height: 2rem;
 }
 
 .password-toggle:hover {
@@ -550,7 +551,8 @@ body::before {
 /* Eye icon styling */
 .password-toggle .eye-icon {
     transition: var(--transition-normal);
-    font-size: 1.25rem;
+    font-size: 1.5rem;
+    color: var(--wood-medium);
 }
 
 .password-toggle .eye-icon.show {
@@ -565,7 +567,7 @@ body::before {
 
 .password-toggle:hover .eye-icon {
     color: var(--wood-dark);
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
 /* Eye icon animation for state change */
@@ -582,11 +584,18 @@ body::before {
 /* Password input with toggle button */
 .password-input-container {
     position: relative;
+    width: 100%;
 }
 
 .password-input-container .form-input {
-    padding-right: 3.5rem;
+    padding-right: 3rem;
+    -ms-reveal: none;
 }
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-clear-button { display: none; }
 
 /* Error Messages */
 .error-message {

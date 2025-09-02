@@ -82,6 +82,51 @@ if(isset($_GET['action']) && $_GET['action'] === 'count') {
     exit;
 }
 
+// Handle GET requests
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $action = $_GET['action'] ?? '';
+
+    if ($action === 'count') {
+        header('Content-Type: text/plain');
+        if (!isset($_SESSION['user_id'])) {
+            echo "0";
+            exit;
+        }
+        $cartID = ensureCart($_SESSION['user_id']);
+        $stmt = $_db->prepare("SELECT COALESCE(SUM(qty),0) FROM cart_items WHERE cartID=?");
+        $stmt->execute([$cartID]);
+        echo (int)$stmt->fetchColumn();
+        exit;
+    }
+
+    // NEW: Handle get_all action for checkout
+    if ($action === 'get_all') {
+        header('Content-Type: application/json');
+        
+        if (!$user_id) {
+            echo json_encode(['error' => 'User not logged in']);
+            exit;
+        }
+
+        try {
+            $cart = get_cart($user_id);
+            
+            if (empty($cart)) {
+                echo json_encode(['error' => 'Cart is empty']);
+                exit;
+            }
+
+            echo json_encode(['cart' => $cart]);
+            exit;
+            
+        } catch (Exception $e) {
+            error_log("Get cart error: " . $e->getMessage());
+            echo json_encode(['error' => 'Failed to load cart items']);
+            exit;
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $redirect_url = $_POST['redirect'] ?? $_SERVER['HTTP_REFERER'] ?? '/order/cart_page.php';
@@ -90,7 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch($action){
             case "update_qty":
                 $prodID = $_POST['id'] ?? $_GET['prodID'] ?? null;
-                $qty = max(1, (int)($_POST['qty'] ?? $_GET['qty'] ?? 1));
+                $qtyRaw = (int)($_POST['qty'] ?? $_GET['qty'] ?? 1);
+                $qty = $qtyRaw;
 
                 if (!$prodID) {
                     $_SESSION['error'] = "Invalid product ID";
@@ -107,6 +153,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     redirect('/order/cart_page.php');
                 }
                 
+                // If new qty is 0, remove the item
+                if ($qty <= 0) {
+                    $cartID = ensureCart($user_id);
+                    if ($cartID) {
+                        $stmt = $_db->prepare("DELETE FROM cart_items WHERE cartID=? AND prodID=?");
+                        $stmt->execute([$cartID, $prodID]);
+                        $_SESSION['success'] = "Item removed from cart";
+                    }
+                    redirect('/order/cart_page.php');
+                }
+
                 if ($stock <= 0) {
                     $_SESSION['error'] = "Product is out of stock";
                     redirect('/order/cart_page.php');
@@ -166,10 +223,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['success'] = "Item removed from cart";
                 redirect('/order/cart_page.php');
                 break;
-
-            default:
-                $_SESSION['error'] = "Invalid action";
-                redirect('/order/cart_page.php');
         }
 
         $cart = get_cart($user_id);

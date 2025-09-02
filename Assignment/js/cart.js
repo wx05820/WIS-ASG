@@ -1,4 +1,3 @@
-// Simplified cart functions that work with your existing PHP structure
 async function loadCartData() {
   try {
     const userId = document.body.dataset.userId;
@@ -7,7 +6,6 @@ async function loadCartData() {
       return null;
     }
 
-    // Your cart.php doesn't have a "get" action, so we'll call cart_page.php to get the HTML
     const response = await fetch('/order/cart_page.php', {
       method: 'GET',
       headers: { 
@@ -87,8 +85,14 @@ function addCartItemEventListeners() {
       const id = btn.dataset.id;
       const row = btn.closest('.cart-row');
       const qtyInput = row.querySelector('.qty-input');
-      const currentQty = parseInt(qtyInput.value) || 1;
-      const newQty = Math.max(1, currentQty - 1);
+      const currentQty = parseInt(qtyInput.value) || 0;
+      const newQty = Math.max(0, currentQty - 1);
+      if (newQty === 0 && currentQty === 1) {
+        const title = row.querySelector('.title')?.textContent?.trim() || 'this item';
+        if (!confirm(`Remove ${title} from cart?`)) {
+          return;
+        }
+      }
       
       if (currentQty === newQty) return;
       
@@ -96,10 +100,21 @@ function addCartItemEventListeners() {
       
       const success = await updateCartQuantity(id, newQty);
       if (success) {
-        // Update UI directly without reload for better UX
-        qtyInput.value = newQty;
-        updateSingleRowSubtotal(row);
-        updateSubtotal();
+        if (newQty === 0) {
+          // Remove row if qty is 0
+          row.remove();
+          updateSubtotal();
+          updateButtonStates();
+          updateMiniCart();
+          const remainingRows = document.querySelectorAll('.cart-row');
+          if (remainingRows.length === 0) {
+            window.location.reload();
+          }
+        } else {
+          qtyInput.value = newQty;
+          updateSingleRowSubtotal(row);
+          updateSubtotal();
+        }
       } else {
         btn.disabled = false;
         showError("Unable to update quantity in your cart");
@@ -132,7 +147,7 @@ function addCartItemEventListeners() {
       
       const success = await updateCartQuantity(id, newQty);
       if (success) {
-        // Update UI directly without reload for better UX
+        // Update UI directly 
         qtyInput.value = newQty;
         updateSingleRowSubtotal(row);
         updateSubtotal();
@@ -156,9 +171,17 @@ function addCartItemEventListeners() {
       clearTimeout(timeout);
       timeout = setTimeout(async () => {
         const id = input.dataset.id;
-        const currentQty = parseInt(input.value) || 1;
+        const currentQty = parseInt(input.value) || 0;
         const maxQty = parseInt(input.max) || 999;
-        const newQty = Math.min(Math.max(1, currentQty), maxQty);
+        const newQty = Math.min(Math.max(0, currentQty), maxQty);
+        if (newQty === 0) {
+          const row = input.closest('.cart-row');
+          const title = row.querySelector('.title')?.textContent?.trim() || 'this item';
+          if (!confirm(`Remove ${title} from cart?`)) {
+            input.value = 1;
+            return;
+          }
+        }
         
         if (newQty !== currentQty) {
           input.value = newQty;
@@ -167,8 +190,19 @@ function addCartItemEventListeners() {
         const success = await updateCartQuantity(id, newQty);
         if (success) {
           const row = input.closest('.cart-row');
-          updateSingleRowSubtotal(row);
-          updateSubtotal();
+          if (newQty === 0) {
+            row.remove();
+            updateSubtotal();
+            updateButtonStates();
+            updateMiniCart();
+            const remainingRows = document.querySelectorAll('.cart-row');
+            if (remainingRows.length === 0) {
+              window.location.reload();
+            }
+          } else {
+            updateSingleRowSubtotal(row);
+            updateSubtotal();
+          }
         } else {
           showError("Unable to update quantity in your cart");
         }
@@ -662,6 +696,12 @@ function initSortingAndSearch() {
   // Get current URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   
+  // If the header already renders a sort select, do not inject another
+  const existingHeaderSort = document.querySelector('form#searchFilterForm select[name="sort"]');
+  if (existingHeaderSort) {
+    return;
+  }
+
   // Create sort dropdown if it doesn't exist
   let sortDropdown = document.getElementById('sort-dropdown');
   if (!sortDropdown) {

@@ -111,7 +111,14 @@ unset($p);
                                         <form action="../order/cart_add.php" method="POST" class="cart-form" onsubmit="return handleFormSubmit(this)" id="btn-add">
                                             <input type="hidden" name="action" value="add">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
-                                            <input type="hidden" name="qty" value="1">
+                                            <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin:8px 0;">
+                                                <label for="list-qty-<?= $p['prodID']; ?>" style="min-width:60px;">Qty</label>
+                                                <div class="qty-control" style="display:flex;align-items:center;gap:6px;">
+                                                    <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" aria-label="Decrease quantity" style="padding:6px 10px;">−</button>
+                                                    <input id="list-qty-<?= $p['prodID']; ?>" name="qty" type="number" value="1" min="1" max="<?= (int)$p['qty']; ?>" style="width:80px;padding:6px;">
+                                                    <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">+</button>
+                                                </div>
+                                            </div>
                                             <input type="hidden" name="redirect" value="<?= $_SERVER['REQUEST_URI']; ?>">
                                             <button type="submit" class="btn-add">Add to Cart</button>
                                         </form>
@@ -121,6 +128,13 @@ unset($p);
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <input type="hidden" name="buy_now" value="1">
                                             <button type="submit" class="btn-checkout">Buy Now</button>
+                                        </form>
+
+                                        <!-- Add to Wishlist -->
+                                        <form action="../user/wishlist.php" method="POST" class="wishlist-form" onsubmit="return handleFormSubmit(this)" style="margin-top:6px;">
+                                            <input type="hidden" name="action" value="add">
+                                            <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
+                                            <button type="submit" class="btn-secondary btn-wishlist"><i class="fas fa-heart"></i> Wishlist</button>
                                         </form>
                                     <?php else: ?>
                                         <button type="button" class="btn-add" onclick="showLoginPrompt()">

@@ -38,11 +38,6 @@ if (is_post()) {
                 // Clear failed attempts
                 $clear_attempts = $_db->prepare("DELETE FROM failed_attempts WHERE email = ?");
                 $clear_attempts->execute([$login_input]);
-        
-                // Success message
-                $display_name = !empty($user->name) ? $user->name : $user->username;
-                $role_display = ucfirst($user->role);
-                temp('success', 'Login successful! Welcome back, ' . htmlspecialchars($display_name) . ' (' . $role_display . ')!');
                 
                 // Redirect to admin dashboard
                 redirect('adminpage.php');
@@ -146,7 +141,7 @@ $page_title = 'Staff Login';
         </form>
 
         <div class="links">
-            <a href="forgot-password.php">Forgot Password?</a>
+            <a href="../user/forgot_password.php">Forgot Password?</a>
             <a href="../user/login.php">Customer Login</a>
         </div>
 

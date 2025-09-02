@@ -47,10 +47,9 @@ try {
 }
 
 $page_title = $product['name'];
-include '../header.php';
+include '../admin/adminheader.php';
 ?>
-
-<main class="product-detail-main">
+<main class="product-detail-main">  
     <div class="container">
         <!-- Breadcrumb Navigation -->
         <nav class="breadcrumb-nav" aria-label="Breadcrumb">
