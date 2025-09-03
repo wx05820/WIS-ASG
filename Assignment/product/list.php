@@ -139,7 +139,8 @@ $page_title = "Products";
     <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
 </head>
 
-<body class="product-list-main">
+<body class="product-list-main" style="margin-top:0; padding-top:0;">
+
     <?php include '../admin/adminheader.php'; ?>
     <script src="../js/adminProductList.js"></script>
 
@@ -167,12 +168,6 @@ $page_title = "Products";
                 Sort: <?php echo htmlspecialchars($sort); ?> <?php echo htmlspecialchars($order); ?>
             </div>
         <?php endif; ?>
-        
-        <!-- Page Header -->
-        <div class="page-header">
-            <h1>All Products</h1>
-            <p>Handcrafted with quality materials and timeless designs</p>
-        </div>
 
         <!-- Action Buttons Outside Filter Bar -->
             <div class="product-action-bar" style="display: flex; gap: 10px; margin-bottom: 1.5rem;">

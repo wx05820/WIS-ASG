@@ -65,14 +65,10 @@ $page_title = "Restore Removed Products";
     <link rel="stylesheet" href="../css/products.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="product-list-main">
+<body class="product-list-main" style="margin-top:0; padding-top:0;">
 
     <?php include '../admin/adminheader.php'; ?>
     <div class="container">
-        <div class="page-header">
-            <h1>Restore Removed Products</h1>
-            <p>Handcrafted with quality materials and timeless designs</p>
-        </div>
         <?php if ($message): ?>
             <div class="message" style="color: green; background: #fff; border: 2px solid green; margin-bottom: 1rem; text-align: center; font-weight: bold;">
                 <?php echo htmlspecialchars($message); ?>
