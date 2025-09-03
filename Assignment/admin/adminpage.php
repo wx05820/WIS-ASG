@@ -1,3 +1,25 @@
+
+<?php
+require_once '../_base.php';
+// Check if user is admin
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    redirect('loginstaff.php');
+}
+
+?>
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

@@ -1,5 +1,9 @@
 <?php
 include '../config.php';
+// Check if user is admin
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    redirect('../admin/loginstaff.php');
+}
 
 $catID = $_POST['catID'] ?? ($_GET['catID'] ?? '');
 $message = '';
