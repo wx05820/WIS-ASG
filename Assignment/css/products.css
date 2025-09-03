@@ -1,3 +1,87 @@
+/* Product List Styles moved from list.php */
+.products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 2rem;
+}
+
+.product-list-item {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    gap: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    min-height: 120px; /* Match with image height + padding */
+    align-items: center;
+}
+
+.product-list-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: #d0d0d0;
+}
+
+.product-image {
+    flex-shrink: 0;
+    width: 200px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.product-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 200px;
+}
+
+.product-main-info {
+    margin-bottom: 12px;
+}
+
+.product-name a:hover {
+    color: #8B4513 !important;
+}
+
+.product-pricing {
+    margin-top: auto;
+}
+
+.product-actions a:hover {
+    color: #8B4513 !important;
+}
+
+@media (max-width: 768px) {
+    .product-list-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+        padding: 16px;
+    }
+    .product-meta {
+        justify-content: center;
+    }
+    .product-pricing {
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+    }
+    .price-stock {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+    }
+}
 /* Add Product Page */
 .addproduct-form {
     background: #fff;
@@ -158,7 +242,7 @@ body {
 /* Product List Page */
 .product-list-main {
     padding: 2rem 0;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
     min-height: 100vh;
 }
 
@@ -258,18 +342,74 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    margin-bottom: 0rem;
+    justify-content: flex-start;
+    flex-wrap: wrap;
 }
 
 .filter-select {
-    padding: 1rem 1.5rem;
+    padding: 0.7rem 1.2rem;
     border: 2px solid var(--wood-light);
-    border-radius: 25px;
+    border-radius: 20px;
     font-size: 1rem;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.95);
     color: var(--text-dark);
     cursor: pointer;
     transition: all 0.3s ease;
-    min-width: 150px;
+    min-width: 120px;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.08);
+}
+
+.sortby-select {
+    font-weight: 500;
+    margin-right: 0.5rem;
+}
+
+.sortby-order {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--wood-primary);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    margin-right: 0.5rem;
+    transition: background 0.3s, color 0.3s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.08);
+}
+.sortby-order:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    transform: scale(1.08);
+}
+
+.sortby-add {
+    padding: 0.7rem 1.2rem;
+    border-radius: 20px;
+    background: var(--wood-light);
+    color: var(--wood-dark);
+    border: 2px solid var(--wood-light);
+    font-weight: 600;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.3s, color 0.3s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.08);
+}
+.sortby-add:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    border-color: var(--gold-accent);
+    transform: scale(1.05);
+}
+.sortby-add:hover {
+    background: var(--wood-primary);
+    color: white;
+    transform: scale(1.05);
 }
 
 .filter-select:focus {
@@ -343,8 +483,11 @@ body {
 .product-image img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
+    object-fit: contain;
+    border-radius: 10px;
+    display: block;
+    background: transparent;
+    transition: transform 0.3s;
 }
 
 .product-card:hover .product-image img {

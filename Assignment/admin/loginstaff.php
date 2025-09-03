@@ -65,7 +65,7 @@ $page_title = 'Staff Login';
 <body>
     <div class="login-container">
         <div class="login-header">
-            <button class="back-btn" onclick="window.location.href='../index.php'">
+            <button class="back-btn" onclick="window.location.href='adminpage.php'">
                 <i class="fas fa-arrow-left"></i>
             </button>
             <h1>Staff Login</h1>

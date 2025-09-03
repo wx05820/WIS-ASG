@@ -85,7 +85,7 @@ unset($p);
 <script src="../js/cart.js" defer></script>
 <script src="../js/userProduct.js" defer></script>
 
-<body data-user-id="<?= htmlspecialchars($user_id ?? ''); ?>">
+<body class="product-list-main" data-user-id="<?= htmlspecialchars($user_id ?? ''); ?>">
     <main class="product-list">
         <?php if($pager->count > 0): ?>
             <?php foreach ($products as $p): ?>

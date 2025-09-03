@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
         $stmt = $_db->prepare($sql);
         if ($stmt->execute([$name, $price, $qty, $description, $color, $measurement, $material, $image1, $image2, $image3, $catID, $prodID])) {
             $message = "Product updated successfully!";
-            echo '<script>setTimeout(function(){ window.location.href = "list.php"; }, 2000);</script>';
+            echo '<script>setTimeout(function(){ window.location.href = "list.php"; }, 1000);</script>';
         } else {
             $errorMsg = "Failed to update product.";
         }
@@ -118,30 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 
-<header class="wooden-header">
-    <div class="header-container">
-        <!-- Logo and Company Name -->
-        <div class="logo-section">
-            <a href="../admin/adminpage.php">
-                <img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
-                <span class="company-name">AiKUN</span>
-            </a>
-        </div>
-
-        <!-- Product Management Buttons -->
-        <div class="product-management" style="display: flex; gap: 15px; align-items: center;">
-            <a href="list.php" title="All Product" style="color: white; font-size: 1.5em;">
-                <i class="fas fa-list"></i>
-            </a>
-            <a href="../admin/adminpage.php" title="Home" style="color: white; font-size: 1.5em;">
-                <i class="fas fa-home"></i>
-            </a>
-        </div>
-    </div>
-</header>
-
 <body main class="update-product-main" style="background: #fff;">
 
+    <?php include '../admin/adminheader.php'; ?>
     <div class="container">
         <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
 

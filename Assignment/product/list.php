@@ -137,96 +137,12 @@ $page_title = "Products";
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
-    <style>
-        .products-list {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            margin-top: 2rem;
-        }
-        
-        .product-list-item {
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            gap: 20px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            min-height: 120px; /* Match with image height + padding */
-            align-items: center;
-        }
-        
-        .product-list-item:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border-color: #d0d0d0;
-        }
-        
-        .product-image {
-            flex-shrink: 0;
-            width: 80px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .product-details {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-height: 80px;
-        }
-        
-        .product-main-info {
-            margin-bottom: 12px;
-        }
-        
-        .product-name a:hover {
-            color: #8B4513 !important;
-        }
-        
-        .product-pricing {
-            margin-top: auto;
-        }
-        
-        .product-actions a:hover {
-            color: #8B4513 !important;
-        }
-        
-        @media (max-width: 768px) {
-            .product-list-item {
-                flex-direction: column;
-                text-align: center;
-                gap: 12px;
-                padding: 16px;
-            }
-            
-            .product-meta {
-                justify-content: center;
-            }
-            
-            .product-pricing {
-                flex-direction: column;
-                gap: 12px;
-                align-items: center;
-            }
-            
-            .price-stock {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                align-items: center;
-            }
-        }
-    </style>
 </head>
 
 <body class="product-list-main">
     <?php include '../admin/adminheader.php'; ?>
-    
+    <script src="../js/adminProductList.js"></script>
+
     <div class="container">
         <!-- Display error message if any -->
         <?php if (!empty($error_message)): ?>
@@ -287,16 +203,16 @@ $page_title = "Products";
                 </div>
 
                 <!-- Sort Options -->
-                <div class="sort-filter" style="display: flex; align-items: center; gap: 8px;">
-                    <select name="sort" onchange="updateSort(this.value)" class="filter-select">
+                <div class="sort-filter" style="display: flex; gap: 10px; align-items: center;">
+                    <select name="sort" onchange="updateSort(this.value)" class="filter-select sortby-select">
                         <option value="name" <?php echo ($sort === 'name') ? 'selected' : ''; ?>>Sort by Name</option>
                         <option value="price" <?php echo ($sort === 'price') ? 'selected' : ''; ?>>Sort by Price</option>
                         <option value="qty" <?php echo ($sort === 'qty') ? 'selected' : ''; ?>>Sort by Stock</option>
                     </select>
-                    <button type="button" onclick="toggleOrder()" class="order-btn" title="Toggle sort order" style="background: #8B4513; border: none; cursor: pointer; color: white; padding: 8px; border-radius: 4px;">
+                    <button type="button" onclick="toggleOrder()" class="order-btn sortby-order" title="Toggle sort order">
                         <i class="fas fa-sort-<?php echo ($order === 'ASC') ? 'up' : 'down'; ?>"></i>
                     </button>
-                    <button type="button" class="adduser-btn" onclick="window.location.href='addproduct.php'" style="margin-left: 10px;">
+                    <button type="button" class="adduser-btn sortby-add" onclick="window.location.href='addproduct.php'">
                         <i class="fas fa-plus"></i> Add Product
                     </button>
                 </div>
@@ -313,14 +229,14 @@ $page_title = "Products";
         <?php if (!empty($products)): ?>
             <div class="products-list">
                 <?php foreach ($products as $product): ?>
-                    <div class="product-list-item">
+                    <div class="product-list-item" style="cursor:pointer;" onclick="window.location.href='updateproduct.php?prodID=<?php echo urlencode($product['prodID']); ?>'">
                         <div class="product-image">
-                            <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>">
+                            <a>
                                 <?php if (!empty($product['image1'])): ?>
                                     <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
                                          alt="<?php echo htmlspecialchars($product['name']); ?>"
                                          loading="lazy"
-                                         style="max-width:80px; max-height:80px; object-fit: cover; border-radius: 8px;">
+                                         style="object-fit: cover; border-radius: 8px;">
                                 <?php else: ?>
                                     <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
                                         <i class="fas fa-image"></i>
@@ -418,126 +334,63 @@ $page_title = "Products";
                             $start_page = max(1, $end_page - 4);
                         }
                     }
-            ?>
+                    ?>
         
-        <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-            <?php if ($i == $page): ?>
-                <span class="page-link active"><?php echo $i; ?></span>
-            <?php else: ?>
-                <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
-                   class="page-link"><?php echo $i; ?></a>
-            <?php endif; ?>
-        <?php endfor; ?>
-        
-        <!-- Next Page -->
-        <?php if ($page < $total_pages): ?>
-            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
-               class="page-link">Next ▶</a>
-        <?php else: ?>
-            <span class="page-link disabled">Next ▶</span>
-        <?php endif; ?>
-        
-        <!-- Last Page -->
-        <?php if ($page < $total_pages): ?>
-            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $total_pages])); ?>" 
-               class="page-link">Last ⏭</a>
-        <?php else: ?>
-            <span class="page-link disabled">Last ⏭</span>
-        <?php endif; ?>
-    </div>
-<?php endif; ?>
-        <?php else: ?>
-            <div class="no-products" style="text-align: center; padding: 3rem 1rem; color: #666;">
-                <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                <h3>No products found</h3>
-                <?php if (!empty($search) || !empty($category)): ?>
-                    <p>No products match your search criteria.</p>
-                    <p>Search: "<?php echo htmlspecialchars($search); ?>" 
-                       <?php if (!empty($category)): ?>
-                           | Category: <?php echo htmlspecialchars($category); ?>
-                       <?php endif; ?>
-                    </p>
-                    <a href="?" class="btn btn-primary" style="display: inline-block; padding: 10px 20px; background: #8B4513; color: white; text-decoration: none; border-radius: 4px; margin-top: 1rem;">Clear Filters</a>
-                <?php else: ?>
-                    <p>No products are available at the moment.</p>
-                    <button type="button" class="btn btn-primary" onclick="window.location.reload()" style="padding: 10px 20px; background: #8B4513; color: white; border: none; border-radius: 4px; margin-top: 1rem; cursor: pointer;">
-                        <i class="fas fa-refresh"></i> Refresh Page
-                    </button>
-                <?php endif; ?>
+                    <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                        <?php if ($i == $page): ?>
+                            <span class="page-link active"><?php echo $i; ?></span>
+                        <?php else: ?>
+                            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
+                            class="page-link"><?php echo $i; ?></a>
+                        <?php endif; ?>
+                    <?php endfor; ?>
                 
-                <!-- Add debug link -->
-                <?php if (!isset($_GET['debug'])): ?>
-                    <br><br>
-                    <a href="?debug=1" style="color: #666; font-size: 0.9em;">Show debug information</a>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
+                    <!-- Next Page -->
+                    <?php if ($page < $total_pages): ?>
+                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
+                        class="page-link">Next ▶</a>
+                    <?php else: ?>
+                        <span class="page-link disabled">Next ▶</span>
+                    <?php endif; ?>
+                    
+                    <!-- Last Page -->
+                    <?php if ($page < $total_pages): ?>
+                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $total_pages])); ?>" 
+                        class="page-link">Last ⏭</a>
+                    <?php else: ?>
+                        <span class="page-link disabled">Last ⏭</span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php else: ?>
+                <div class="no-products" style="text-align: center; padding: 3rem 1rem; color: #666;">
+                    <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                    <h3>No products found</h3>
+                    <?php if (!empty($search) || !empty($category)): ?>
+                        <p>No products match your search criteria.</p>
+                        <p>Search: "<?php echo htmlspecialchars($search); ?>" 
+                        <?php if (!empty($category)): ?>
+                            | Category: <?php echo htmlspecialchars($category); ?>
+                        <?php endif; ?>
+                        </p>
+                        <a href="?" class="btn btn-primary" style="display: inline-block; padding: 10px 20px; background: #8B4513; color: white; text-decoration: none; border-radius: 4px; margin-top: 1rem;">Clear Filters</a>
+                    <?php else: ?>
+                        <p>No products are available at the moment.</p>
+                        <button type="button" class="btn btn-primary" onclick="window.location.reload()" style="padding: 10px 20px; background: #8B4513; color: white; border: none; border-radius: 4px; margin-top: 1rem; cursor: pointer;">
+                            <i class="fas fa-refresh"></i> Refresh Page
+                        </button>
+                    <?php endif; ?>
+                    
+                    <!-- Add debug link -->
+                    <?php if (!isset($_GET['debug'])): ?>
+                        <br><br>
+                        <a href="?debug=1" style="color: #666; font-size: 0.9em;">Show debug information</a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
     </div>
-
-    <?php include '../footer.php'; ?>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeProductList();
-    });
-
-    function toggleOrder() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const currentOrder = urlParams.get('order') || 'ASC';
-        const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
-        urlParams.set('order', newOrder);
-        urlParams.set('page', '1'); // Reset to first page
-        window.location.href = '?' + urlParams.toString();
-    }
-
-    function initializeProductList() {
-        // Initialize quick view modal if it exists
-        const modal = document.getElementById('quickViewModal');
-        if (modal) {
-            const closeBtn = modal.querySelector('.close');
-            
-            if (closeBtn) {
-                closeBtn.onclick = function() {
-                    modal.style.display = 'none';
-                }
-            }
-            
-            window.onclick = function(event) {
-                if (event.target == modal) {
-                    modal.style.display = 'none';
-                }
-            }
-        }
-    }
-
-    function updateSort(sortValue) {
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('sort', sortValue);
-        urlParams.set('page', '1'); // Reset to first page
-        window.location.href = '?' + urlParams.toString();
-    }
-
-    function showNotification(message, type) {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.innerHTML = `
-            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-            <span>${message}</span>
-        `;
-        
-        // Add to page
-        document.body.appendChild(notification);
-        
-        // Show notification
-        setTimeout(() => notification.classList.add('show'), 100);
-        
-        // Remove notification after 3 seconds
-        setTimeout(() => {
-            notification.classList.remove('show');
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
-    }
-    </script>
 </body>
 </html>
+
+<?php include '../footer.php'; ?>
