@@ -1,3 +1,41 @@
+.action-btn-label {
+    display: none;
+    margin-left: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: opacity 0.2s;
+}
+.sortby-add:hover .action-btn-label,
+.sortby-restore:hover .action-btn-label {
+    display: inline;
+    opacity: 1;
+}
+.sortby-restore {
+    padding: 0.7rem 1.2rem;
+    border-radius: 20px;
+    background: var(--wood-light);
+    color: var(--wood-dark);
+    border: 2px solid var(--wood-light);
+    font-weight: 600;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.3s, color 0.3s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.08);
+}
+.sortby-restore:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    border-color: var(--gold-accent);
+    transform: scale(1.05);
+}
+.sortby-restore:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    border-color: var(--gold-accent);
+    transform: scale(1.05);
+}
 /* Product List Styles moved from list.php */
 .products-list {
     display: flex;
@@ -437,6 +475,14 @@ body {
     background: var(--gold-accent);
     color: var(--wood-dark);
     transform: scale(1.1);
+}
+
+/* Action bar for Add Product and Restore buttons */
+.product-action-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1.5rem;
+    justify-content: flex-end;
 }
 
 /* Results Summary */

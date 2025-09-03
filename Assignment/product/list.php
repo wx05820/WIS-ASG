@@ -174,6 +174,18 @@ $page_title = "Products";
             <p>Handcrafted with quality materials and timeless designs</p>
         </div>
 
+        <!-- Action Buttons Outside Filter Bar -->
+            <div class="product-action-bar" style="display: flex; gap: 10px; margin-bottom: 1.5rem;">
+                <button type="button" class="adduser-btn sortby-add" onclick="window.location.href='addproduct.php'">
+                    <i class="fas fa-plus"></i>
+                    <span class="action-btn-label">Add Product</span>
+                </button>
+                <button type="button" class="restore-btn sortby-restore" onclick="window.location.href='restoreproduct.php'">
+                    <i class="fas fa-undo"></i>
+                    <span class="action-btn-label">Restore Removed Products</span>
+                </button>
+            </div>
+
         <!-- Filters and Search Section -->
         <div class="filters-section">
             <div class="filters-container">
@@ -181,6 +193,9 @@ $page_title = "Products";
                 <!-- Search Bar -->
                 <div class="search-filter">
                     <form method="GET" action="" class="filter-form" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
+                        <input type="hidden" name="order" value="<?php echo htmlspecialchars($order); ?>">
+                        <input type="hidden" name="page" value="<?php echo htmlspecialchars($page); ?>">
                         <input type="text" 
                                name="query" 
                                placeholder="Search products..." 
@@ -194,7 +209,7 @@ $page_title = "Products";
                             <option value="">All Categories</option>
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo htmlspecialchars($cat['catID']); ?>" 
-                                        <?php echo ($category == $cat['catID']) ? 'selected' : ''; ?>>
+                                        <?php echo ($category == $cat['catID']) ? 'selected' : ''; ?> >
                                     <?php echo htmlspecialchars($cat['categoryName']); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -211,9 +226,6 @@ $page_title = "Products";
                     </select>
                     <button type="button" onclick="toggleOrder()" class="order-btn sortby-order" title="Toggle sort order">
                         <i class="fas fa-sort-<?php echo ($order === 'ASC') ? 'up' : 'down'; ?>"></i>
-                    </button>
-                    <button type="button" class="adduser-btn sortby-add" onclick="window.location.href='addproduct.php'">
-                        <i class="fas fa-plus"></i> Add Product
                     </button>
                 </div>
             </div>
@@ -368,11 +380,6 @@ $page_title = "Products";
                     <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
                     <h3>No products found</h3>
                     <?php if (!empty($search) || !empty($category)): ?>
-                        <p>No products match your search criteria.</p>
-                        <p>Search: "<?php echo htmlspecialchars($search); ?>" 
-                        <?php if (!empty($category)): ?>
-                            | Category: <?php echo htmlspecialchars($category); ?>
-                        <?php endif; ?>
                         </p>
                         <a href="?" class="btn btn-primary" style="display: inline-block; padding: 10px 20px; background: #8B4513; color: white; text-decoration: none; border-radius: 4px; margin-top: 1rem;">Clear Filters</a>
                     <?php else: ?>
@@ -381,12 +388,7 @@ $page_title = "Products";
                             <i class="fas fa-refresh"></i> Refresh Page
                         </button>
                     <?php endif; ?>
-                    
-                    <!-- Add debug link -->
-                    <?php if (!isset($_GET['debug'])): ?>
-                        <br><br>
-                        <a href="?debug=1" style="color: #666; font-size: 0.9em;">Show debug information</a>
-                    <?php endif; ?>
+            
                 </div>
             <?php endif; ?>
     </div>

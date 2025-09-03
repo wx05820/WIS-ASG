@@ -11,10 +11,11 @@ $sort = isset($_GET['sort']) ? trim($_GET['sort']) : '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
 // SQL base
+
 $sql = "SELECT p.*, c.name AS category_name 
-        FROM product p 
-        LEFT JOIN category c ON p.catID = c.catID 
-        WHERE 1=1";   
+    FROM product p 
+    LEFT JOIN category c ON p.catID = c.catID 
+    WHERE p.status IS NULL";
 
 $params = [];
 
@@ -283,7 +284,7 @@ echo $pager->html($href);
                     return;
                 }
                 const prodID = this.dataset.id;
-                window.location.href = `product_detail.php?prodID=${prodID}`;
+                window.location.href = `product_    .php?prodID=${prodID}`;
             });
         });
     });
