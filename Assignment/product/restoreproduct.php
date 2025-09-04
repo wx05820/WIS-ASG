@@ -13,6 +13,18 @@ if (isset($_GET['restore']) && !empty($_GET['restore'])) {
         $message = "Failed to restore product.";
     }
 }
+// Restore multiple products
+if (isset($_POST['restore_selected']) && !empty($_POST['restore_ids'])) {
+    $ids = $_POST['restore_ids'];
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = "UPDATE product SET status = NULL WHERE prodID IN ($placeholders)";
+    $stmt = $_db->prepare($sql);
+    if ($stmt->execute($ids)) {
+        $message = count($ids) . " products restored successfully.";
+    } else {
+        $message = "Failed to restore selected products.";
+    }
+}
 
 // Fetch removed products
 
@@ -43,7 +55,7 @@ if (!empty($search)) {
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
 
-$sql = "SELECT p.prodID, p.name, p.price, p.qty, p.description, p.color, p.catID, 
+$sql = "SELECT p.prodID, p.name, p.price, p.qty, p.description, p.color, p.catID, p.image1,
     COALESCE(c.name, 'Uncategorized') as categoryName
     FROM product p 
     LEFT JOIN category c ON p.catID = c.catID
@@ -104,30 +116,45 @@ $page_title = "Restore Removed Products";
         </div>
 
         <?php if (!empty($products)): ?>
-            <div class="products-list">
-                <?php foreach ($products as $product): ?>
-                    <div class="product-list-item" style="align-items: flex-start;">
-                        <div class="product-details">
-                            <h3 class="product-name" style="margin:0 0 8px 0; font-size:1.2em; color:#c33;">
-                                <?php echo htmlspecialchars($product['name']); ?>
-                            </h3>
-                            <p class="product-id" style="margin:0; color:#666; font-size:0.9em;">
-                                Product ID: <?php echo htmlspecialchars($product['prodID']); ?>
-                            </p>
-                            <p style="margin:0; color:#666; font-size:0.9em;">Price: RM <?php echo number_format((float)$product['price'], 2); ?></p>
-                            <p style="margin:0; color:#666; font-size:0.9em;">Stock: <?php echo (int)$product['qty']; ?></p>
-                            <p style="margin:0; color:#666; font-size:0.9em;">Description: <?php echo htmlspecialchars($product['description']); ?></p>
-                            <p style="margin:0; color:#666; font-size:0.9em;">Category: <span style="color:#007bff;font-weight:600;"><?php echo htmlspecialchars($product['categoryName']); ?></span></p>
-                            <p style="margin:0; color:#666; font-size:0.9em;">Color: <span style="display:inline-block;width:18px;height:18px;border-radius:4px;vertical-align:middle;margin-right:6px;background:<?php echo htmlspecialchars($product['color']); ?>;border:1px solid #ccc;"></span> <?php echo htmlspecialchars($product['color']); ?></p>
+            <form method="post" action="" id="restore-multi-form">
+                <div class="products-list">
+                    <?php foreach ($products as $product): ?>
+                        <div class="product-list-item" style="align-items: flex-start; cursor:pointer;" onclick="toggleCheckbox(this)">
+                            <input type="checkbox" name="restore_ids[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" style="margin-right:12px; margin-top:8px; width: 20px; height: 20px; transform: scale(1.2); cursor: pointer;" onclick="event.stopPropagation();">
+                            
+                            <div class="product-image">
+                                <a>
+                                    <?php if (!empty($product['image1'])): ?>
+                                        <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
+                                            alt="<?php echo htmlspecialchars($product['name']); ?>"
+                                            loading="lazy"
+                                            style="object-fit: cover; border-radius: 8px;">
+                                    <?php else: ?>
+                                        <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
+                                            <i class="fas fa-image"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </a>
+                            </div>
+
+                            <div class="product-details" style="margin-left: 50px;">
+                                <h3 class="product-name" style="margin:0 0 8px 0; font-size:1.2em; color:#c33;">
+                                    <?php echo htmlspecialchars($product['name']); ?>
+                                </h3>
+                                <p style="margin:0; color:#666; font-size:0.9em;">Price: RM <?php echo number_format((float)$product['price'], 2); ?></p>
+                                <p style="margin:0; color:#666; font-size:0.9em;">Stock: <?php echo (int)$product['qty']; ?></p>
+                                <p style="margin:0; color:#666; font-size:0.9em;">Category: <span style="color:#007bff;font-weight:600;"><?php echo htmlspecialchars($product['categoryName']); ?></span></p>
+                                <p style="margin:0; color:#666; font-size:0.9em;">Color: <?php echo htmlspecialchars($product['color']); ?></p>
+                            </div>
                         </div>
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <a href="?restore=<?php echo urlencode($product['prodID']); ?>" class="btn btn-primary" style="background: #28a745; color: white; border-radius: 20px; padding: 0.5rem 1.2rem; text-decoration: none; font-weight: 600; font-size: 1rem;">
-                                <i class="fas fa-undo"></i> Restore
-                            </a>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+                    <?php endforeach; ?>
+                </div>
+                <div id="restore-button-container" style="display:none; margin-top:1.5rem;">
+                    <button type="submit" name="restore_selected" class="btn btn-primary" style="background: #28a745; color: white; border-radius: 20px; padding: 0.9rem 1.5rem; font-weight: 600; font-size: 0.9rem; border-radius: 15px;">
+                        <i class="fas fa-undo"></i> Restore Selected (<span id="selected-count">0</span>)
+                    </button>
+                </div>
+            </form>
         <?php else: ?>
             <div class="no-products" style="text-align: center; padding: 3rem 1rem; color: #666;">
                 <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
@@ -135,11 +162,40 @@ $page_title = "Restore Removed Products";
             </div>
         <?php endif; ?>
 
-        <div>
-            <a href="list.php" class="btn btn-primary" style="margin-top: 1rem; display: inline-block; background: var(--wood-primary); color: white; padding: 0.7rem 1.5rem; border-radius: 20px; text-decoration: none; font-weight: 600; font-size: 1rem;">
-                <i class="fas fa-arrow-left"></i> Back to Product List
-            </a>
-        </div>
+    <script>
+        function toggleCheckbox(item) {
+            const checkbox = item.querySelector('input[type=checkbox]');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updateRestoreButton();
+            }
+        }
+        
+        function updateRestoreButton() {
+            const checkboxes = document.querySelectorAll('input[name="restore_ids[]"]:checked');
+            const count = checkboxes.length;
+            const buttonContainer = document.getElementById('restore-button-container');
+            const countSpan = document.getElementById('selected-count');
+            
+            if (count > 0) {
+                buttonContainer.style.display = 'block';
+                countSpan.textContent = count;
+            } else {
+                buttonContainer.style.display = 'none';
+            }
+        }
+        
+        // Ensure checkboxes work properly on direct click
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('input[type=checkbox]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    updateRestoreButton();
+                });
+            });
+        });
+    </script>
     </div>
     <?php include '../footer.php'; ?>
 </body>

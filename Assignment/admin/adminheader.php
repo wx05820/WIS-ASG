@@ -52,7 +52,7 @@ $image_base_path = $is_in_subdirectory ? '../' : '';
 									</div>
 								</div>
 								<hr class="dropdown-divider">
-								<a href="../user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
+								<a href="/user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
 								<a href="logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
 							</div>
 						</div>
@@ -64,4 +64,18 @@ $image_base_path = $is_in_subdirectory ? '../' : '';
 				</div>
 			</div>
 		</div>
+
+		<!-- Main Navigation -->
+		<nav class="main-navigation" role="navigation" aria-label="Main navigation">
+			<ul>
+				<li><a href="/product/list.php">Product Manage</a></li>
+				<li><a href="/admin/usermanage/list.php">User Manage</a></li>
+				<li><a href="/product/orderhistory.php">Order History</a></li>
+			</ul>
+			
+			<!-- Mobile Menu Toggle -->
+			<div class="mobile-menu-toggle" aria-label="Toggle mobile menu">
+				<i class="fas fa-bars"></i>
+			</div>
+		</nav>
 	</header>

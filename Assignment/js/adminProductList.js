@@ -76,3 +76,136 @@ function handleImageChange(event, prodID) {
     })
     .catch(() => alert('Error uploading image.'));
 }
+
+function toggleProductSelect(item, event) {
+    // Don't toggle if clicking on links or form elements
+    if (event.target.tagName === 'A' || event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON') {
+        return;
+    }
+            
+    const checkbox = item.querySelector('input[type=checkbox]');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            updateBulkOperations();
+        }
+}
+        
+function updateBulkOperations() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]:checked');
+    const count = checkboxes.length;
+    const bulkPanel = document.getElementById('bulk-operations');
+    const countSpan = document.getElementById('selected-count');
+            
+    if (count > 0) {
+        bulkPanel.style.display = 'block';
+        countSpan.textContent = count;
+    } else {
+        bulkPanel.style.display = 'none';
+    }
+}
+        
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.checked = false;
+    });
+    updateBulkOperations();
+}
+        
+function toggleNewCategoryInput() {
+    const select = document.getElementById('category-select');
+    const input = document.getElementById('new-category-input');
+            
+    if (select.value === 'new_category') {
+        input.style.display = 'block';
+        input.focus();
+        select.name = 'existing_category';            
+        input.name = 'new_category';
+    } else {
+        input.style.display = 'none';
+        input.value = '';
+        select.name = 'new_category';
+        input.name = 'new_category_name';
+    }
+}
+        
+// Add event listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', updateBulkOperations);
+    });
+});
+
+function toggleProductSelect(item, event) {
+    // Don't toggle if clicking on links or form elements
+    if (event.target.tagName === 'A' || event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON') {
+        return;
+    }
+            
+    const checkbox = item.querySelector('input[type=checkbox]');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            updateBulkOperations();
+        }
+}
+        
+function updateBulkOperations() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]:checked');
+    const count = checkboxes.length;
+    const bulkPanel = document.getElementById('bulk-operations');
+    const countSpan = document.getElementById('selected-count');
+            
+    if (count > 0) {
+        bulkPanel.style.display = 'block';
+        countSpan.textContent = count;
+    } else {
+        bulkPanel.style.display = 'none';
+    }
+}
+        
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.checked = false;
+    });
+    updateBulkOperations();
+}
+        
+function toggleNewCategoryInput() {
+    const select = document.getElementById('category-select');
+    const input = document.getElementById('new-category-input');
+            
+    if (select.value === 'new_category') {
+        input.style.display = 'block';
+        input.focus();
+        // Keep the names as they are when creating new category
+        select.name = 'new_category';
+        input.name = 'new_category_name';
+    } else {
+        input.style.display = 'none';
+        input.value = '';
+        // Keep the names as they are for existing category
+        select.name = 'existing_category';
+        input.name = 'existing_category_name';
+    }
+}
+        
+// Add event listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', updateBulkOperations);
+    });
+});
+
+// Auto-hide success message after 2 seconds
+setTimeout(function() {
+    const messageDiv = document.getElementById('success-message');
+    if (messageDiv) {
+        messageDiv.style.opacity = '0';
+        setTimeout(function() {
+            messageDiv.style.display = 'none';
+        }, 500); // Wait for fade out transition to complete
+    }
+}, 2000); // 2 seconds

@@ -33,7 +33,7 @@ if (!$current_user) {
 // Get available default photos from profilePhoto directory
 function getDefaultPhotos() {
     $photos = [];
-    $directory = '../profilePhoto/';
+    $directory = '../profilePhoto';
     
     if (is_dir($directory)) {
         $files = scandir($directory);

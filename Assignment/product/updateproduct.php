@@ -203,12 +203,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                 <label>Category:</label>
                 <select name="catID" required style="width: 300px; padding: 0.5rem 0.7rem" id="catID">
                     <option value="">Select Category</option>
+                    <option value="new">+ Add New Category</option>
                     <?php foreach ($categories as $cat): ?>
                         <option value="<?php echo $cat['catID']; ?>" <?php echo ($product['catID'] == $cat['catID']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($cat['name']); ?>
                         </option>
                     <?php endforeach; ?>
-                    <option value="new">+ Add New Category</option>
                 </select>
                 <div id="new-category-div" style="display: none; margin-top: 10px;">
                     <label for="newCategory">New Category Name:</label>

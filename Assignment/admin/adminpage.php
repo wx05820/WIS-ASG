@@ -16,32 +16,9 @@
             <div class="hero-content">
                 <h1>Premium Malaysian Furniture</h1>
                 <p>Handcrafted with quality materials and timeless designs</p>
-        <div class="admin-buttons">
-        <a href="/product/list.php" class="admin-btn">
-        <i class="fas fa-box"></i>
-        <span>Product Manage</span>
-        </a>
-        </div>
-        <div class="admin-buttons">
-        <a href="/admin/usermanage/list.php" class="admin-btn">
-        <i class="fas fa-person"></i>
-        <span>Member Manage</span>
-        </a>
-        </div>
-    </div>            
+            </div>            
         </section> 
-
     </main>
 
-
-
-
-
-
-
-
-
-
-
 </body>
-    <?php include '../footer.php'; ?>
+<?php include '../footer.php'; ?>

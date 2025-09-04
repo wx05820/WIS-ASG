@@ -6,6 +6,130 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Handle bulk operations
+$message = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])) {
+    $selected_ids = $_POST['selected_products'];
+    $operation = $_POST['bulk_operation'] ?? '';
+    
+    try {
+        switch ($operation) {
+            case 'delete':
+                $placeholders = implode(',', array_fill(0, count($selected_ids), '?'));
+                $sql = "UPDATE product SET status = 'removed' WHERE prodID IN ($placeholders)";
+                $stmt = $_db->prepare($sql);
+                if ($stmt->execute($selected_ids)) {
+                    $message = count($selected_ids) . " products deleted successfully.";
+                }
+                break;
+                
+            case 'set_category':
+                $new_category = $_POST['new_category'] ?? '';
+                $new_category_name = $_POST['new_category_name'] ?? '';
+                
+                // Debug information (remove in production)
+                if (isset($_GET['debug'])) {
+                    $debug_info = "Debug POST data: ";
+                    foreach ($_POST as $key => $value) {
+                        if (is_array($value)) {
+                            $debug_info .= $key . "=[" . implode(',', $value) . "] ";
+                        } else {
+                            $debug_info .= $key . "='" . $value . "' ";
+                        }
+                    }
+                    $message = $debug_info;
+                    break;
+                }
+                
+                // If creating a new category
+                if ($new_category === 'new_category' && !empty($new_category_name)) {
+                    $newCatName = trim($new_category_name);
+                    
+                    // Generate next catID (same format as addproduct.php)
+                    $cat_sql = "SELECT MAX(CAST(SUBSTRING(catID, 2) AS UNSIGNED)) FROM category";
+                    $cat_stmt = $_db->prepare($cat_sql);
+                    $cat_stmt->execute();
+                    $maxCatID = $cat_stmt->fetchColumn();
+                    $nextCatID = 'C' . str_pad(($maxCatID ? $maxCatID + 1 : 1), 4, '0', STR_PAD_LEFT);
+                    
+                    // Insert new category with generated ID
+                    $insert_cat_sql = "INSERT INTO category (catID, name) VALUES (?, ?)";
+                    $insert_cat_stmt = $_db->prepare($insert_cat_sql);
+                    if ($insert_cat_stmt->execute([$nextCatID, $newCatName])) {
+                        // Update products with the new category
+                        $placeholders = implode(',', array_fill(0, count($selected_ids), '?'));
+                        $sql = "UPDATE product SET catID = ? WHERE prodID IN ($placeholders)";
+                        $params = array_merge([$nextCatID], $selected_ids);
+                        $stmt = $_db->prepare($sql);
+                        if ($stmt->execute($params)) {
+                            $message = count($selected_ids) . " products updated with new category '" . htmlspecialchars($newCatName) . "' successfully.";
+                        }
+                    } else {
+                        $message = "Failed to create new category.";
+                    }
+                }
+                // If using existing category
+                elseif (!empty($new_category) && $new_category !== 'new_category' && $new_category !== '') {
+                    // Verify the catID exists in category table
+                    $verify_cat_sql = "SELECT catID FROM category WHERE catID = ?";
+                    $verify_cat_stmt = $_db->prepare($verify_cat_sql);
+                    $verify_cat_stmt->execute([$new_category]);
+                    
+                    if ($verify_cat_stmt->fetch()) {
+                        // Category exists, proceed with update
+                        $placeholders = implode(',', array_fill(0, count($selected_ids), '?'));
+                        $sql = "UPDATE product SET catID = ? WHERE prodID IN ($placeholders)";
+                        $params = array_merge([$new_category], $selected_ids);
+                        $stmt = $_db->prepare($sql);
+                        if ($stmt->execute($params)) {
+                            $message = count($selected_ids) . " products category updated successfully.";
+                        } else {
+                            $message = "Error: Failed to update products with selected category.";
+                        }
+                    } else {
+                        $message = "Error: Selected category does not exist in category table.";
+                    }
+                } else {
+                    // If no valid category was selected
+                    if (empty($new_category) || $new_category === '') {
+                        $message = "Error: Please select a category.";
+                    } else {
+                        $message = "Error: No valid category operation detected.";
+                    }
+                }
+                break;
+                
+            case 'set_price':
+                $new_price = $_POST['new_price'] ?? '';
+                if (!empty($new_price) && is_numeric($new_price)) {
+                    $placeholders = implode(',', array_fill(0, count($selected_ids), '?'));
+                    $sql = "UPDATE product SET price = ? WHERE prodID IN ($placeholders)";
+                    $params = array_merge([$new_price], $selected_ids);
+                    $stmt = $_db->prepare($sql);
+                    if ($stmt->execute($params)) {
+                        $message = count($selected_ids) . " products price updated successfully.";
+                    }
+                }
+                break;
+                
+            case 'set_stock':
+                $new_stock = $_POST['new_stock'] ?? '';
+                if (!empty($new_stock) && is_numeric($new_stock)) {
+                    $placeholders = implode(',', array_fill(0, count($selected_ids), '?'));
+                    $sql = "UPDATE product SET qty = ? WHERE prodID IN ($placeholders)";
+                    $params = array_merge([$new_stock], $selected_ids);
+                    $stmt = $_db->prepare($sql);
+                    if ($stmt->execute($params)) {
+                        $message = count($selected_ids) . " products stock updated successfully.";
+                    }
+                }
+                break;
+        }
+    } catch (Exception $e) {
+        $message = "Error: " . $e->getMessage();
+    }
+}
+
 // Initialize variables
 $products = [];
 $categories = [];
@@ -80,6 +204,7 @@ if (!isset($_db) || $_db === null) {
 
         // Get products with pagination - Fixed query structure
         $sql = "SELECT p.prodID, p.name, p.price, p.qty, p.color, p.material, p.image1, p.description, 
+                       p.catID as productCatID, c.catID as categoryCatID,
                        COALESCE(c.name, 'Uncategorized') as categoryName
                 FROM product p 
                 LEFT JOIN category c ON p.catID = c.catID
@@ -143,7 +268,65 @@ $page_title = "Products";
 
     <?php include '../admin/adminheader.php'; ?>
     <script src="../js/adminProductList.js"></script>
-
+    
+    <script>
+        function toggleProductSelect(item, event) {
+            // Don't toggle if clicking on links or form elements
+            if (event.target.tagName === 'A' || event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON') {
+                return;
+            }
+            
+            const checkbox = item.querySelector('input[type=checkbox]');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updateBulkOperations();
+            }
+        }
+        
+        function updateBulkOperations() {
+            const checkboxes = document.querySelectorAll('input[name="selected_products[]"]:checked');
+            const count = checkboxes.length;
+            const bulkPanel = document.getElementById('bulk-operations');
+            const countSpan = document.getElementById('selected-count');
+            
+            if (count > 0) {
+                bulkPanel.style.display = 'block';
+                countSpan.textContent = count;
+            } else {
+                bulkPanel.style.display = 'none';
+            }
+        }
+        
+        function clearSelection() {
+            const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = false;
+            });
+            updateBulkOperations();
+        }
+        
+        function toggleNewCategoryInput() {
+            const select = document.getElementById('category-select');
+            const input = document.getElementById('new-category-input');
+            
+            if (select.value === 'new_category') {
+                input.style.display = 'block';
+                input.focus();
+            } else {
+                input.style.display = 'none';
+                input.value = '';
+            }
+        }
+        
+        // Add event listeners when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('change', updateBulkOperations);
+            });
+        });
+    </script>
+ 
     <div class="container">
         <!-- Display error message if any -->
         <?php if (!empty($error_message)): ?>
@@ -233,29 +416,40 @@ $page_title = "Products";
         </div>
 
         <!-- Products List -->
+        <?php if ($message): ?>
+            <div id="success-message" class="message" style="color: green; background: #fff; border: 2px solid green; margin-bottom: 1rem; text-align: center; font-weight: bold; padding: 10px; border-radius: 5px; transition: opacity 0.5s ease-out;">
+                <?php echo htmlspecialchars($message); ?>
+            </div>
+        <?php endif; ?>
+        
         <?php if (!empty($products)): ?>
-            <div class="products-list">
-                <?php foreach ($products as $product): ?>
-                    <div class="product-list-item" style="cursor:pointer;" onclick="window.location.href='updateproduct.php?prodID=<?php echo urlencode($product['prodID']); ?>'">
-                        <div class="product-image">
-                            <a>
-                                <?php if (!empty($product['image1'])): ?>
-                                    <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
-                                         alt="<?php echo htmlspecialchars($product['name']); ?>"
-                                         loading="lazy"
-                                         style="object-fit: cover; border-radius: 8px;">
-                                <?php else: ?>
-                                    <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
-                                        <i class="fas fa-image"></i>
-                                    </div>
-                                <?php endif; ?>
-                            </a>
-                        </div>
+            <form method="post" action="" id="bulk-operations-form">
+                <div class="products-list">
+                    <?php foreach ($products as $product): ?>
+                        <div class="product-list-item" style="align-items: flex-start;" onclick="toggleProductSelect(this, event)">
+                            <input type="checkbox" name="selected_products[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" 
+                                   style="margin-right:12px; margin-top:8px; width: 18px; height: 18px; transform: scale(1.1); cursor: pointer;" 
+                                   onclick="event.stopPropagation();">
+                            
+                            <div class="product-image" style="margin-right: 15px;">
+                                <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>" onclick="event.stopPropagation();">
+                                    <?php if (!empty($product['image1'])): ?>
+                                        <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
+                                             alt="<?php echo htmlspecialchars($product['name']); ?>"
+                                             loading="lazy"
+                                             style="object-fit: cover; border-radius: 8px;">
+                                    <?php else: ?>
+                                        <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
+                                            <i class="fas fa-image"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </a>
+                            </div>
 
                         <div class="product-details">
                             <div class="product-main-info">
                                 <h3 class="product-name" style="margin:0 0 8px 0; font-size:1.2em;">
-                                    <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>" style="text-decoration:none; color:#333;">
+                                    <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>" style="text-decoration:none; color:#c33;">
                                         <?php echo htmlspecialchars($product['name']); ?>
                                     </a>
                                 </h3>
@@ -307,6 +501,69 @@ $page_title = "Products";
                     </div>
                 <?php endforeach; ?>
             </div>
+
+            <!-- Bulk Operations Panel -->
+            <div id="bulk-operations" style="display:none; margin-top:20px; padding:20px; background:#f8f9fa; border-radius:8px; border-left:4px solid #007bff;">
+                <h4 style="margin:0 0 15px 0; color:#333;">Bulk Operations (<span id="selected-count">0</span> selected)</h4>
+                
+                <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
+                    <!-- Set Category -->
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label style="font-weight:600; color:#000;">Category:</label>
+                        <select name="new_category" id="category-select" onchange="toggleNewCategoryInput()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="">Select Category</option>
+                            <option value="new_category">+ Add New Category</option>
+                            <?php foreach ($categories as $cat): ?>
+                                <option value="<?php echo htmlspecialchars($cat['catID']); ?>">
+                                    <?php echo htmlspecialchars($cat['categoryName']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" name="new_category_name" id="new-category-input" placeholder="Enter category name" 
+                               style="display:none; width:150px; padding:6px 10px; border:1px solid #ddd; border-radius:4px;">
+                        <button type="submit" name="bulk_operation" value="set_category" 
+                                style="background:#8B4513; color:white; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">
+                            Update
+                        </button>
+                    </div>
+                    
+                    <!-- Set Price -->
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label style="font-weight:600; color:#000;">Price (RM):</label>
+                        <input type="number" name="new_price" step="0.01" min="0" 
+                               style="width:100px; padding:6px 10px; border:1px solid #ddd; border-radius:4px;" placeholder="0.00">
+                        <button type="submit" name="bulk_operation" value="set_price" 
+                                style="background:#8B4513; color:white; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">
+                            Update
+                        </button>
+                    </div>
+                    
+                    <!-- Set Stock -->
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label style="font-weight:600; color:#000;">Stock:</label>
+                        <input type="number" name="new_stock" min="0" 
+                               style="width:80px; padding:6px 10px; border:1px solid #ddd; border-radius:4px;" placeholder="0">
+                        <button type="submit" name="bulk_operation" value="set_stock" 
+                                style="background:#8B4513; color:white; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">
+                            Update
+                        </button>
+                    </div>
+                    
+                    <!-- Clear Selection -->
+                    <button type="button" onclick="clearSelection()" 
+                            style="background:#6c757d; color:white; padding:8px 16px; border:none; border-radius:5px; cursor:pointer; margin-left:auto;">
+                        <i class="fas fa-times"></i> Clear Selected
+                    </button>
+
+                    <!-- Delete Selected -->
+                    <button type="submit" name="bulk_operation" value="delete" 
+                            style="background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:5px; cursor:pointer;"
+                            onclick="return confirm('Are you sure you want to delete selected products?')">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                </div>
+            </div>
+            </form>
 
             <!-- Pagination -->
             <?php if ($total_pages > 1): ?>
