@@ -202,7 +202,7 @@ $page_title = 'Login';
         </form>
 
         <div class="links">
-            <a href="forgot-password.php">Forgot Password?</a>
+            <a href="forgot_password.php">Forgot Password?</a>
             <a href="register.php">Create Account</a>
         </div>
     </div>

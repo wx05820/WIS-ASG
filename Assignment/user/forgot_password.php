@@ -1,6 +1,8 @@
 <?php
 include '../_base.php';
 
+$status = isset($_GET['status']) ? (int)$_GET['status'] : 1;
+
 // Check if user is already logged in
 if (isLoggedIn()) {
     temp('success', 'You are already logged in.');
@@ -25,7 +27,7 @@ if (is_post()) {
             break;
             
         case 'reset_password':
-            handlePasswordReset();
+            handlePasswordReset($status);
             break;
             
         default:
@@ -115,7 +117,7 @@ function handleOTPVerification() {
     }
 }
 
-function handlePasswordReset() {
+function handlePasswordReset($status) {
     global $_err, $email, $_db;
     
     $email = $_SESSION['reset_email'] ?? '';
@@ -203,7 +205,11 @@ function handlePasswordReset() {
         unset($_SESSION['reset_token']);
         
         temp('success', 'Password has been reset successfully! You can now login with your new password.');
-        redirect('login.php');
+        if ($status == 1) {
+            redirect('/admin/loginstaff.php');
+        } else {
+            redirect('login.php');
+        }
     }
 }
 
@@ -361,7 +367,13 @@ $page_title = 'Forgot Password';
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-paper-plane"></i> Send Reset Code
                             </button>
-                            <a href="login.php" class="btn btn-secondary">
+                            <a href=
+                            <?php if($status == 1){
+                                echo "/admin/loginstaff.php";
+                            } else {
+                                echo "login.php";
+                            }?>
+                             class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Back to Login
                             </a>
                         </div>

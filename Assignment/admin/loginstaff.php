@@ -141,7 +141,7 @@ $page_title = 'Staff Login';
         </form>
 
         <div class="links">
-            <a href="../user/forgot_password.php">Forgot Password?</a>
+            <a href="../user/forgot_password.php?status=1">Forgot Password?</a>
             <a href="../user/login.php">Customer Login</a>
         </div>
 
