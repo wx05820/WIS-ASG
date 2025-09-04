@@ -1,5 +1,6 @@
 <?php
 include '../config.php';
+include '../_base.php';
 // Check if user is admin
 if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
     redirect('../admin/loginstaff.php');

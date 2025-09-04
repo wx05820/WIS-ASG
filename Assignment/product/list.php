@@ -1,6 +1,7 @@
 <?php
 include '../config.php';
-
+include '../_base.php';
+include '../lib/SimplePager.php';
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -138,8 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])
 // Initialize variables
 $products = [];
 $categories = [];
-$total_products = 0;
-$total_pages = 0;
 $error_message = '';
 
 // Get filter parameters with proper sanitization
@@ -189,41 +188,18 @@ if (!isset($_db) || $_db === null) {
 
         $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-        // Get total count for pagination - Simplified query first
-        $count_sql = "SELECT COUNT(*) as total FROM product p $where_clause";
-        $count_stmt = $_db->prepare($count_sql);
-        if ($count_stmt === false) {
-            throw new Exception("Failed to prepare count query");
-        }
-        
-        $count_stmt->execute($params);
-        $count_result = $count_stmt->fetch(PDO::FETCH_ASSOC);
-        $total_products = $count_result ? (int)$count_result['total'] : 0;
-        $total_pages = $total_products > 0 ? ceil($total_products / $per_page) : 1;
-
-        // Ensure page is within valid range
-        if ($page < 1) $page = 1;
-        if ($page > $total_pages) $page = $total_pages;
-        $offset = ($page - 1) * $per_page;
-        if ($offset < 0) $offset = 0;
-
-        // Get products with pagination - Fixed query structure
+        // Build SQL for SimplePager
         $sql = "SELECT p.prodID, p.name, p.price, p.qty, p.color, p.material, p.image1, p.description, 
                        p.catID as productCatID, c.catID as categoryCatID,
                        COALESCE(c.name, 'Uncategorized') as categoryName
                 FROM product p 
                 LEFT JOIN category c ON p.catID = c.catID
                 $where_clause
-                ORDER BY p.$sort $order 
-                LIMIT $per_page OFFSET $offset";
+                ORDER BY p.$sort $order";
 
-        $stmt = $_db->prepare($sql);
-        if ($stmt === false) {
-            throw new Exception("Failed to prepare products query");
-        }
-        
-        $stmt->execute($params);
-        $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Use SimplePager for pagination
+        $pager = new SimplePager($sql, $params, $per_page, $page);
+        $products = $pager->result;
 
         // Get categories for filter dropdown
         $cat_sql = "SELECT catID, name as categoryName FROM category ORDER BY name";
@@ -265,72 +241,13 @@ $page_title = "Products";
     <title><?php echo htmlspecialchars($page_title); ?></title>
     <link rel="stylesheet" href="../style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
 </head>
 
 <body class="product-list-main" style="margin-top:0; padding-top:0;">
 
     <?php include '../admin/adminheader.php'; ?>
-    <script src="../js/adminProductList.js"></script>
-    
-    <script>
-        function toggleProductSelect(item, event) {
-            // Don't toggle if clicking on links or form elements
-            if (event.target.tagName === 'A' || event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON') {
-                return;
-            }
-            
-            const checkbox = item.querySelector('input[type=checkbox]');
-            if (checkbox) {
-                checkbox.checked = !checkbox.checked;
-                updateBulkOperations();
-            }
-        }
-        
-        function updateBulkOperations() {
-            const checkboxes = document.querySelectorAll('input[name="selected_products[]"]:checked');
-            const count = checkboxes.length;
-            const bulkPanel = document.getElementById('bulk-operations');
-            const countSpan = document.getElementById('selected-count');
-            
-            if (count > 0) {
-                bulkPanel.style.display = 'block';
-                countSpan.textContent = count;
-            } else {
-                bulkPanel.style.display = 'none';
-            }
-        }
-        
-        function clearSelection() {
-            const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
-            checkboxes.forEach(function(checkbox) {
-                checkbox.checked = false;
-            });
-            updateBulkOperations();
-        }
-        
-        function toggleNewCategoryInput() {
-            const select = document.getElementById('category-select');
-            const input = document.getElementById('new-category-input');
-            
-            if (select.value === 'new_category') {
-                input.style.display = 'block';
-                input.focus();
-            } else {
-                input.style.display = 'none';
-                input.value = '';
-            }
-        }
-        
-        // Add event listeners when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
-            checkboxes.forEach(function(checkbox) {
-                checkbox.addEventListener('change', updateBulkOperations);
-            });
-        });
-    </script>
+    <script src="../js/adminproductlist.js"></script>
  
     <div class="container">
         <!-- Display error message if any -->
@@ -347,8 +264,8 @@ $page_title = "Products";
             <div class="debug-info" style="background: #f0f0f0; padding: 1rem; margin: 1rem 0; border-radius: 4px; font-family: monospace; font-size: 0.9em;">
                 <strong>Debug Information:</strong><br>
                 Database Connection: <?php echo isset($_db) ? 'Connected' : 'Not Connected'; ?><br>
-                Total Products Found: <?php echo $total_products; ?><br>
-                Current Page: <?php echo $page; ?><br>
+                Total Products Found: <?php echo $pager->item_count; ?><br>
+                Current Page: <?php echo $pager->page; ?><br>
                 Products Array Count: <?php echo count($products); ?><br>
                 Categories Array Count: <?php echo count($categories); ?><br>
                 Search Query: "<?php echo htmlspecialchars($search); ?>"<br>
@@ -507,29 +424,36 @@ $page_title = "Products";
                 <?php endforeach; ?>
             </div>
 
-            <!-- Bulk Operations Panel -->
-            <div id="bulk-operations" style="display:none; margin-top:20px; padding:20px; background:#f8f9fa; border-radius:8px; border-left:4px solid #007bff;">
+            <!-- Floating Toggle Button for Bulk Operations -->
+            <button id="bulk-toggle-btn" type="button" title="Open bulk operations" style="display:none; position:fixed; top:120px; right:20px; width:52px; height:52px; border-radius:50%; background:#8B4513; color:#fff; border:none; box-shadow:0 8px 20px rgba(0,0,0,0.18); z-index:10000; cursor:pointer; align-items:center; justify-content:center;">
+                <i class="fas fa-sliders-h"></i>
+            </button>
+
+            <!-- Bulk Operations Panel (appears below button) -->
+            <div id="bulk-operations" style="display:none; position:fixed; top:180px; right:20px; transform: translateY(-20px); transition: transform 0.3s ease, opacity 0.3s ease; opacity:0; width:340px; max-width:calc(100% - 40px); padding:16px; background:#f8f9fa; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.12); border-left:4px solid #8B4513; z-index:9999;">
                 <h4 style="margin:0 0 15px 0; color:#333;">Bulk Operations (<span id="selected-count">0</span> selected)</h4>
                 
                 <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
                     <!-- Set Category -->
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <label style="font-weight:600; color:#000;">Category:</label>
-                        <select name="new_category" id="category-select" onchange="toggleNewCategoryInput()" style="padding:6px 10px; border:1px solid #ddd; border-radius:4px;">
-                            <option value="">Select Category</option>
-                            <option value="new_category">+ Add New Category</option>
-                            <?php foreach ($categories as $cat): ?>
-                                <option value="<?php echo htmlspecialchars($cat['catID']); ?>">
-                                    <?php echo htmlspecialchars($cat['categoryName']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <label style="font-weight:600; color:#000;">Category:</label>
+                            <select name="new_category" id="category-select" onchange="toggleNewCategoryInput()" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em; width:140px;">
+                                <option value="">Select Category</option>
+                                <option value="new_category">+ Add New Category</option>
+                                <?php foreach ($categories as $cat): ?>
+                                    <option value="<?php echo htmlspecialchars($cat['catID']); ?>">
+                                        <?php echo htmlspecialchars($cat['categoryName']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="submit" name="bulk_operation" value="set_category" 
+                                    style="background:#8B4513; color:white; padding:4px 10px; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;">
+                                Update
+                            </button>
+                        </div>
                         <input type="text" name="new_category_name" id="new-category-input" placeholder="Enter category name" 
-                               style="display:none; width:150px; padding:6px 10px; border:1px solid #ddd; border-radius:4px;">
-                        <button type="submit" name="bulk_operation" value="set_category" 
-                                style="background:#8B4513; color:white; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">
-                            Update
-                        </button>
+                               style="display:none; width:100%; padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">
                     </div>
                     
                     <!-- Set Price -->
@@ -571,66 +495,18 @@ $page_title = "Products";
             </form>
 
             <!-- Pagination -->
-            <?php if ($total_pages > 1): ?>
-                <div class="pagination">
-                    <!-- First Page -->
-                    <?php if ($page > 1): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => 1])); ?>" 
-                        class="page-link">⏮ First</a>
-                    <?php else: ?>
-                        <span class="page-link disabled">⏮ First</span>
-                    <?php endif; ?>
-                    
-                    <!-- Previous Page -->
-                    <?php if ($page > 1): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" 
-                        class="page-link">◀ Previous</a>
-                    <?php else: ?>
-                        <span class="page-link disabled">◀ Previous</span>
-                    <?php endif; ?>
-                    
-                    <!-- Page Numbers -->
-                    <?php
-                    // Calculate the range of pages to show
-                    $start_page = max(1, $page - 2);
-                    $end_page = min($total_pages, $page + 2);
-                    
-                    // Ensure we show at least 5 pages if available
-                    if ($end_page - $start_page < 4) {
-                        if ($start_page == 1) {
-                            $end_page = min($total_pages, $start_page + 4);
-                        } else {
-                            $start_page = max(1, $end_page - 4);
-                        }
-                    }
-                    ?>
-        
-                    <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-                        <?php if ($i == $page): ?>
-                            <span class="page-link active"><?php echo $i; ?></span>
-                        <?php else: ?>
-                            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
-                            class="page-link"><?php echo $i; ?></a>
-                        <?php endif; ?>
-                    <?php endfor; ?>
-                
-                    <!-- Next Page -->
-                    <?php if ($page < $total_pages): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
-                        class="page-link">Next ▶</a>
-                    <?php else: ?>
-                        <span class="page-link disabled">Next ▶</span>
-                    <?php endif; ?>
-                    
-                    <!-- Last Page -->
-                    <?php if ($page < $total_pages): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $total_pages])); ?>" 
-                        class="page-link">Last ⏭</a>
-                    <?php else: ?>
-                        <span class="page-link disabled">Last ⏭</span>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
+            <?php 
+            // Build query parameters for pagination links
+            $href_params = [];
+            if (!empty($search)) $href_params['search'] = $search;
+            if (!empty($category)) $href_params['category'] = $category;
+            if (!empty($sort)) $href_params['sort'] = $sort;
+            if (!empty($order)) $href_params['order'] = $order;
+            $href = http_build_query($href_params);
+            
+            // Display pagination using SimplePager
+            $pager->html($href);
+            ?>
 
             <?php else: ?>
                 <div class="no-products" style="text-align: center; padding: 3rem 1rem; color: #666;">

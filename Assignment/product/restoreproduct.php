@@ -80,9 +80,11 @@ $page_title = "Restore Removed Products";
 <body class="product-list-main" style="margin-top:0; padding-top:0;">
 
     <?php include '../admin/adminheader.php'; ?>
+    <script src="../js/restoreproduct.js"></script>
+
     <div class="container">
         <?php if ($message): ?>
-            <div class="message" style="color: green; background: #fff; border: 2px solid green; margin-bottom: 1rem; text-align: center; font-weight: bold;">
+            <div id="success-message" class="message" style="color: green; background: #fff; border: 2px solid green; margin-bottom: 1rem; text-align: center; font-weight: bold; padding: 10px; border-radius: 5px; transition: opacity 0.5s ease-out;">
                 <?php echo htmlspecialchars($message); ?>
             </div>
         <?php endif; ?>
@@ -161,41 +163,6 @@ $page_title = "Restore Removed Products";
                 <h3>No removed products found</h3>
             </div>
         <?php endif; ?>
-
-    <script>
-        function toggleCheckbox(item) {
-            const checkbox = item.querySelector('input[type=checkbox]');
-            if (checkbox) {
-                checkbox.checked = !checkbox.checked;
-                updateRestoreButton();
-            }
-        }
-        
-        function updateRestoreButton() {
-            const checkboxes = document.querySelectorAll('input[name="restore_ids[]"]:checked');
-            const count = checkboxes.length;
-            const buttonContainer = document.getElementById('restore-button-container');
-            const countSpan = document.getElementById('selected-count');
-            
-            if (count > 0) {
-                buttonContainer.style.display = 'block';
-                countSpan.textContent = count;
-            } else {
-                buttonContainer.style.display = 'none';
-            }
-        }
-        
-        // Ensure checkboxes work properly on direct click
-        document.addEventListener('DOMContentLoaded', function() {
-            const checkboxes = document.querySelectorAll('input[type=checkbox]');
-            checkboxes.forEach(function(checkbox) {
-                checkbox.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    updateRestoreButton();
-                });
-            });
-        });
-    </script>
     </div>
     <?php include '../footer.php'; ?>
 </body>

@@ -1,6 +1,21 @@
+/* Product List Main Page Background */
+.product-list-main {
+    padding: 0 0 2rem 0;
+    background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
+    min-height: 100vh;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+/* Ensure header fits properly at top */
+body.product-list-main {
+    margin: 0;
+    padding: 0;
+}
+
 .product-list {
     max-width: 1200px;
-    margin: 20px auto;
+    margin: 30px auto 20px auto;
     padding: 0 15px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);

@@ -145,8 +145,14 @@ function showNotification(message, type = 'error') {
     }, 4000);
 }
 
-// Auto-hide alerts after 5 seconds
+// Consolidated DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize add to cart buttons if function exists
+    if (typeof initAddToCartButtons === "function") {
+        initAddToCartButtons();
+    }
+
+    // Auto-hide alerts after 5 seconds
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
         setTimeout(() => {
@@ -154,9 +160,20 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
-});
 
-document.addEventListener('DOMContentLoaded', function() {
+    // Product card click navigation
+    document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('form')) {
+                e.stopPropagation();
+                return;
+            }
+            const prodID = this.dataset.id;
+            window.location.href = `product_detail.php?prodID=${prodID}`;
+        });
+    });
+
+    // Add to cart button handlers
     document.querySelectorAll('.add-to-cart, .btn-add').forEach(btn => {
         btn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -395,3 +412,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Additional functions moved from productList.php
+function handleFormSubmit(form) {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn && !submitBtn.disabled) {
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        
+        if (submitBtn.classList.contains('btn-add')) {
+            submitBtn.textContent = 'Adding...';
+        } else if (submitBtn.classList.contains('btn-checkout')) {
+            submitBtn.textContent = 'Processing...';
+        }
+        
+        // Re-enable after 3 seconds in case of error
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }, 3000);
+    }
+    return true;
+}

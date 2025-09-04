@@ -1,5 +1,6 @@
 <?php
 include '../config.php';
+include '../_base.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();

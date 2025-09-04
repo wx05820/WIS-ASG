@@ -82,9 +82,9 @@ unset($p);
 ?>
 
 <link rel="stylesheet" href="../css/index.css">
-<link rel="stylesheet" href="../css/productList.css">e
+<link rel="stylesheet" href="../css/userproduct.css">
 <script src="../js/cart.js" defer></script>
-<script src="../js/userProduct.js" defer></script>
+<script src="../js/userproduct.js" defer></script>
 
 <body class="product-list-main" data-user-id="<?= htmlspecialchars($user_id ?? ''); ?>">
     <main class="product-list">
@@ -175,119 +175,5 @@ $href = http_build_query($params_array);
 
 echo $pager->html($href);
 ?>
-
-<script>
-    function handleFormSubmit(form) {
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn && !submitBtn.disabled) {
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            
-            if (submitBtn.classList.contains('btn-add')) {
-                submitBtn.textContent = 'Adding...';
-            } else if (submitBtn.classList.contains('btn-checkout')) {
-                submitBtn.textContent = 'Processing...';
-            }
-            
-            // Re-enable after 3 seconds in case of error
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-            }, 3000);
-        }
-        return true;
-    }
-
-    function showLoginPrompt() {
-        showError('Please log in to add items to your cart');
-        setTimeout(() => {
-            window.location.href = '../user/login.php';
-        }, 2000);
-    }
-
-    function showError(message) {
-        showNotification(message, 'error');
-    }
-
-    function showSuccess(message) {
-        showNotification(message, 'success');
-    }
-
-    function showNotification(message, type = 'error') {
-        // Remove any existing notifications
-        const existing = document.querySelector('.list-notification');
-        if (existing) {
-            existing.remove();
-        }
-        
-        const notificationDiv = document.createElement('div');
-        notificationDiv.className = 'list-notification';
-        const bgColor = type === 'error' ? '#ff4444' : '#4CAF50';
-        notificationDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${bgColor};
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-weight: 500;
-            max-width: 300px;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.3s ease-in-out;
-        `;
-        notificationDiv.textContent = message;
-        
-        document.body.appendChild(notificationDiv);
-        
-        // Animate in
-        setTimeout(() => {
-            notificationDiv.style.opacity = '1';
-            notificationDiv.style.transform = 'translateX(0)';
-        }, 100);
-        
-        // Auto remove after 4 seconds
-        setTimeout(() => {
-            if (notificationDiv.parentNode) {
-                notificationDiv.style.opacity = '0';
-                notificationDiv.style.transform = 'translateX(100%)';
-                setTimeout(() => {
-                    if (notificationDiv.parentNode) {
-                        notificationDiv.parentNode.removeChild(notificationDiv);
-                    }
-                }, 300);
-            }
-        }, 4000);
-    }
-
-    // Auto-hide alerts after 5 seconds
-    document.addEventListener('DOMContentLoaded', function() {
-        if (typeof initAddToCartButtons === "function") {
-            initAddToCartButtons();
-        }
-
-        const alerts = document.querySelectorAll('.alert');
-        alerts.forEach(alert => {
-            setTimeout(() => {
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 300);
-            }, 5000);
-        });
-        
-        document.querySelectorAll('.product-card').forEach(card => {
-            card.addEventListener('click', function(e) {
-                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('form')) {
-                    e.stopPropagation();
-                    return;
-                }
-                const prodID = this.dataset.id;
-                window.location.href = `product_    .php?prodID=${prodID}`;
-            });
-        });
-    });
-</script>
 
 <?php include '../footer.php'; ?>

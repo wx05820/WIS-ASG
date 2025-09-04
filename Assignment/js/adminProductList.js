@@ -209,3 +209,122 @@ setTimeout(function() {
         }, 500); // Wait for fade out transition to complete
     }
 }, 2000); // 2 seconds
+
+/* Bulk operations and admin product list behavior moved from product/list.php */
+// Small state to track whether bulk panel is open
+let bulkPanelOpen = false;
+
+function openBulkPanel() {
+    const bulkPanel = document.getElementById('bulk-operations');
+    const toggleBtn = document.getElementById('bulk-toggle-btn');
+    if (!bulkPanel) return;
+    bulkPanel.style.display = 'block';
+    requestAnimationFrame(() => {
+        bulkPanel.style.transform = 'translateY(0)';
+        bulkPanel.style.opacity = '1';
+    });
+    bulkPanelOpen = true;
+    if (toggleBtn) toggleBtn.innerHTML = '<span style="font-size:18px;">&times;</span>';
+    if (toggleBtn) toggleBtn.title = 'Close bulk operations';
+}
+
+function closeBulkPanel() {
+    const bulkPanel = document.getElementById('bulk-operations');
+    const toggleBtn = document.getElementById('bulk-toggle-btn');
+    if (!bulkPanel) return;
+    bulkPanel.style.transform = 'translateY(-20px)';
+    bulkPanel.style.opacity = '0';
+    setTimeout(() => {
+        if (!bulkPanelOpen) {
+            bulkPanel.style.display = 'none';
+        }
+    }, 320);
+    bulkPanelOpen = false;
+    if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-sliders-h"></i>';
+    if (toggleBtn) toggleBtn.title = 'Open bulk operations';
+}
+
+function toggleProductSelect(item, event) {
+    if (event.target.tagName === 'A' || event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON') {
+        return;
+    }
+    const checkbox = item.querySelector('input[type=checkbox]');
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        updateBulkOperations();
+    }
+}
+
+function updateBulkOperations() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]:checked');
+    const count = checkboxes.length;
+    const bulkPanel = document.getElementById('bulk-operations');
+    const countSpan = document.getElementById('selected-count');
+    const toggleBtn = document.getElementById('bulk-toggle-btn');
+
+    if (count > 0) {
+        if (toggleBtn) toggleBtn.style.display = 'block';
+        countSpan.textContent = count;
+        if (!bulkPanelOpen) {
+            openBulkPanel();
+        }
+    } else {
+        if (toggleBtn) toggleBtn.style.display = 'none';
+        closeBulkPanel();
+        countSpan.textContent = 0;
+    }
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.checked = false;
+    });
+    updateBulkOperations();
+}
+
+function toggleNewCategoryInput() {
+    const select = document.getElementById('category-select');
+    const input = document.getElementById('new-category-input');
+
+    if (select && input) {
+        if (select.value === 'new_category') {
+            input.style.display = 'block';
+            input.focus();
+        } else {
+            input.style.display = 'none';
+            input.value = '';
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="selected_products[]"]');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', updateBulkOperations);
+    });
+
+    const toggleBtn = document.getElementById('bulk-toggle-btn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            if (bulkPanelOpen) {
+                bulkPanelOpen = false;
+                closeBulkPanel();
+            } else {
+                bulkPanelOpen = true;
+                openBulkPanel();
+            }
+        });
+    }
+});
+
+// Auto-hide success message after 2 seconds (idempotent)
+setTimeout(function() {
+    const messageDiv = document.getElementById('success-message');
+    if (messageDiv) {
+        messageDiv.style.opacity = '0';
+        setTimeout(function() {
+            messageDiv.style.display = 'none';
+        }, 500);
+    }
+}, 2000);

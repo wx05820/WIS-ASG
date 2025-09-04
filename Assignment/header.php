@@ -87,7 +87,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </div>
             
             <!-- Search Bar and Filters -->
-            <div class="search-section">
+            <div class="search-section" style="margin-top: 15px;">
                 <form action="/userProduct/productList.php" method="GET" class="search-filter-form" role="search" id="searchFilterForm">
                     <div class="search-input-container">
                         <input type="search" 
