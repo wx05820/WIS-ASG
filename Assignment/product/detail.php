@@ -4,6 +4,10 @@ include '../config.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+// Check if user is admin
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    redirect('../admin/loginstaff.php');
+}
 
 // get product id
 $product_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

@@ -1,9 +1,14 @@
 <?php
 include '../config.php';
 
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+// Check if user is admin
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    redirect('../admin/loginstaff.php');
 }
 
 // Handle bulk operations
