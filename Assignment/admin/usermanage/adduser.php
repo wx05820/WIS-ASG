@@ -111,7 +111,7 @@ if (is_post()) {
 <body class="bodylr">
     <div class="login-container">
         <div class="login-header">
-            <button class="back-btn" onclick="window.location.href='../adminpage.php'">
+            <button class="back-btn" onclick="window.location.href='list.php'">
             <i class="fas fa-arrow-left"></i>
             </button>
             <h1>Add Staff Email</h1>

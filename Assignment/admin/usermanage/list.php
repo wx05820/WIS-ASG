@@ -1,5 +1,6 @@
 <?php
 include '../../_base.php';
+include '../../lib/SimplePager.php';
 
 // Check if user is admin
 if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
@@ -30,30 +31,34 @@ if (is_post() && isset($_POST['action'])) {
     redirect($_SERVER['REQUEST_URI']);
 }
 
-// Get all users with pagination (excluding current staff member)
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 20;
-$offset = ($page - 1) * $limit;
-
-// Get total count (excluding current staff member)
-$stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE userID != ?');
-$stm->execute([$current_staff_id]);
-$total_users = $stm->fetchColumn();
-$total_pages = ceil($total_users / $limit);
-
 // Determine ID sort order
 $id_order = isset($_GET['id_order']) && strtoupper($_GET['id_order']) === 'ASC' ? 'ASC' : 'DESC';
 
-// Get users for current page (excluding current staff member) with userID sort
-$stm = $_db->prepare('
+// Get current page
+$page = isset($_GET['page']) && ctype_digit($_GET['page']) ? (int)$_GET['page'] : 1;
+
+// Prepare SQL query for SimplePager
+$sql = '
     SELECT userID, username, photo, role, status, last_login, created_at, email, name
     FROM user 
     WHERE userID != ?
-    ORDER BY userID ' . $id_order . ' 
-    LIMIT ? OFFSET ?
-');
-$stm->execute([$current_staff_id, $limit, $offset]);
-$users = $stm->fetchAll();
+    ORDER BY userID ' . $id_order;
+
+$params = [$current_staff_id];
+
+// Create SimplePager instance
+$pager = new SimplePager($sql, $params, 10, $page);
+$users = $pager->result;
+
+// Convert result to objects for compatibility with existing code
+foreach ($users as &$user) {
+    $user = (object) $user;
+}
+unset($user);
+
+// Set variables for backward compatibility
+$total_users = $pager->item_count;
+$total_pages = $pager->page_count;
 
 $success_msg = get_temp('success');
 $error_msg = get_temp('error');
@@ -65,235 +70,218 @@ $error_msg = get_temp('error');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management - AiKUN Furniture</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/index.css">
+    <link rel="stylesheet" href="../../style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../../css/userlist.css">
+    <link rel="stylesheet" href="../../css/products.css">
 </head>
-<body>
-    <?php include '../adminheader.php'; ?>
-    <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-users"></i> User Management</h1>
-            <p>Manage all registered users in the system</p>
-        </div>
+<body class="product-list-main" style="margin-top:0; padding-top:0;">
 
+    <?php include '../adminheader.php'; ?>
+    <script src="../../js/adminProductList.js"></script>
+
+    <div class="container">
+
+        <!-- Display success/error messages -->
         <?php if ($success_msg): ?>
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_msg); ?>
+            <div class="error-message" style="background-color: #e8f5e8; color: #2c5530; padding: 1rem; margin: 1rem 0; border-radius: 4px; border: 1px solid #c8e6c9;">
+                <i class="fas fa-check-circle"></i>
+                <?php echo htmlspecialchars($success_msg); ?>
             </div>
         <?php endif; ?>
 
         <?php if ($error_msg): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_msg); ?>
+            <div class="error-message" style="background-color: #fee; color: #c33; padding: 1rem; margin: 1rem 0; border-radius: 4px; border: 1px solid #fcc;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <?php echo htmlspecialchars($error_msg); ?>
             </div>
         <?php endif; ?>
 
 
 
-        <!-- Search and Filter Bar -->
-        <div class="search-bar">
-             <?php
-             $toggle_order = $id_order === 'ASC' ? 'DESC' : 'ASC';
-             $toggle_label = $id_order === 'ASC' ? 'ID Desc' : 'ID Asc';
-             $toggle_icon = $id_order === 'ASC' ? 'fa-sort-numeric-down' : 'fa-sort-numeric-up';
-              ?>
-                <a class="id-sort-btn" href="?id_order=<?php echo $toggle_order; ?>">
-                    <i class="fas <?php echo $toggle_icon; ?>"></i> <?php echo $toggle_label; ?>
-                </a>
-            <div class="search-filters">
-                <!-- Search Input -->
-                <div class="search-input-group">
-                    <input type="text" class="search-input" placeholder="Search by ID, username, email, or name..." id="searchInput">
-                    <button type="button" class="search-btn" id="searchBtn" aria-label="Search">
-                        <i class="fas fa-search"></i>
-                    </button>
+        <!-- Action Buttons Outside Filter Bar -->
+        <div class="product-action-bar" style="display: flex; gap: 10px; margin-bottom: 1.5rem;">
+            <button type="button" class="adduser-btn sortby-add" onclick="window.location.href='adduser.php'">
+                <i class="fas fa-user-plus"></i>
+                <span class="action-btn-label">Add Staff</span>
+            </button>
+            <?php
+            $toggle_order = $id_order === 'ASC' ? 'DESC' : 'ASC';
+            $toggle_label = $id_order === 'ASC' ? 'ID Desc' : 'ID Asc';
+            $toggle_icon = $id_order === 'ASC' ? 'fa-sort-numeric-down' : 'fa-sort-numeric-up';
+            ?>
+                         <button type="button" class="restore-btn sortby-restore" onclick="handleSortToggle('<?php echo $toggle_order; ?>')">
+                 <i class="fas <?php echo $toggle_icon; ?>"></i>
+                 <span class="action-btn-label"><?php echo $toggle_label; ?></span>
+             </button>
+        </div>
+
+        <!-- Filters and Search Section -->
+        <div class="filters-section">
+            <div class="filters-container">
+
+                <!-- Search Bar -->
+                <div class="search-filter">
+                    <div class="filter-form" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" 
+                               id="searchInput"
+                               placeholder="Search by ID, username, email, or name..." 
+                               class="search-input"
+                               style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem;">
+                        <button type="button" class="search-btn" id="searchBtn" style="padding: 0.5rem 1rem; font-size: 1.1rem;">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <select id="roleFilter" class="filter-select" style="width: 180px; padding: 0.5rem 0.7rem; font-size: 1rem;">
+                            <option value="all">All Roles</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Customer">Customer</option>
+                        </select>
+                    </div>
                 </div>
-                
-                <!-- Role Filter -->
-                <div class="filter-group">
-                    <select id="roleFilter" class="filter-select">
-                        <option value="all">All Roles</option>
-                        <option value="Admin">Admin</option>
-                        <option value="Supervisor">Supervisor</option>
-                        <option value="Customer">Customer</option>
-                    </select>
-                </div>
-                
-                <!-- Status Filter -->
-                <div class="filter-group">
-                    <select id="statusFilter" class="filter-select">
+
+                <!-- Filter Options -->
+                <div class="sort-filter" style="display: flex; gap: 10px; align-items: center;">
+                    <select id="statusFilter" class="filter-select sortby-select">
                         <option value="all">All Status</option>
                         <option value="Active">Active</option>
                         <option value="Inactive">Ban</option>
                     </select>
+                    <button type="button" class="order-btn sortby-order" id="clearFiltersBtn" title="Clear filters">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-
-
-
-                <!-- Adduser Button -->
-                <button type="button" class="adduser-btn" onclick="window.location.href='adduser.php'">
-                <i class="fas fa-user-plus"></i> Add Staff
-                </button>
-                
-                <!-- Clear Button -->
-                <button type="button" class="clear-filters-btn" id="clearFiltersBtn">
-                    <i class="fas fa-times"></i> Clear
-                </button>
-
             </div>
 
+                         <!-- Results Summary -->
+             <div class="results-summary">
+                 <p>Showing <span id="showing-start"><?php echo ($total_users > 0) ? (($pager->page - 1) * $pager->limit + 1) : 0; ?></span> - 
+                    <span id="showing-end"><?php echo min($pager->page * $pager->limit, $total_users); ?></span> of <span id="total-users"><?php echo $total_users; ?></span> users</p>
+             </div>
         </div>
 
 
-        <!-- Users Cards -->
-        <div class="users-section">
-            <div class="section-header">
-                <i class="fas fa-users"></i> User List
-            </div>  
-            
-            <?php if (empty($users)): ?>
-                <div class="no-users">
-                    <i class="fas fa-user-slash"></i>
-                    <h3>No record found</h3>
-                    <p>There are no users in the database.</p>
-                </div>
-            <?php else: ?>
-                <div class="users-grid" id="usersGrid">
-                    <?php foreach ($users as $user): ?>
-                        <div class="user-card user-row" 
-                             data-userid="<?php echo htmlspecialchars($user->userID); ?>"
-                             data-username="<?php echo htmlspecialchars(strtolower($user->username)); ?>" 
-                             data-email="<?php echo htmlspecialchars(strtolower($user->email)); ?>" 
-                             data-name="<?php echo htmlspecialchars(strtolower($user->name)); ?>"
-                             data-role="<?php echo htmlspecialchars($user->role); ?>"
-                             data-status="<?php echo htmlspecialchars($user->status); ?>">
-                            <!-- Profile Picture -->
-                            <div class="user-photo-container">
-                                <?php if ($user->photo && file_exists('../../' . $user->photo)): ?>
-                                    <img src="../../<?php echo htmlspecialchars($user->photo); ?>" alt="Profile" class="user-photo">
-                                <?php else: ?>
-                                    <div class="user-photo">
-                                        <i class="fas fa-user"></i>
-                                    </div>
-                                <?php endif; ?>
+                 <!-- Users List -->
+         <?php if (!empty($users)): ?>
+            <div class="users-table-container">
+                <?php foreach ($users as $user): ?>
+                    <div class="user-row user-card" 
+                         data-userid="<?php echo htmlspecialchars($user->userID); ?>"
+                         data-username="<?php echo htmlspecialchars(strtolower($user->username)); ?>" 
+                         data-email="<?php echo htmlspecialchars(strtolower($user->email)); ?>" 
+                         data-name="<?php echo htmlspecialchars(strtolower($user->name)); ?>"
+                         data-role="<?php echo htmlspecialchars($user->role); ?>"
+                         data-status="<?php echo htmlspecialchars($user->status); ?>">
+                        
+                        <!-- Profile Picture -->
+                        <div class="user-image">
+                            <?php if ($user->photo && file_exists('../../' . $user->photo)): ?>
+                                <img src="../../<?php echo htmlspecialchars($user->photo); ?>" 
+                                     alt="Profile" 
+                                     loading="lazy">
+                            <?php else: ?>
+                                <div class="no-image">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- User Info -->
+                        <div class="user-info">
+                            <div class="user-info-header">
+                                <h3><?php echo htmlspecialchars($user->username); ?></h3>
+                                <span class="role-badge"><?php echo htmlspecialchars($user->role); ?></span>
+                                <span class="status-badge <?php echo ($user->status === 'Active') ? 'status-active' : 'status-inactive'; ?>">
+                                    <?php echo htmlspecialchars($user->status); ?>
+                                </span>
                             </div>
-                            
-                            <!-- User Information -->
-                            <div class="user-info">
-                                <div class="user-field">
-                                    <span class="user-label">ID:</span>
-                                    <span class="user-value"><?php echo htmlspecialchars($user->userID); ?></span>
-                                </div>
-                                
-                                <div class="user-field">
-                                    <span class="user-label">Username:</span>
-                                    <span class="user-value"><?php echo htmlspecialchars($user->username); ?></span>
-                                </div>
-                                
-                                <div class="user-field">
-                                    <span class="user-label">Email:</span>
-                                    <span class="user-value"><?php echo htmlspecialchars($user->email); ?></span>
-                                </div>
-                                
-                                <div class="user-field">
-                                    <span class="user-label">Role:</span>
-                                    <span class="user-value">
-                                        <span class="role-badge role-<?php echo strtolower($user->role); ?>">
-                                            <?php echo htmlspecialchars($user->role); ?>
-                                        </span>
-                                    </span>
-                                </div>
-                                
-                                <div class="user-additional-details">
-                                    <div class="user-field">
-                                        <span class="user-label">Last Login:</span>
-                                        <span class="user-value">
-                                            <?php if ($user->last_login): ?>
-                                                <?php echo date('M j, Y g:i A', strtotime($user->last_login)); ?>
-                                            <?php else: ?>
-                                                <span style="color: #999;">Never</span>
-                                            <?php endif; ?>
-                                        </span>
-                                    </div>
-                                    
-                                    <div class="user-field">
-                                        <span class="user-label">Create Date:</span>
-                                        <span class="user-value">
-                                            <?php echo date('M j, Y', strtotime($user->created_at)); ?>
-                                        </span>
-                                    </div>
-                                </div>
+                            <div class="user-id-info">
+                                <span class="label">User ID:</span> <?php echo htmlspecialchars($user->userID); ?>
                             </div>
-                            
-                            
-                            <div class="user-action">
-                                
-                                <div class="status-indicator-large">
-                                    <?php if ($user->status === 'Active'): ?>
-                                        <span class="status-active-large">Active</span>
-                                    <?php else: ?>
-                                        <span class="status-ban-large">Ban</span>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <!-- Action Button -->
-                                <?php if ($user->status === 'Active'): ?>
-                                    <?php if ($user->role === 'Admin' || $user->role === 'Supervisor'): ?>
-                                        <form method="post" style="display: inline;">
-                                            <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
-                                            <input type="hidden" name="action" value="delete">
-                                            <button type="submit" class="action-btn remove" onclick="return confirm('Are you sure you want to remove this staff member?')">
-                                                Remove
-                                            </button>
-                                        </form>
-                                    <?php else: ?>
-                                        <form method="post" style="display: inline;">
-                                            <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
-                                            <input type="hidden" name="action" value="deactivate">
-                                            <button type="submit" class="action-btn ban" onclick="return confirm('Are you sure you want to ban this user?')">
-                                                Ban
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
+                            <div class="user-email">
+                                <?php echo htmlspecialchars($user->email); ?>
+                            </div>
+                        </div>
+
+                        <!-- Date Info -->
+                        <div class="user-dates">
+                            <div class="date-row">
+                                <span class="date-label">Created:</span> <?php echo date('M j, Y', strtotime($user->created_at)); ?>
+                            </div>
+                            <div class="date-row">
+                                <span class="date-label">Last Login:</span> 
+                                <?php if ($user->last_login): ?>
+                                    <?php echo date('M j, Y', strtotime($user->last_login)); ?>
                                 <?php else: ?>
-                                    <form method="post" style="display: inline;">
-                                        <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
-                                        <input type="hidden" name="action" value="activate">
-                                        <button type="submit" class="action-btn" onclick="return confirm('Are you sure you want to activate this user?')">
-                                            Active
-                                        </button>
-                                    </form>
+                                    <span class="never">Never</span>
                                 <?php endif; ?>
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+
+                        <!-- Action Button -->
+                        <div class="user-actions">
+                            <?php if ($user->status === 'Active'): ?>
+                                <?php if ($user->role === 'Admin' || $user->role === 'Supervisor'): ?>
+                                    <form method="post" style="display: inline;">
+                                        <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
+                                        <input type="hidden" name="action" value="delete">
+                                        <button type="submit" class="action-btn remove" onclick="return confirm('Are you sure you want to remove this staff member?')">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <form method="post" style="display: inline;">
+                                        <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
+                                        <input type="hidden" name="action" value="deactivate">
+                                        <button type="submit" class="action-btn ban" onclick="return confirm('Are you sure you want to ban this user?')">
+                                            <i class="fas fa-ban"></i> Ban
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <form method="post" style="display: inline;">
+                                    <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
+                                    <input type="hidden" name="action" value="activate">
+                                    <button type="submit" class="action-btn" onclick="return confirm('Are you sure you want to activate this user?')">
+                                        <i class="fas fa-check"></i> Activate
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+        <?php else: ?>
+            <div class="no-users-database">
+                <i class="fas fa-user-slash"></i>
+                <h3>No users found</h3>
+                <p>There are no users in the database.</p>
+            </div>
+        <?php endif; ?>
+        
+        <!-- No filtered results message (hidden by default, shown by JavaScript) -->
+        <div class="no-users-filtered" style="display: none;">
+            <i class="fas fa-search"></i>
+            <h3>No users found</h3>
+            <p>No users match the current search and filter criteria.</p>
         </div>
 
         <!-- Pagination -->
-        <?php if ($total_pages > 1): ?>
-            <div class="pagination">
-                <?php if ($page > 1): ?>
-                    <a href="?page=<?php echo $page - 1; ?>" class="page-link">
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </a>
-                <?php endif; ?>
-                
-                <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                    <a href="?page=<?php echo $i; ?>" class="page-link <?php echo $i === $page ? 'active' : ''; ?>">
-                        <?php echo $i; ?>
-                    </a>
-                <?php endfor; ?>
-                
-                <?php if ($page < $total_pages): ?>
-                    <a href="?page=<?php echo $page + 1; ?>" class="page-link">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </a>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
+        <?php
+        // Build query parameters for pagination links (preserve all current filters)
+        $params_array = [
+            'id_order' => $id_order,
+            'search'   => $_GET['search'] ?? null,
+            'role'     => $_GET['role'] ?? null,
+            'status'   => $_GET['status'] ?? null
+        ];
+        $params_array = array_filter($params_array); // Remove empty values
+        $href = http_build_query($params_array);
+        
+        // Output SimplePager HTML
+        echo $pager->html($href, 'class="pagination"');
+        ?>
     </div>
     <?php include '../../footer.php'; ?>
     <script>
@@ -303,7 +291,8 @@ $error_msg = get_temp('error');
             const roleFilter = document.getElementById('roleFilter').value;
             const statusFilter = document.getElementById('statusFilter').value;
             const userCards = document.querySelectorAll('.user-card');
-            const usersGrid = document.getElementById('usersGrid');
+            const productsList = document.querySelector('.products-list');
+            const noProductsDiv = document.querySelector('.no-products');
             
             let visibleCount = 0;
             
@@ -339,89 +328,189 @@ $error_msg = get_temp('error');
                 }
             });
             
-            // Handle "No record found" message
-            let noUsersDiv = document.querySelector('.no-users-filtered');
+            // Handle "No record found" message and users list visibility
+            const usersContainer = document.querySelector('.users-table-container');
+            const noUsersFiltered = document.querySelector('.no-users-filtered');
             
             if (visibleCount === 0) {
-                if (!noUsersDiv) {
-                    // Create and insert the no-users message after the users-grid
-                    const noUsersHTML = `
-                        <div class="no-users no-users-filtered" style="display: block;">
-                            <i class="fas fa-user-slash"></i>
-                            <h3>No record found</h3>
-                            <p>No users match the current search and filter criteria.</p>
-                        </div>
-                    `;
-                    usersGrid.insertAdjacentHTML('afterend', noUsersHTML);
-                } else {
-                    noUsersDiv.style.display = 'block';
-                }
+                // Hide the users container and show the "no filtered results" message
+                if (usersContainer) usersContainer.style.display = 'none';
+                if (noUsersFiltered) noUsersFiltered.style.display = 'block';
             } else {
-                if (noUsersDiv) {
-                    noUsersDiv.style.display = 'none';
+                // Show the users container and hide the "no filtered results" message
+                if (usersContainer) usersContainer.style.display = '';
+                if (noUsersFiltered) noUsersFiltered.style.display = 'none';
+            }
+            
+            // Update results counter
+            updateResultsCounter(visibleCount);
+        }
+        
+        // Update results counter
+        function updateResultsCounter(visibleCount) {
+            const totalUsers = document.querySelectorAll('.user-card').length;
+            const showingStart = document.getElementById('showing-start');
+            const showingEnd = document.getElementById('showing-end');
+            const totalUsersSpan = document.getElementById('total-users');
+            
+            if (showingStart && showingEnd && totalUsersSpan) {
+                if (visibleCount === 0) {
+                    showingStart.textContent = '0';
+                    showingEnd.textContent = '0';
+                } else {
+                    showingStart.textContent = '1';
+                    showingEnd.textContent = visibleCount.toString();
                 }
+                totalUsersSpan.textContent = totalUsers.toString();
             }
         }
         
-        // Clear search and filters
-        function clearFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('roleFilter').value = 'all';
-            document.getElementById('statusFilter').value = 'all';
-            filterUsers();
-        }
+                 // Update URL with current filter values
+         function updateURLWithFilters() {
+             const searchValue = document.getElementById('searchInput').value.trim();
+             const roleValue = document.getElementById('roleFilter').value;
+             const statusValue = document.getElementById('statusFilter').value;
+             
+             const currentParams = new URLSearchParams(window.location.search);
+             
+             // Update or remove parameters based on values
+             if (searchValue) {
+                 currentParams.set('search', searchValue);
+             } else {
+                 currentParams.delete('search');
+             }
+             
+             if (roleValue !== 'all') {
+                 currentParams.set('role', roleValue);
+             } else {
+                 currentParams.delete('role');
+             }
+             
+             if (statusValue !== 'all') {
+                 currentParams.set('status', statusValue);
+             } else {
+                 currentParams.delete('status');
+             }
+             
+             // Reset to first page when filters change
+             currentParams.set('page', '1');
+             
+             // Update URL without reloading the page
+             const newURL = window.location.pathname + (currentParams.toString() ? '?' + currentParams.toString() : '');
+             window.history.replaceState({}, '', newURL);
+         }
+         
+         // Restore filter values from URL parameters on page load
+         function restoreFiltersFromURL() {
+             const urlParams = new URLSearchParams(window.location.search);
+             
+             // Restore search input
+             const searchValue = urlParams.get('search') || '';
+             const searchInput = document.getElementById('searchInput');
+             if (searchInput) {
+                 searchInput.value = searchValue;
+             }
+             
+             // Restore role filter
+             const roleValue = urlParams.get('role') || 'all';
+             const roleFilter = document.getElementById('roleFilter');
+             if (roleFilter) {
+                 roleFilter.value = roleValue;
+             }
+             
+             // Restore status filter
+             const statusValue = urlParams.get('status') || 'all';
+             const statusFilter = document.getElementById('statusFilter');
+             if (statusFilter) {
+                 statusFilter.value = statusValue;
+             }
+             
+             // Apply filters if any values were restored
+             if (searchValue || roleValue !== 'all' || statusValue !== 'all') {
+                 setTimeout(function() {
+                     filterUsers();
+                 }, 100);
+             }
+         }
+         
+         // Handle sort toggle while preserving all current filters
+         function handleSortToggle(newSortOrder) {
+             const currentParams = new URLSearchParams(window.location.search);
+             
+             // Preserve current filter values from form inputs
+             const searchValue = document.getElementById('searchInput').value.trim();
+             const roleValue = document.getElementById('roleFilter').value;
+             const statusValue = document.getElementById('statusFilter').value;
+             
+             // Update filter parameters
+             if (searchValue) {
+                 currentParams.set('search', searchValue);
+             } else {
+                 currentParams.delete('search');
+             }
+             
+             if (roleValue !== 'all') {
+                 currentParams.set('role', roleValue);
+             } else {
+                 currentParams.delete('role');
+             }
+             
+             if (statusValue !== 'all') {
+                 currentParams.set('status', statusValue);
+             } else {
+                 currentParams.delete('status');
+             }
+             
+             // Update sort order
+             currentParams.set('id_order', newSortOrder);
+             currentParams.set('page', '1'); // Reset to first page
+             
+             // Navigate to new URL
+             const newURL = window.location.pathname + '?' + currentParams.toString();
+             window.location.href = newURL;
+         }
+         
+         // Clear search and filters
+         function clearFilters() {
+             document.getElementById('searchInput').value = '';
+             document.getElementById('roleFilter').value = 'all';
+             document.getElementById('statusFilter').value = 'all';
+             
+             // Clear URL parameters
+             const currentParams = new URLSearchParams(window.location.search);
+             currentParams.delete('search');
+             currentParams.delete('role');
+             currentParams.delete('status');
+             currentParams.set('page', '1');
+             
+             // Update URL
+             const newURL = window.location.pathname + (currentParams.toString() ? '?' + currentParams.toString() : '');
+             window.history.replaceState({}, '', newURL);
+             
+             filterUsers();
+         }
         
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('searchInput').addEventListener('input', filterUsers);
-            document.getElementById('searchBtn').addEventListener('click', filterUsers);
-                document.getElementById('roleFilter').addEventListener('change', filterUsers);
-            document.getElementById('statusFilter').addEventListener('change', filterUsers);
-            document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
-        });
-        
-        // Enhanced search with better matching
-        function enhancedSearch(searchTerm, text) {
-            if (!searchTerm) return true;
-            
-            // Direct match
-            if (text.includes(searchTerm)) return true;
-            
-            // Split search term for multiple word search
-            const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
-            if (searchWords.length > 1) {
-                return searchWords.every(word => text.includes(word));
-            }
-            
-            return false;
-        }
-        
-        // Real-time search counter
-        function updateSearchCounter() {
-            const visibleCards = document.querySelectorAll('.user-card[style=""], .user-card:not([style*="display: none"])');
-            const totalCards = document.querySelectorAll('.user-card').length;
-            
-            let counterDiv = document.querySelector('.search-counter');
-            if (!counterDiv) {
-                counterDiv = document.createElement('div');
-                counterDiv.className = 'search-counter';
-                counterDiv.style.cssText = 'text-align: right; margin: 10px 0; color: #666; font-size: 14px;';
-                document.querySelector('.search-bar').appendChild(counterDiv);
-            }
-            
-            const visibleCount = Array.from(visibleCards).filter(card => 
-                card.style.display !== 'none'
-            ).length;
-            
-            counterDiv.textContent = `Showing ${visibleCount} of ${totalCards} users`;
-        }
-        
-        // Update the filterUsers function to include counter
+        // Modified filter function to update URL
         const originalFilterUsers = filterUsers;
         filterUsers = function() {
             originalFilterUsers();
-            updateSearchCounter();
+            updateURLWithFilters();
         };
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up event listeners
+            document.getElementById('searchInput').addEventListener('input', filterUsers);
+            document.getElementById('searchBtn').addEventListener('click', filterUsers);
+            document.getElementById('roleFilter').addEventListener('change', filterUsers);
+            document.getElementById('statusFilter').addEventListener('change', filterUsers);
+            document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+            
+            // Restore filters from URL on page load
+            setTimeout(function() {
+                restoreFiltersFromURL();
+            }, 50);
+        });
     </script>
 </body>
 </html>

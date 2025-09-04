@@ -18,8 +18,13 @@ if (isset($_SESSION['staff_id'])) {
 }
 
 $current_path = $_SERVER['PHP_SELF'];
-$is_in_subdirectory = (strpos($current_path, '/admin/') !== false) || (strpos($current_path, '/product/') !== false);
-$image_base_path = $is_in_subdirectory ? '../' : '';
+$is_in_subdirectory = (strpos($current_path, '/product/') !== false || 
+                      strpos($current_path, '/order/') !== false || 
+                      strpos($current_path, '/user/') !== false ||
+                      strpos($current_path, '/userProduct/') !== false ||
+                      preg_match('/\/[^\/]+\/[^\/]+\.php$/', $current_path)); // Any subdirectory pattern
+
+$image_base_path = $is_in_subdirectory ? '/../' : '';
 ?>
 
 	<header class="wooden-header">
@@ -53,7 +58,7 @@ $image_base_path = $is_in_subdirectory ? '../' : '';
 								</div>
 								<hr class="dropdown-divider">
 								<a href="/user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
-								<a href="logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
+								<a href="/admin/logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
 							</div>
 						</div>
 					<?php else: ?>
