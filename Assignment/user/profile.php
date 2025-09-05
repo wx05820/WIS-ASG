@@ -40,7 +40,9 @@ function getDefaultPhotos() {
         foreach ($files as $file) {
             if ($file !== '.' && $file !== '..' && 
                 in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                $photos[] = '/' . $directory . $file;
+                // Build a relative web path from the current script to the profilePhoto folder
+                // e.g. ../profilePhoto/filename.jpg
+                $photos[] = $directory . '/' . $file;
             }
         }
     }
@@ -528,9 +530,15 @@ $default_photos = getDefaultPhotos();
                             $photo_fs_path = __DIR__ . '/../' . $current_user->photo;
                         }
                     }
+
+                    // Default profile image path (relative to this script)
+                    $default_web = '../profilePhoto/default-profile.jpg';
+                    $default_fs = __DIR__ . '/../profilePhoto/default-profile.jpg';
                     ?>
                     <?php if (!empty($photo_url) && file_exists($photo_fs_path)): ?>
                         <img src="<?php echo htmlspecialchars($photo_url); ?>" class="current-photo" alt="Profile Photo" id="current-photo-display">
+                    <?php elseif (file_exists($default_fs)): ?>
+                        <img src="<?php echo htmlspecialchars($default_web); ?>" class="current-photo" alt="Default Profile Photo" id="current-photo-display">
                     <?php else: ?>
                         <div class="photo-placeholder" id="current-photo-display">
                             <i class="fas fa-user"></i>
