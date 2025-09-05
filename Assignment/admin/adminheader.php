@@ -84,3 +84,45 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 			</div>
 		</nav>
 	</header>
+
+	<style>
+	.asc-desc-toggle {
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		background: var(--wood-primary, #8B5A2B);
+		color: white;
+		border: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.2rem;
+		margin-left: 8px;
+		transition: background 0.3s, color 0.3s, transform 0.2s;
+		box-shadow: 0 2px 8px rgba(212, 175, 55, 0.08);
+	}
+	.asc-desc-toggle.asc { background: var(--wood-secondary, #A67C52); }
+	.asc-desc-toggle.desc { background: var(--wood-dark, #5D4037); }
+	.asc-desc-toggle:hover {
+		background: var(--gold-accent, #D4AF37);
+		color: var(--wood-dark, #5D4037);
+		transform: scale(1.08);
+	}
+	</style>
+
+	<script>
+	function onAdminSortChange(selectEl) {
+		var p = new URLSearchParams(window.location.search);
+		if (selectEl.name && selectEl.value) p.set(selectEl.name, selectEl.value);
+		var existingOrder = p.get('order');
+		if (existingOrder) p.set('order', existingOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC');
+		p.set('page', '1');
+		window.location.search = p.toString();
+	}
+
+	document.addEventListener('DOMContentLoaded', function() {
+		document.querySelectorAll('select.sortby-select').forEach(function(sel) {
+			sel.addEventListener('change', function() { onAdminSortChange(this); });
+		});
+	});
+	</script>

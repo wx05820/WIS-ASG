@@ -33,27 +33,16 @@ if (!empty($room)) {
     $params[] = "%$room%";
 }
 
-switch($sort) {
-    case 'name_asc':
-        $sql .= " ORDER BY p.name ASC";
-        break;
-    case 'name_desc':
-        $sql .= " ORDER BY p.name DESC";
-        break;
-    case 'price_asc':
-        $sql .= " ORDER BY p.price ASC";
-        break;
-    case 'price_desc':
-        $sql .= " ORDER BY p.price DESC";
-        break;
-    case 'stock_asc':
-        $sql .= " ORDER BY p.qty ASC";
-        break;
-    case 'stock_desc':
-        $sql .= " ORDER BY p.qty DESC";
-        break;
-    default:
-        $sql .= " ORDER BY p.prodID ASC";
+// Determine order direction (ASC/DESC) from separate parameter; default to ASC
+$order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
+if ($order !== 'ASC' && $order !== 'DESC') $order = 'ASC';
+
+// Validate sort column and build ORDER BY using the column plus order direction
+$allowed_sorts = ['name' => 'p.name', 'price' => 'p.price', 'qty' => 'p.qty'];
+if (!empty($sort) && isset($allowed_sorts[$sort])) {
+    $sql .= " ORDER BY " . $allowed_sorts[$sort] . " $order";
+} else {
+    $sql .= " ORDER BY p.prodID ASC";
 }
 
 $user_id = $_SESSION['user_id'] ?? null;

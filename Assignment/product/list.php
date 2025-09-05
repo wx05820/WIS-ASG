@@ -197,9 +197,13 @@ if (!isset($_db) || $_db === null) {
                 $where_clause
                 ORDER BY p.$sort $order";
 
-        // Use SimplePager for pagination
-        $pager = new SimplePager($sql, $params, $per_page, $page);
-        $products = $pager->result;
+    // Use SimplePager for pagination
+    $pager = new SimplePager($sql, $params, $per_page, $page);
+    $products = $pager->result;
+
+    // Backward-compatible variables for older templates
+    $total_products = $pager->item_count;
+    $total_pages = $pager->page_count;
 
         // Get categories for filter dropdown
         $cat_sql = "SELECT catID, name as categoryName FROM category ORDER BY name";
@@ -241,6 +245,7 @@ $page_title = "Products";
     <title><?php echo htmlspecialchars($page_title); ?></title>
     <link rel="stylesheet" href="../style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="<?php echo strpos($_SERVER['PHP_SELF'], '/product/') !== false ? '../css/products.css' : 'css/products.css'; ?>">
 </head>
 
@@ -495,17 +500,19 @@ $page_title = "Products";
             </form>
 
             <!-- Pagination -->
-            <?php 
-            // Build query parameters for pagination links
-            $href_params = [];
-            if (!empty($search)) $href_params['search'] = $search;
-            if (!empty($category)) $href_params['category'] = $category;
-            if (!empty($sort)) $href_params['sort'] = $sort;
-            if (!empty($order)) $href_params['order'] = $order;
-            $href = http_build_query($href_params);
-            
-            // Display pagination using SimplePager
-            $pager->html($href);
+            <?php
+            // Build query parameters for pagination links (preserve all current filters and sort)
+            $params_array = [
+                'sort'     => $_GET['sort'] ?? null,
+                'order'    => $_GET['order'] ?? null,
+                'query'    => $_GET['query'] ?? null,
+                'category' => $_GET['category'] ?? null
+            ];
+            $params_array = array_filter($params_array); // Remove empty values
+            $href = http_build_query($params_array);
+
+            // Output SimplePager HTML with pagination class (matches usermanage)
+            echo $pager->html($href, 'class="pagination"');
             ?>
 
             <?php else: ?>
