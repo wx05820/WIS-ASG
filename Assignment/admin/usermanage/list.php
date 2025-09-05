@@ -161,8 +161,8 @@ $error_msg = get_temp('error');
         </div>
 
 
-                 <!-- Users List -->
-         <?php if (!empty($users)): ?>
+        <!-- Users List -->
+        <?php if (!empty($users)): ?>
             <div class="users-table-container">
                 <?php foreach ($users as $user): ?>
                     <div class="user-row user-card" 
@@ -284,6 +284,7 @@ $error_msg = get_temp('error');
         ?>
     </div>
     <?php include '../../footer.php'; ?>
+    
     <script>
         // Search and filter functionality
         function filterUsers() {

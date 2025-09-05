@@ -89,6 +89,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <!-- Search Bar and Filters -->
             <div class="search-section" style="margin-top: 15px;">
                 <form action="/userProduct/productList.php" method="GET" class="search-filter-form" role="search" id="searchFilterForm">
+                    <input type="hidden" name="order" id="search-order" value="<?php echo isset($_GET['order']) ? htmlspecialchars(strtoupper($_GET['order'])) : 'ASC'; ?>">
                     <div class="search-input-container">
                         <input type="search" 
                                name="query" 
@@ -101,7 +102,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         </button>
                     </div>
                     <div class="filter-options">
-                        <select name="category" class="filter-select" aria-label="Filter by category" onchange="document.getElementById('searchFilterForm').submit()">
+                        <select name="category" class="filter-select" aria-label="Filter by category" onchange="(function(){document.getElementById('search-order').value = (new URLSearchParams(window.location.search).get('order') || document.getElementById('search-order').value); document.getElementById('searchFilterForm').submit()})()">
                             <option value="">All Categories</option>
                             <option value="Sofa" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Sofa') ? 'selected' : ''; ?>>Sofa</option>
                             <option value="Desk" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Desk') ? 'selected' : ''; ?>>Desk</option>
@@ -112,7 +113,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <option value="TV Cabinet" <?php echo (isset($_GET['category']) && $_GET['category'] === 'TV Cabinet') ? 'selected' : ''; ?>>TV Cabinet</option>
                             <option value="Children's small furniture" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Children\'s small furniture') ? 'selected' : ''; ?>>Children's Furniture</option>
                         </select>
-                        <select name="room" class="filter-select" aria-label="Filter by room" onchange="document.getElementById('searchFilterForm').submit()">
+                        <select name="room" class="filter-select" aria-label="Filter by room" onchange="(function(){document.getElementById('search-order').value = (new URLSearchParams(window.location.search).get('order') || document.getElementById('search-order').value); document.getElementById('searchFilterForm').submit()})()">
                             <option value="">All Rooms</option>
                             <option value="living-room" <?php echo (isset($_GET['room']) && $_GET['room'] === 'living-room') ? 'selected' : ''; ?>>Living Room</option>
                             <option value="bedroom" <?php echo (isset($_GET['room']) && $_GET['room'] === 'bedroom') ? 'selected' : ''; ?>>Bedroom</option>
@@ -121,12 +122,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <option value="office" <?php echo (isset($_GET['room']) && $_GET['room'] === 'office') ? 'selected' : ''; ?>>Home Office</option>
                             <option value="outdoor" <?php echo (isset($_GET['room']) && $_GET['room'] === 'outdoor') ? 'selected' : ''; ?>>Outdoor</option>
                         </select>
-                        <select name="sort" class="filter-select" aria-label="Sort products" onchange="onSortChange(this)">
+
+                        <select name="sort" class="filter-select sortby-select" aria-label="Sort products" onchange="updateSort(this.value)">
                             <option value="">Sort by...</option>
                             <option value="name" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'name') ? 'selected' : ''; ?>>Name</option>
                             <option value="price" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'price') ? 'selected' : ''; ?>>Price</option>
                             <option value="qty" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'qty') ? 'selected' : ''; ?>>Stock</option>
                         </select>
+
+                        <button type="button" onclick="toggleOrder()" class="order-btn sortby-order" title="Toggle sort order">
+                            <i class="fas fa-sort-<?php echo (isset($_GET['order']) && strtoupper($_GET['order']) === 'DESC') ? 'down' : 'up'; ?>"></i>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -283,75 +289,33 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
     </header>
 
-    <!-- ASC/DESC toggle for user sort selects -->
-    <style>
-    .asc-desc-toggle {
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        background: var(--wood-primary, #8B5A2B);
-        color: white;
-        border: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        margin-left: 8px;
-        transition: background 0.3s, color 0.3s, transform 0.2s;
-        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.08);
-    }
-    .asc-desc-toggle.asc { background: var(--wood-secondary, #A67C52); }
-    .asc-desc-toggle.desc { background: var(--wood-dark, #5D4037); }
-    .asc-desc-toggle:hover {
-        background: var(--gold-accent, #D4AF37);
-        color: var(--wood-dark, #5D4037);
-        transform: scale(1.08);
-    }
-    </style>
-
     <script>
-    function onSortChange(selectEl) {
-        var p = new URLSearchParams(window.location.search);
-        if (selectEl.name && selectEl.value) p.set(selectEl.name, selectEl.value);
-        // preserve existing order param if present
-        var existingOrder = p.get('order');
-        if (existingOrder) p.set('order', existingOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC');
-        p.set('page', '1');
-        window.location.search = p.toString();
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Add toggle button next to the sort select in the header search/filter form
-        var selectEl = document.querySelector('form#searchFilterForm select[name="sort"], form.search-filter-form select[name="sort"]');
-        if (!selectEl) return;
-
-        // avoid duplicate
-        if (selectEl.nextElementSibling && selectEl.nextElementSibling.classList && selectEl.nextElementSibling.classList.contains('asc-desc-toggle')) return;
-
-        var params = new URLSearchParams(window.location.search);
-        var currentOrder = (params.get('order') || '').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'asc-desc-toggle ' + (currentOrder === 'ASC' ? 'asc' : 'desc');
-        btn.textContent = currentOrder === 'ASC' ? 'ASC' : 'DESC';
-        btn.title = 'Toggle sort order';
-
-        btn.addEventListener('click', function() {
-            var next = btn.classList.contains('asc') ? 'DESC' : 'ASC';
+        function onSortChange(selectEl) {
             var p = new URLSearchParams(window.location.search);
             if (selectEl.name && selectEl.value) p.set(selectEl.name, selectEl.value);
-            p.set('order', next);
+            // preserve existing order param if present
+            var existingOrder = p.get('order');
+            if (existingOrder) p.set('order', existingOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC');
             p.set('page', '1');
-            // navigate with full params
             window.location.search = p.toString();
-        });
+        }
 
-        // Also ensure select changes preserve order param
-        selectEl.addEventListener('change', function() { onSortChange(this); });
+        // Same helper used by product list pages
+        function updateSort(sortValue) {
+            var p = new URLSearchParams(window.location.search);
+            if (sortValue) p.set('sort', sortValue);
+            p.set('page', '1');
+            window.location.search = p.toString();
+        }
 
-        selectEl.parentNode.insertBefore(btn, selectEl.nextSibling);
-    });
+        function toggleOrder() {
+            var p = new URLSearchParams(window.location.search);
+            var currentOrder = (p.get('order') || 'ASC').toUpperCase();
+            var newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
+            p.set('order', newOrder);
+            p.set('page', '1');
+            window.location.search = p.toString();
+        }
     </script>
 
     <!-- AI Chatbox Modal -->
@@ -398,4 +362,3 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="/js/script.js"></script>
-<!--     <script src="/js/cart.js" defer></script> -->
