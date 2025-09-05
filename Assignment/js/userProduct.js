@@ -434,3 +434,34 @@ function handleFormSubmit(form) {
     }
     return true;
 }
+
+// Lightweight helpers for header sort/order controls
+(function() {
+    if (typeof window.toggleOrder === 'undefined') {
+        window.toggleOrder = function() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentOrder = (urlParams.get('order') || 'ASC').toUpperCase();
+                const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
+                urlParams.set('order', newOrder);
+                urlParams.set('page', '1');
+                window.location.search = urlParams.toString();
+            } catch (e) {
+                window.location.reload();
+            }
+        };
+    }
+
+    if (typeof window.updateSort === 'undefined') {
+        window.updateSort = function(sortValue) {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (sortValue) urlParams.set('sort', sortValue); else urlParams.delete('sort');
+                urlParams.set('page', '1');
+                window.location.search = urlParams.toString();
+            } catch (e) {
+                window.location.reload();
+            }
+        };
+    }
+})();
