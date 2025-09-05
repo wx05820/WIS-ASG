@@ -66,11 +66,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <meta name="keywords" content="furniture, Malaysian furniture, home decor, office furniture, sofa, desk, dining table, chair, cabinet">
     <title><?php echo isset($page_title) ? $page_title . ' - ' : ''; ?>AiKUN Furniture - Premium Malaysian Furniture Store</title>
     
+    <!-- Resource hints for external CDN resources -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="<?php echo $image_base_path; ?>images/favicon.ico">
     
-    <!-- Font Awesome -->
+    <!-- Font Awesome (only load if needed) -->
+    <?php if (!isset($skip_fontawesome) || !$skip_fontawesome): ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <?php endif; ?>
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/index.css">
@@ -332,6 +338,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
     </div>
 
+    <!-- jQuery (only load if needed) -->
+    <?php if (!isset($skip_jquery) || !$skip_jquery): ?>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <?php endif; ?>
     <script src="/js/script.js"></script>
     <script src="/js/userproduct.js"></script>

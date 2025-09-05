@@ -46,6 +46,20 @@
     border-radius: 8px;
 }
 
+.address-selection {
+    border: 2px dashed #ff6b6b !important;
+    background: #fff5f5 !important;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.address-selection:hover {
+    border-color: #ff5252 !important;
+    background: #ffebee !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.2);
+}
+
 .address-list {
     display: flex;
     flex-direction: column;

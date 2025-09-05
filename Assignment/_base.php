@@ -83,7 +83,6 @@ function loginUser($user) {
         'login_time' => time(),
         'logged_in' => true,
         'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
-        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
         'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
         'status' => $user->status ?? 'Active'
     ];

@@ -33,16 +33,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $type = in_array($_POST['type'] ?? 'Residential', ['Residential','Commercial']) ? $_POST['type'] : 'Residential';
         $isDefault = isset($_POST['isDefault']) ? 1 : 0;
 
-        // Normalize phone to +60XXXXXXXXX format
-        $phone = formatMsPhone($phone);
+        // Normalize phone for DB: keep digits only (user_address.phoneNo is int)
+        $phone = preg_replace('/\D+/', '', (string)$phone);
+        $phone = substr($phone, 0, 12);
 
         // Basic validation
         if ($recipient === '' || $phone === '' || $line1 === '' || $postcode === '' || $city === '' || $state === '') {
             $_SESSION['error'] = 'Please fill in all required fields.';
             redirect('/user/addresses.php');
         }
-        if (!preg_match('/^\+60\d{8,10}$/', $phone)) {
-            $_SESSION['error'] = 'Please enter a valid Malaysian phone number (e.g. +60123456789).';
+        // Accept either +60 format or digits-only; we store digits-only
+        if (!preg_match('/^\d{9,12}$/', $phone)) {
+            $_SESSION['error'] = 'Please enter a valid Malaysian phone number (9-12 digits, e.g. 60123456789).';
             redirect('/user/addresses.php');
         }
         if (!preg_match('/^\d{5}$/', $postcode)) {
@@ -64,10 +66,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'add') {
-            // Let DB trigger generate ID by omitting the ID column
-            $stm = $_db->prepare('INSERT INTO user_address (recipient_name, phoneNo, unitNo, address_line_1, address_line_2, postcode, city, state, isDefault, userID, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-            $stm->execute([$recipient, $phone, $unitNo, $line1, $line2, $postcode, $city, $state, $isDefault, $user_id, $type]);
+            // Generate new address ID like A00001
+            $res = $_db->query("SELECT MAX(CAST(SUBSTRING(ID, 2) AS UNSIGNED)) FROM user_address");
+            $maxNum = (int)$res->fetchColumn();
+            $nextNum = $maxNum + 1;
+            $newId = 'A' . str_pad((string)$nextNum, 5, '0', STR_PAD_LEFT);
+
+            $stm = $_db->prepare('INSERT INTO user_address (ID, recipient_name, phoneNo, unitNo, address_line_1, address_line_2, postcode, city, state, isDefault, userID, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stm->execute([$newId, $recipient, $phone, $unitNo, $line1, $line2, $postcode, $city, $state, $isDefault, $user_id, $type]);
             $_SESSION['success'] = 'Address added.';
+            
+            // If user came from checkout, redirect back to checkout
+            if (isset($_GET['from']) && $_GET['from'] === 'checkout') {
+                redirect('/order/checkout.php');
+            }
         } else {
             $id = $_POST['ID'] ?? '';
             $stm = $_db->prepare('UPDATE user_address SET recipient_name=?, phoneNo=?, unitNo=?, address_line_1=?, address_line_2=?, postcode=?, city=?, state=?, isDefault=?, type=? WHERE ID=? AND userID=?');
@@ -90,11 +102,21 @@ $addresses = $stm->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'My Addresses';
 include '../header.php';
+
+// Check if user came from checkout
+$from_checkout = isset($_GET['from']) && $_GET['from'] === 'checkout';
 ?>
 
 <link rel="stylesheet" href="../css/index.css">
 <main class="container" style="padding:20px 0;">
   <h1>My Addresses</h1>
+  
+  <?php if ($from_checkout): ?>
+    <div class="alert alert-info" style="background: #e3f2fd; border: 1px solid #2196f3; color: #1976d2; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
+      <strong>📦 Checkout Notice:</strong> You need to add a delivery address to complete your order. 
+      After adding an address, you can return to checkout.
+    </div>
+  <?php endif; ?>
 
   <?php if (isset($_SESSION['success'])): ?>
     <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
@@ -126,7 +148,12 @@ include '../header.php';
           <input type="checkbox" name="isDefault" value="1"> Set as default
         </label>
       </div>
-      <div style="margin-top:12px;"><button class="btn btn-primary" type="submit">Add Address</button></div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" type="submit">Add Address</button>
+        <?php if ($from_checkout): ?>
+          <a href="/order/checkout.php" class="btn btn-secondary" style="margin-left: 10px;">Return to Checkout</a>
+        <?php endif; ?>
+      </div>
     </form>
   </section>
 

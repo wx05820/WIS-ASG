@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 01, 2025 at 04:45 PM
+-- Generation Time: Sep 03, 2025 at 08:18 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -51,7 +51,8 @@ CREATE TABLE `cart` (
 --
 
 INSERT INTO `cart` (`cartID`, `userID`) VALUES
-('C00001', 'U00006');
+('C00001', 'U00006'),
+('C00002', 'U00007');
 
 --
 -- Triggers `cart`
@@ -94,8 +95,10 @@ CREATE TABLE `cart_items` (
 INSERT INTO `cart_items` (`cart_item_id`, `cartID`, `prodID`, `qty`) VALUES
 ('CI00001', 'C00001', 'P000100', 2),
 ('CI00002', 'C00001', 'P001102', 1),
-('CI00003', 'C00001', 'P001401', 1),
-('CI00004', 'C00001', 'P003202', 1);
+('CI00004', 'C00001', 'P003202', 1),
+('CI00005', 'C00001', 'P000101', 1),
+('CI00006', 'C00002', 'P000101', 2),
+('CI00007', 'C00002', 'P000200', 1);
 
 --
 -- Triggers `cart_items`
@@ -212,15 +215,31 @@ CREATE TABLE `order` (
   `orderID` varchar(20) NOT NULL,
   `orderDate` date NOT NULL,
   `userID` varchar(10) NOT NULL,
-  `status` enum('Pending','Shipped','Delivered','Cancelled') NOT NULL,
+  `status` enum('Pending','Confirmed','Processing','Shipped','Delivered','Cancelled','Refunded') NOT NULL DEFAULT 'Pending',
   `shipping_method` varchar(50) NOT NULL,
   `subtotal` double NOT NULL,
   `shipping_fee` double NOT NULL,
   `discount` double NOT NULL,
   `total` decimal(10,2) NOT NULL,
-  `shipAdd` text NOT NULL,
-  `payID` varchar(20) DEFAULT NULL
+  `payID` int(11) NOT NULL,
+  `addressID` int(11) NOT NULL,
+  `recipient_name` varchar(50) NOT NULL,
+  `phoneNo` char(12) NOT NULL,
+  `unitNo` varchar(20) NOT NULL,
+  `address_line_1` varchar(255) NOT NULL,
+  `address_line_2` varchar(255) NOT NULL,
+  `city` varchar(50) NOT NULL,
+  `postcode` varchar(10) NOT NULL,
+  `state` varchar(50) NOT NULL,
+  `notes` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `order`
+--
+
+INSERT INTO `order` (`orderID`, `orderDate`, `userID`, `status`, `shipping_method`, `subtotal`, `shipping_fee`, `discount`, `total`, `payID`, `addressID`, `recipient_name`, `phoneNo`, `unitNo`, `address_line_1`, `address_line_2`, `city`, `postcode`, `state`, `notes`) VALUES
+('ORD202509030001', '2025-09-03', 'U00006', 'Pending', 'Standard Delivery', 400, 8, 0, 408.00, 0, 0, 'abc', '60123456789', 'A-1-1', 'Jalan abc', '', 'Kuala Lumpur', '52000', 'Kuala Lumpur', NULL);
 
 --
 -- Triggers `order`
@@ -263,11 +282,21 @@ DELIMITER ;
 
 CREATE TABLE `order_items` (
   `order_item_id` varchar(10) NOT NULL,
-  `orderID` varchar(20) DEFAULT NULL,
+  `orderID` varchar(20) NOT NULL,
   `prodID` varchar(10) NOT NULL,
   `qty` int(3) NOT NULL,
-  `price` decimal(10,2) NOT NULL
+  `price` decimal(10,2) NOT NULL,
+  `product_name` varchar(255) NOT NULL,
+  `product_color` varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `order_items`
+--
+
+INSERT INTO `order_items` (`order_item_id`, `orderID`, `prodID`, `qty`, `price`, `product_name`, `product_color`, `created_at`) VALUES
+('OI00000001', 'ORD202509030001', 'P000100', 1, 400.00, 'GLOSTAD', 'Knisa dark grey', '2025-09-03 06:14:34');
 
 --
 -- Triggers `order_items`
@@ -322,7 +351,9 @@ INSERT INTO `otp_requests` (`id`, `email`, `success`, `created_at`, `ip_address`
 (13, 'gugtenterf+byy9g@gmail.com', 1, '2025-08-26 13:28:59', '::1'),
 (14, 'eaooti1@mydefipet.live', 1, '2025-08-26 13:29:58', '::1'),
 (15, 'leongwx2005@gmail.com', 1, '2025-08-27 01:37:25', '::1'),
-(16, 'n.i.ta.aamo.r.ee@googlemail.com', 1, '2025-09-01 14:40:15', '::1');
+(16, 'n.i.ta.aamo.r.ee@googlemail.com', 1, '2025-09-01 14:40:15', '::1'),
+(17, 'maris.s.aa.l.d.a0@googlemail.com', 1, '2025-09-02 06:28:45', '::1'),
+(18, 'je.ni.ffe.r.l.ibra23@gmail.com', 1, '2025-09-02 14:21:25', '::1');
 
 -- --------------------------------------------------------
 
@@ -364,8 +395,19 @@ CREATE TABLE `payment` (
   `payMethod` enum('TNG','DuitNow','COD','Credit/Debit Card') NOT NULL,
   `payStatus` enum('Success','Failed','Pending') NOT NULL,
   `payDate` datetime NOT NULL,
-  `amount` decimal(10,2) NOT NULL
+  `amount` decimal(10,2) NOT NULL,
+  `transaction_id` varchar(255) DEFAULT NULL,
+  `payment_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`payment_details`)),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `payment`
+--
+
+INSERT INTO `payment` (`payID`, `payMethod`, `payStatus`, `payDate`, `amount`, `transaction_id`, `payment_details`, `created_at`, `updated_at`) VALUES
+('P202509030001', 'TNG', 'Success', '2025-09-03 07:19:05', 408.00, NULL, NULL, '2025-09-03 05:19:25', '2025-09-03 05:19:25');
 
 --
 -- Triggers `payment`
@@ -719,7 +761,8 @@ CREATE TABLE `user` (
 INSERT INTO `user` (`userID`, `username`, `email`, `phoneNo`, `password`, `birthday`, `age`, `name`, `photo`, `role`, `created_at`, `last_login`, `updated_at`, `status`) VALUES
 ('U00001', 'user_8mkm92rv', 'sisatmp+17oiz@gmail.com', '0', '$2y$10$AXQlkjslFUEoRbiguaaDheEx7e.jhJDLy.JMxPVeF7LfVXvnhtqk.', '0000-00-00', 0, '', '', 'customer', '2025-08-18 12:02:34', '2025-08-18 14:29:50', NULL, ''),
 ('U00003', 'idfocauxfhgngk', 'tinytmp+i9md0@gmail.com', '01140464310', '$2y$10$P/mzvlmf1Ya3.j7hcJWjtuYTwc6IuLkp/sbyRX5hYuEyX4YXPBrBO', '2005-08-18', 20, 'cxk', 0x70726f66696c6550686f746f2f70726f66696c65322e6a7067, 'Customer', '2025-08-24 12:17:57', '2025-08-24 07:27:12', '2025-08-24 15:56:23', 'Active'),
-('U00006', 'ddmcofch', 'eaooti1@mydefipet.live', '', '$2y$10$K8GF2v61LSiqjqRBo30dd.lrgW8qvBXKS9aVt9XD5hdZ2kXTjNiAq', '0000-00-00', NULL, '', 0x70726f66696c6550686f746f2f70726f66696c65372e6a7067, 'Customer', '2025-08-26 21:30:52', '2025-09-01 14:33:21', NULL, 'Active');
+('U00006', 'ddmcofch', 'eaooti1@mydefipet.live', '', '$2y$10$K8GF2v61LSiqjqRBo30dd.lrgW8qvBXKS9aVt9XD5hdZ2kXTjNiAq', '0000-00-00', NULL, '', 0x70726f66696c6550686f746f2f70726f66696c65372e6a7067, 'Customer', '2025-08-26 21:30:52', '2025-09-03 04:24:35', NULL, 'Active'),
+('U00007', 'g3na55tj', 'je.ni.ffe.r.l.ibra23@gmail.com', '136041321091', '$2y$10$kSja40LQu1VIWVBY9iYKbefl4UKRxbPQyhVir4fqx7hcQGJH.9ie6', '0000-00-00', NULL, '', 0x70726f66696c6550686f746f2f70726f66696c65342e6a7067, 'Customer', '2025-09-02 22:21:51', '2025-09-03 01:51:57', NULL, 'Active');
 
 --
 -- Triggers `user`
@@ -779,7 +822,9 @@ CREATE TABLE `user_address` (
   `state` varchar(50) NOT NULL,
   `isDefault` tinyint(1) NOT NULL DEFAULT 1,
   `userID` varchar(6) NOT NULL,
-  `type` enum('Commercial','Residential') NOT NULL
+  `type` enum('Commercial','Residential') NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -862,7 +907,8 @@ ALTER TABLE `failed_attempts`
 ALTER TABLE `order`
   ADD PRIMARY KEY (`orderID`),
   ADD KEY `userID` (`userID`),
-  ADD KEY `payID` (`payID`);
+  ADD KEY `payID` (`payID`),
+  ADD KEY `addressID` (`addressID`);
 
 --
 -- Indexes for table `order_items`
@@ -971,7 +1017,7 @@ ALTER TABLE `failed_attempts`
 -- AUTO_INCREMENT for table `otp_requests`
 --
 ALTER TABLE `otp_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `password_resets`

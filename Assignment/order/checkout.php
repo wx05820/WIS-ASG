@@ -20,14 +20,23 @@ $buyNow = false;
 // Handle Buy Now from product page
 if (isset($_POST['buy_now']) && isset($_POST['prodID'])) {
     $prodID = $_POST['prodID'];
+    $qty = isset($_POST['qty']) ? (int)$_POST['qty'] : 1;
     $selected_product_ids = [$prodID];
     $buyNow = true;
     $_SESSION['checkout_items'] = $selected_product_ids;
     $_SESSION['buyNow'] = true;
+    $_SESSION['buyNow_qty'] = $qty;
+    
+    // Debug logging
+    error_log("Buy Now: prodID=$prodID, qty=$qty, selected_items=" . json_encode($selected_product_ids));
+    
+    // Set a debug session variable
+    $_SESSION['debug_buy_now'] = "Buy now processed: prodID=$prodID, qty=$qty";
 }
 // Handle selected items from cart page
 elseif (isset($_POST['selected_items']) && is_array($_POST['selected_items'])) {
-    $selected_product_ids = array_map('intval', array_filter($_POST['selected_items']));
+    // Product IDs are strings (e.g., P000100). Keep as strings.
+    $selected_product_ids = array_values(array_filter(array_map('trim', $_POST['selected_items'])));
     $buyNow = false;
     $_SESSION['checkout_items'] = $selected_product_ids;
     $_SESSION['buyNow'] = false;
@@ -39,6 +48,7 @@ elseif (isset($_SESSION['checkout_items']) && is_array($_SESSION['checkout_items
 }
 
 if (empty($selected_product_ids)) {
+    error_log("Checkout: No items selected, redirecting to cart");
     $_SESSION['error'] = "No items selected for checkout. Please select items from your cart.";
     redirect('cart_page.php');
 }
@@ -65,6 +75,7 @@ $user_info = $stmt->fetch(PDO::FETCH_ASSOC);
 $cart_items = [];
 
 if($buyNow){
+    $buyNow_qty = $_SESSION['buyNow_qty'] ?? 1;
     $stmt = $_db->prepare("SELECT prodID, name, price, image1, color, qty as stock FROM product WHERE prodID = ?");
     $stmt->execute([$selected_product_ids[0]]);
     $product = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -72,7 +83,7 @@ if($buyNow){
     if ($product) {
         $cart_items[] = [
             'prodID' => $product['prodID'],
-            'qty' => 1, 
+            'qty' => $buyNow_qty, 
             'name' => $product['name'],
             'price' => $product['price'],
             'image1' => $product['image1'],
@@ -162,6 +173,13 @@ include '../header.php';
         </div>
         <?php unset($_SESSION['checkout_error']); ?>
     <?php endif; ?>
+    
+    <?php if (isset($_SESSION['debug_buy_now'])): ?>
+        <div class="debug-banner" style="background: #e3f2fd; border: 1px solid #2196f3; color: #1976d2; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
+            <strong>Debug:</strong> <?= htmlspecialchars($_SESSION['debug_buy_now']) ?>
+        </div>
+        <?php unset($_SESSION['debug_buy_now']); ?>
+    <?php endif; ?>
 
     <section class="checkout-card">
         <h1 class="checkout-title">Checkout</h1>
@@ -173,6 +191,8 @@ include '../header.php';
         
             <?php if ($buyNow): ?>
                 <input type="hidden" name="buy_now" value="1">
+                <input type="hidden" name="prodID" value="<?= htmlspecialchars($selected_product_ids[0]) ?>">
+                <input type="hidden" name="qty" value="<?= htmlspecialchars($_SESSION['buyNow_qty'] ?? 1) ?>">
             <?php endif; ?>
 
             <!-- Delivery Address Section -->
@@ -180,12 +200,12 @@ include '../header.php';
                 <h2 class="section-title">🚚 Delivery Address</h2>
                 <div class="address-section">
                     <?php if (empty($addresses)): ?>
-                        <div class="selection-box address-selection" onclick="window.location.href='/user/addresses.php'">
+                        <div class="selection-box address-selection" onclick="confirmAddAddress()">
                             <div class="selection-content">
                                 <div class="selection-icon">📍</div>
                                 <div class="selection-text">
                                     <h3>Add Delivery Address</h3>
-                                    <p>Click here to add your delivery address</p>
+                                    <p>You need to add a delivery address to complete your order</p>
                                 </div>
                                 <div class="selection-arrow">›</div>
                             </div>
@@ -353,7 +373,7 @@ include '../header.php';
 
             <!-- Place Order Button -->
             <div class="checkout-actions">
-                <button type="button" class="btn-primary btn-large place-order-btn" onclick="placeOrder()" <?= empty($addresses) ? 'disabled' : '' ?>>
+                <button type="submit" class="btn-primary btn-large place-order-btn" <?= empty($addresses) ? 'disabled' : '' ?>>
                     <span class="btn-text">Place Order</span>
                     <span class="btn-loading" style="display: none;">Processing...</span>
                 </button>
@@ -392,8 +412,13 @@ include '../header.php';
         const checkoutForm = document.getElementById('checkout-form');
         if (checkoutForm) {
             checkoutForm.addEventListener('submit', function(e) {
-                e.preventDefault(); // Prevent default form submission
-                placeOrder();
+                // For buy now, allow default form submission to ensure selected_items are sent
+                const isBuyNow = <?= $buyNow ? 'true' : 'false' ?>;
+                if (!isBuyNow) {
+                    e.preventDefault(); // Prevent default form submission for cart checkout
+                    placeOrder();
+                }
+                // For buy now, let the form submit normally with hidden inputs
             });
         }
     });
@@ -454,6 +479,17 @@ function showNotification(message, type = 'error') {
             }, 300);
         }
     }, 4000);
+}
+
+function confirmAddAddress() {
+    const confirmed = confirm(
+        'You need to add a delivery address to complete your order.\n\n' +
+        'Would you like to go to the address page to add one?'
+    );
+    
+    if (confirmed) {
+        window.location.href = '/user/addresses.php?from=checkout';
+    }
 }
 </script>
 

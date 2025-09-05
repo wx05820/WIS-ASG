@@ -23,7 +23,8 @@ async function loadCheckoutItems() {
         // If no stored items, fetch all cart items
         const response = await fetch('/order/cart.php?action=get_all', {
             method: 'GET',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: AbortSignal.timeout(10000) // 10 second timeout
         });
 
         if (!response.ok) {
@@ -169,7 +170,11 @@ async function loadVouchers() {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         
-        if (!response.ok) throw new Error('Unable to load vouchers');
+        if (!response.ok) {
+            // If vouchers API doesn't exist, show no vouchers message
+            container.innerHTML = '<div class="no-vouchers">Voucher system not available</div>';
+            return;
+        }
         
         const data = await response.json();
         
@@ -198,7 +203,7 @@ async function loadVouchers() {
         
     } catch (error) {
         console.error('Error loading vouchers:', error);
-        container.innerHTML = '<div class="error">Unable to load vouchers</div>';
+        container.innerHTML = '<div class="no-vouchers">Voucher system not available</div>';
     }
 }
 
@@ -310,27 +315,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     isDefault: formData.has('isDefault')
                 };
                 
-                const response = await fetch('/api/add_address.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok || data.error) {
-                    throw new Error(data.error || 'Unable to add address');
-                }
-                
-                showSuccess('Address added successfully');
-                hideAddAddressModal();
-                
-                // Reload page to show new address
+                // Since the API endpoint doesn't exist, redirect to the address page instead
+                showSuccess('Redirecting to address page...');
                 setTimeout(() => {
-                    window.location.reload();
+                    window.location.href = '/user/addresses.php?from=checkout';
                 }, 1000);
                 
             } catch (error) {
@@ -361,13 +349,23 @@ async function placeOrder() {
     const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
     
     const hasAddresses = window.checkoutData?.hasAddresses;
-    if (hasAddresses && !selectedAddress) {
-        showError('Please select a delivery address');
+    
+    // Check if user has no addresses at all
+    if (!hasAddresses) {
+        const confirmed = confirm(
+            'You don\'t have any delivery addresses saved.\n\n' +
+            'To complete your order, you need to add a delivery address first.\n\n' +
+            'Would you like to go to the address page to add one?'
+        );
+        
+        if (confirmed) {
+            window.location.href = '/user/addresses.php?from=checkout';
+        }
         return;
     }
-
-    // Check if addresses are required
-    if (window.checkoutData?.hasAddresses && !selectedAddress) {
+    
+    // Check if user has addresses but hasn't selected one
+    if (hasAddresses && !selectedAddress) {
         showError('Please select a delivery address');
         return;
     }
@@ -427,7 +425,8 @@ async function placeOrder() {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: formData
+            body: formData,
+            signal: AbortSignal.timeout(30000) // 30 second timeout for order placement
         });
         
         if (!response.ok) {
