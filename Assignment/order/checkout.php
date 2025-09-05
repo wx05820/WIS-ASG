@@ -27,11 +27,7 @@ if (isset($_POST['buy_now']) && isset($_POST['prodID'])) {
     $_SESSION['buyNow'] = true;
     $_SESSION['buyNow_qty'] = $qty;
     
-    // Debug logging
-    error_log("Buy Now: prodID=$prodID, qty=$qty, selected_items=" . json_encode($selected_product_ids));
     
-    // Set a debug session variable
-    $_SESSION['debug_buy_now'] = "Buy now processed: prodID=$prodID, qty=$qty";
 }
 // Handle selected items from cart page
 elseif (isset($_POST['selected_items']) && is_array($_POST['selected_items'])) {
@@ -48,7 +44,6 @@ elseif (isset($_SESSION['checkout_items']) && is_array($_SESSION['checkout_items
 }
 
 if (empty($selected_product_ids)) {
-    error_log("Checkout: No items selected, redirecting to cart");
     $_SESSION['error'] = "No items selected for checkout. Please select items from your cart.";
     redirect('cart_page.php');
 }
@@ -161,6 +156,13 @@ foreach ($cart_items as $item) {
 $shipping_fee = 8.00; 
 $is_buy_now = $buyNow;
 
+// Generate an idempotency token for this checkout attempt (single-use)
+if (empty($_SESSION['order_idem_tokens']) || !is_array($_SESSION['order_idem_tokens'])) {
+    $_SESSION['order_idem_tokens'] = [];
+}
+$idem_key = bin2hex(random_bytes(16));
+$_SESSION['order_idem_tokens'][$idem_key] = 'new';
+
 include '../header.php'; 
 ?>
 
@@ -176,17 +178,13 @@ include '../header.php';
         <?php unset($_SESSION['checkout_error']); ?>
     <?php endif; ?>
     
-    <?php if (isset($_SESSION['debug_buy_now'])): ?>
-        <div class="debug-banner" style="background: #e3f2fd; border: 1px solid #2196f3; color: #1976d2; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
-            <strong>Debug:</strong> <?= htmlspecialchars($_SESSION['debug_buy_now']) ?>
-        </div>
-        <?php unset($_SESSION['debug_buy_now']); ?>
-    <?php endif; ?>
+    
 
     <section class="checkout-card">
         <h1 class="checkout-title">Checkout</h1>
         
         <form action="place_order.php" method="POST" id="checkout-form">
+            <input type="hidden" name="idem_key" value="<?= htmlspecialchars($idem_key) ?>">
             <?php foreach ($selected_product_ids as $prodID): ?>
                 <input type="hidden" name="selected_items[]" value="<?= htmlspecialchars($prodID) ?>">
             <?php endforeach; ?>    
@@ -397,6 +395,9 @@ include '../header.php';
         isBuyNow: <?= $is_buy_now ? 'true' : 'false' ?>
     };
 
+    // Expose idempotency key to JS for AJAX submission path
+    window.orderIdemKey = '<?= htmlspecialchars($idem_key) ?>';
+
     // Initialize checkout items array for checkout.js
     checkoutItems = window.checkoutSelectedItems || [];
 
@@ -419,6 +420,18 @@ include '../header.php';
                 if (!isBuyNow) {
                     e.preventDefault(); // Prevent default form submission for cart checkout
                     placeOrder();
+                } else {
+                    // Disable the button immediately to prevent double submit on normal form path
+                    const placeOrderBtn = document.querySelector('.place-order-btn');
+                    if (placeOrderBtn) {
+                        const btnText = placeOrderBtn.querySelector('.btn-text');
+                        const btnLoading = placeOrderBtn.querySelector('.btn-loading');
+                        if (btnText && btnLoading) {
+                            btnText.style.display = 'none';
+                            btnLoading.style.display = 'inline';
+                        }
+                        placeOrderBtn.disabled = true;
+                    }
                 }
                 // For buy now, let the form submit normally with hidden inputs
             });

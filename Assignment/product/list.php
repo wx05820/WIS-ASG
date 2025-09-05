@@ -34,18 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])
                 $new_category_name = $_POST['new_category_name'] ?? '';
                 
                 // Debug information (remove in production)
-                if (isset($_GET['debug'])) {
-                    $debug_info = "Debug POST data: ";
-                    foreach ($_POST as $key => $value) {
-                        if (is_array($value)) {
-                            $debug_info .= $key . "=[" . implode(',', $value) . "] ";
-                        } else {
-                            $debug_info .= $key . "='" . $value . "' ";
-                        }
-                    }
-                    $message = $debug_info;
-                    break;
-                }
+                
                 
                 // If creating a new category
                 if ($new_category === 'new_category' && !empty($new_category_name)) {
@@ -217,16 +206,12 @@ if (!isset($_db) || $_db === null) {
         $categories = $cat_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     } catch (PDOException $e) {
-        // Handle PDO database errors
-        error_log("PDO Database error in product list: " . $e->getMessage());
         $error_message = "Database error: " . $e->getMessage();
         $products = [];
         $categories = [];
         $total_products = 0;
         $total_pages = 0;
     } catch (Exception $e) {
-        // Handle other errors
-        error_log("Error in product list: " . $e->getMessage());
         $error_message = "Error loading products: " . $e->getMessage();
         $products = [];
         $categories = [];

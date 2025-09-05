@@ -46,8 +46,6 @@ if (isset($_SESSION['user_id'])) {
         $cart_count = $cart_data ? (int)$cart_data->count : 0;
         
     } catch (PDOException $e) {
-        // Log error and continue with defaults
-        error_log("Header database error: " . $e->getMessage());
         $cart_count = 0;
     }
 } else {
@@ -217,7 +215,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 <i class="fas fa-search"></i> Track Shipping
                             </a>
                             <?php if (isset($_SESSION['user_id'])): ?>
-                                <a href="/orders.php" role="menuitem">
+                                <a href="/order/history.php" role="menuitem">
                                     <i class="fas fa-history"></i> Order History
                                 </a>
                             <?php endif; ?>

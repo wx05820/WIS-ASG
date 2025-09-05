@@ -338,7 +338,6 @@ function logLogoutActivity($user_id, $user_email, $logout_type = 'manual', $addi
         
         return true;
     } catch (Exception $e) {
-        error_log("Failed to log logout activity: " . $e->getMessage());
         return false;
     }
 }
@@ -355,7 +354,6 @@ function clearRememberMeTokens($user_id) {
         
         return true;
     } catch (Exception $e) {
-        error_log("Failed to clear remember tokens: " . $e->getMessage());
         return false;
     }
 }
@@ -368,7 +366,6 @@ function clearUserSessions($user_id) {
         $stm->execute([$user_id]);
         return true;
     } catch (Exception $e) {
-        error_log("Failed to clear user sessions: " . $e->getMessage());
         return false;
     }
 }
@@ -451,10 +448,9 @@ function performSecureLogout($logout_type = 'manual') {
         ];
         
     } catch (Exception $e) {
-        error_log("Error during secure logout: " . $e->getMessage());
         return [
             'success' => false,
-            'error' => $e->getMessage(),
+            'error' => 'logout_error',
             'user_data' => $user_data,
             'logout_type' => $logout_type,
             'timestamp' => time()

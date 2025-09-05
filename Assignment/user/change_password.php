@@ -95,7 +95,6 @@ function handlePasswordChange($current_user) {
         ]);
         
     } catch (PDOException $e) {
-        error_log("Password change error: " . $e->getMessage());
         echo json_encode([
             'success' => false, 
             'message' => 'Database error occurred. Please try again.'

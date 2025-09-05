@@ -6,9 +6,12 @@ checkLogin();
 
 // Get user's order history
 $stmt = $_db->prepare("
-    SELECT o.*, p.payMethod, p.payStatus, p.payDate
+    SELECT 
+        o.*,
+        (SELECT p.payMethod FROM payment p WHERE p.payID = o.payID LIMIT 1) AS payMethod,
+        (SELECT p.payStatus FROM payment p WHERE p.payID = o.payID LIMIT 1) AS payStatus,
+        (SELECT p.payDate   FROM payment p WHERE p.payID = o.payID LIMIT 1) AS payDate
     FROM `order` o
-    LEFT JOIN payment p ON o.payID = p.payID
     WHERE o.userID = ?
     ORDER BY o.orderDate DESC, o.orderID DESC
 ");

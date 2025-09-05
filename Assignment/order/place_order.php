@@ -11,24 +11,41 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $orderData = $_POST;
 
-// Debug logging
-error_log("Place Order: POST data = " . json_encode($orderData));
-error_log("Place Order: Session checkout_items = " . json_encode($_SESSION['checkout_items'] ?? 'not set'));
-error_log("Place Order: Session buyNow = " . json_encode($_SESSION['buyNow'] ?? 'not set'));
-error_log("Place Order: Session buyNow_qty = " . json_encode($_SESSION['buyNow_qty'] ?? 'not set'));
+//
+
+// Idempotency guard using a per-checkout token stored in session
+$idem_key = $_POST['idem_key'] ?? null;
+if (!isset($_SESSION['order_idem_tokens']) || !is_array($_SESSION['order_idem_tokens'])) {
+    $_SESSION['order_idem_tokens'] = [];
+}
+
+if (!$idem_key || !array_key_exists($idem_key, $_SESSION['order_idem_tokens'])) {
+    // Invalid or missing token -> prevent processing and send user back
+    $_SESSION['error'] = "Your session expired. Please try checkout again.";
+    redirect('/order/checkout.php');
+}
+
+if ($_SESSION['order_idem_tokens'][$idem_key] === 'used') {
+    // Duplicate submission detected, redirect to the most recent order (if any)
+    $stmt = $_db->prepare("SELECT orderID FROM `order` WHERE userID = ? ORDER BY orderDate DESC, orderID DESC LIMIT 1");
+    $stmt->execute([$user_id]);
+    $existing_order_id = $stmt->fetchColumn();
+    if ($existing_order_id) {
+        redirect("/order/success.php?order_id=" . $existing_order_id);
+    }
+    $_SESSION['error'] = "This order was already processed.";
+    redirect('/order/checkout.php');
+}
 
 $selected_items = [];
 if (isset($orderData['selected_items']) && is_array($orderData['selected_items'])) {
     $selected_items = $orderData['selected_items'];
-    error_log("Place Order: Using POST selected_items");
 } 
 elseif (isset($orderData['selected_items']) && is_string($orderData['selected_items'])) {
     $selected_items = explode(',', $orderData['selected_items']);
-    error_log("Place Order: Using POST selected_items (string)");
 } 
 elseif (isset($_SESSION['checkout_items'])) {
     $selected_items = $_SESSION['checkout_items'];
-    error_log("Place Order: Using SESSION checkout_items");
 }
 
 // Get selected items from form (prodID are strings like P000123)
@@ -272,18 +289,22 @@ try {
     unset($_SESSION['buyNow']);
     unset($_SESSION['buyNow_qty']);
 
+    // Create initial delivery status record
+    $stmt = $_db->prepare("INSERT INTO deliverystatus (orderID, status, courier, notes, current_location, updated_at) VALUES (?, 'Order Picked Up', 'System', 'Order has been placed and is being prepared for shipment', 'Warehouse', NOW())");
+    $stmt->execute([$order_id]);
+
     $_db->commit();
 
-    // Log successful order for debugging
-    error_log("Order placed successfully - Order ID: " . $order_id . ", User ID: " . $user_id);
+    //
     
+    // Mark idempotency token as used to block repeat submissions
+    $_SESSION['order_idem_tokens'][$idem_key] = 'used';
+
     $_SESSION['success'] = "Order placed successfully! Order ID: #" . $order_id;
     redirect("/order/success.php?order_id=" . $order_id);
 
 } catch (Exception $e) {
     if ($_db->inTransaction()) $_db->rollBack();
-    error_log("Order placement error: " . $e->getMessage());
-    error_log("Order placement error trace: " . $e->getTraceAsString());
     $_SESSION['error'] = "Failed to place order: " . $e->getMessage();
     redirect('/order/checkout.php');
 }

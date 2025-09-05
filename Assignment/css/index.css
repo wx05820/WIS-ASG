@@ -8,6 +8,10 @@
     --text-light: #F5F5F5;          /* Light text */
     --text-dark: #333333;           /* Dark text */
     --gold-accent: #D4AF37;         /* Gold for highlights */
+    --surface: #ffffff;             /* Card surface */
+    --surface-muted: #f7f6f3;       /* Soft background */
+    --border: #e9e5df;              /* Subtle border */
+    --shadow: 0 4px 14px rgba(93, 64, 55, 0.12);
 }
 
 /* Header Styles */
@@ -877,6 +881,86 @@ body {
     line-height: 1.6;
     color: var(--text-dark);
     background-color: #f8f5f2;
+}
+
+/* Layout helpers */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Furniture-inspired reusable components */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--wood-dark);
+    background: linear-gradient(135deg, var(--wood-light), #e7d9bf);
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, background .2s ease, color .2s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--wood-primary), var(--wood-dark));
+    color: var(--text-light);
+    box-shadow: 0 6px 16px rgba(139, 90, 43, 0.25);
+}
+.btn-primary:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, var(--wood-dark), var(--wood-primary));
+}
+
+.btn-secondary {
+    background: var(--surface);
+    color: var(--wood-dark);
+    border-color: var(--wood-light);
+}
+.btn-secondary:hover {
+    background: var(--surface-muted);
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    outline: none;
+    transition: box-shadow .15s ease, border-color .15s ease;
+}
+.form-input:focus {
+    border-color: var(--gold-accent);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+}
+
+/* Headings with subtle furniture accent */
+h1, h2, h3 {
+    font-family: 'Georgia', serif;
+}
+h1 {
+    color: var(--wood-dark);
 }
 
 /* Hero Section */

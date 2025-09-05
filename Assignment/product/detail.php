@@ -46,7 +46,6 @@ try {
     $related_products = $related_stmt->fetchAll();
     
 } catch (PDOException $e) {
-    error_log("Database error: " . $e->getMessage());
     header('Location: list.php');
     exit;
 }

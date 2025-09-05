@@ -256,7 +256,6 @@ function sendPasswordResetEmail($email, $token, $name) {
         return $mail->send();
         
     } catch (Exception $e) {
-        error_log("Password reset email error: " . $e->getMessage());
         return false;
     }
 }

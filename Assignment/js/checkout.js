@@ -407,6 +407,11 @@ async function placeOrder() {
         formData.append('shipping_method', selectedShipping.value);
         formData.append('payment_method', selectedPayment.value);
         
+        // Include idempotency key
+        if (window.orderIdemKey) {
+            formData.append('idem_key', window.orderIdemKey);
+        }
+
         // Add order totals for verification
         const subtotal = checkoutItems.reduce((sum, item) => sum + item.subtotal, 0);
         const discount = selectedVoucher ? selectedVoucher.discount : 0;

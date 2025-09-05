@@ -173,7 +173,6 @@ function handleProfileUpdate() {
         ]);
         
     } catch (PDOException $e) {
-        error_log("Profile update error: " . $e->getMessage());
         echo json_encode([
             'success' => false, 
             'message' => 'Database error occurred. Please try again.'
@@ -263,7 +262,6 @@ function handlePhotoUpdate() {
         ]);
         
     } catch (Exception $e) {
-        error_log("Photo update error: " . $e->getMessage());
         echo json_encode([
             'success' => false, 
             'message' => 'Error updating profile photo. Please try again.'
