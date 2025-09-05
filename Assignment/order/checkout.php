@@ -105,13 +105,15 @@ if($buyNow){
     $stmt->execute($params);
     $cart_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Filter out invalid items
-    $selected_product_ids = array_intersect($selected_product_ids, $cart_items);
-    
-    if (empty($selected_product_ids)) {
+    // Filter out invalid items by comparing selected IDs with product IDs actually in cart
+    $prodIdsInCart = array_map(function($row){ return (string)$row['prodID']; }, $cart_items);
+    $valid_selected = array_values(array_intersect($selected_product_ids, $prodIdsInCart));
+    if (empty($valid_selected)) {
         $_SESSION['error'] = "Selected items are no longer in your cart. Please refresh and try again.";
         redirect('cart_page.php');
     }
+    // Keep only valid selected IDs for downstream hidden inputs
+    $selected_product_ids = $valid_selected;
 }
 
 if (empty($cart_items)) {
