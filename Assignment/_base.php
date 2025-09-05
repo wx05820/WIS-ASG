@@ -84,6 +84,8 @@ function loginUser($user) {
         'logged_in' => true,
         'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
         'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+        'status' => $user->status ?? 'Active'
     ];
     try {
         $forceUpdate = $_db->prepare("UPDATE user SET last_login = NOW() WHERE userID = ?");
@@ -1042,6 +1044,8 @@ function authenticateStaff($loginInput, $password) {
                 $newHash = password_hash($password, PASSWORD_DEFAULT);
                 $update = $_db->prepare('UPDATE user SET password = ? WHERE userID = ?');
                 $update->execute([$newHash, $user->userID]);
+                $forceUpdate = $_db->prepare("UPDATE user SET last_login = NOW() WHERE userID = ?");
+                $forceUpdate->execute([$user->userID]);
             }
             return $user;
         }

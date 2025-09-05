@@ -46,6 +46,14 @@ if (is_post()) {
                 $clear_attempts = $_db->prepare("DELETE FROM failed_attempts WHERE email = ?");
                 $clear_attempts->execute([$login_input]);
         
+                if ($user->status === 'Inactive') {
+                    logoutUser(); // Clear session
+                    logFailedLoginAttempt($login_input, 'Attempt to login to inactive account');
+                    // Set temp message after logout to avoid session clearing
+                    session_start(); // Restart session after logout
+                    temp('error', 'Your account is inactive. Please contact support.');
+                    redirect('login.php');
+                }
                 // Handle remember me
                 if (isset($_POST['remember_me'])) {
                     setRememberMeCookie($user->userID); // Use object notation

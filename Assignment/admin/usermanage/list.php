@@ -10,24 +10,12 @@ if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
 // Get current staff ID to exclude from list
 $current_staff_id = $_SESSION['staff_id'] ?? null;
 
-// Handle user status updates
-if (is_post() && isset($_POST['action'])) {
+// Handle user deletion only (status changes moved to chgstatus.php)
+if (is_post() && isset($_POST['action']) && $_POST['action'] === 'delete') {
     $user_id = req('user_id');
-    
-    if ($_POST['action'] === 'activate') {
-        $stm = $_db->prepare('UPDATE user SET status = "Active" WHERE userID = ?');
-        $stm->execute([$user_id]);
-        temp('success', 'User activated successfully');
-    } elseif ($_POST['action'] === 'deactivate') {
-        $stm = $_db->prepare('UPDATE user SET status = "Inactive" WHERE userID = ?');
-        $stm->execute([$user_id]);
-        temp('success', 'User deactivated successfully');
-    } elseif ($_POST['action'] === 'delete') {
-        $stm = $_db->prepare('DELETE FROM user WHERE userID = ?');
-        $stm->execute([$user_id]);
-        temp('success', 'User deleted successfully');
-    }
-    
+    $stm = $_db->prepare('DELETE FROM user WHERE userID = ?');
+    $stm->execute([$user_id]);
+    temp('success', 'User deleted successfully');
     redirect($_SERVER['REQUEST_URI']);
 }
 
@@ -240,18 +228,24 @@ $error_msg = get_temp('error');
                                         </button>
                                     </form>
                                 <?php else: ?>
-                                    <form method="post" style="display: inline;">
+                                    <form method="post" action="chgstatus.php" style="display: inline;">
                                         <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
                                         <input type="hidden" name="action" value="deactivate">
+                                        <?php foreach ($_GET as $key => $value): ?>
+                                            <input type="hidden" name="<?php echo htmlspecialchars($key); ?>" value="<?php echo htmlspecialchars($value); ?>">
+                                        <?php endforeach; ?>
                                         <button type="submit" class="action-btn ban" onclick="return confirm('Are you sure you want to ban this user?')">
                                             <i class="fas fa-ban"></i> Ban
                                         </button>
                                     </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <form method="post" style="display: inline;">
+                                <form method="post" action="chgstatus.php" style="display: inline;">
                                     <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
                                     <input type="hidden" name="action" value="activate">
+                                    <?php foreach ($_GET as $key => $value): ?>
+                                        <input type="hidden" name="<?php echo htmlspecialchars($key); ?>" value="<?php echo htmlspecialchars($value); ?>">
+                                    <?php endforeach; ?>
                                     <button type="submit" class="action-btn" onclick="return confirm('Are you sure you want to activate this user?')">
                                         <i class="fas fa-check"></i> Activate
                                     </button>
