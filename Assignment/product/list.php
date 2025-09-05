@@ -181,7 +181,8 @@ if (!isset($_db) || $_db === null) {
         $where_conditions[] = "(p.status IS NULL OR p.status != 'removed')";
 
         if (!empty($search)) {
-            $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ?)";
+            $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ? OR c.name LIKE ?)";
+            $params[] = "%$search%";
             $params[] = "%$search%";
             $params[] = "%$search%";
         }
@@ -287,7 +288,7 @@ $page_title = "Products";
                 </button>
                 <button type="button" class="restore-btn sortby-restore" onclick="window.location.href='restoreproduct.php'">
                     <i class="fas fa-undo"></i>
-                    <span class="action-btn-label">Restore Removed Products</span>
+                    <span class="action-btn-label">Restore Products</span>
                 </button>
             </div>
 
@@ -301,15 +302,23 @@ $page_title = "Products";
                         <input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort); ?>">
                         <input type="hidden" name="order" value="<?php echo htmlspecialchars($order); ?>">
                         <input type="hidden" name="page" value="<?php echo htmlspecialchars($page); ?>">
-                        <input type="text" 
-                               name="query" 
-                               placeholder="Search products..." 
-                               value="<?php echo htmlspecialchars($search); ?>"
-                               class="search-input"
-                               style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem;">
+                        <div style="position:relative; display:inline-block;">
+                            <input type="text" 
+                                   name="query" 
+                                   placeholder="Search products..." 
+                                   value="<?php echo htmlspecialchars($search); ?>"
+                                   id="search-query-input"
+                                   class="search-input"
+                                   style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem; padding-right:2.4rem;">
+                            <button type="button" id="clear-search-btn" title="Clear search"
+                                    style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:none; background:transparent; font-size:1.2rem; cursor:pointer; color:#888; display: <?php echo empty($search) ? 'none' : 'inline-block'; ?>;">
+                                &times;
+                            </button>
+                        </div>
                         <button type="submit" class="search-btn" style="padding: 0.5rem 1rem; font-size: 1.1rem;">
                             <i class="fas fa-search"></i>
                         </button>
+                        
                         <select name="category" onchange="this.form.submit()" class="filter-select" style="width: 180px; padding: 0.5rem 0.7rem; font-size: 1rem;">
                             <option value="">All Categories</option>
                             <?php foreach ($categories as $cat): ?>
@@ -353,13 +362,13 @@ $page_title = "Products";
             <form method="post" action="" id="bulk-operations-form">
                 <div class="products-list">
                     <?php foreach ($products as $product): ?>
-                        <div class="product-list-item" style="align-items: flex-start;" onclick="toggleProductSelect(this, event)">
+                        <div class="product-list-item" style="align-items: flex-start;">
                             <input type="checkbox" name="selected_products[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" 
                                    style="margin-right:12px; margin-top:8px; width: 18px; height: 18px; transform: scale(1.1); cursor: pointer;" 
                                    onclick="event.stopPropagation();">
                             
                             <div class="product-image" style="margin-right: 15px;">
-                                <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>" onclick="event.stopPropagation();">
+                                <a href="#" onclick="event.stopPropagation(); event.preventDefault();">
                                     <?php if (!empty($product['image1'])): ?>
                                         <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
                                              alt="<?php echo htmlspecialchars($product['name']); ?>"
@@ -430,20 +439,20 @@ $page_title = "Products";
             </div>
 
             <!-- Floating Toggle Button for Bulk Operations -->
-            <button id="bulk-toggle-btn" type="button" title="Open bulk operations" style="display:none; position:fixed; top:120px; right:20px; width:52px; height:52px; border-radius:50%; background:#8B4513; color:#fff; border:none; box-shadow:0 8px 20px rgba(0,0,0,0.18); z-index:10000; cursor:pointer; align-items:center; justify-content:center;">
+            <button id="bulk-toggle-btn" type="button" title="Open bulk operations" style="display:none; position:fixed; bottom:20px; right:20px; width:52px; height:52px; border-radius:50%; background:#8B4513; color:#fff; border:none; box-shadow:0 8px 20px rgba(0,0,0,0.18); z-index:10000; cursor:pointer; align-items:center; justify-content:center;">
                 <i class="fas fa-sliders-h"></i>
             </button>
 
             <!-- Bulk Operations Panel (appears below button) -->
-            <div id="bulk-operations" style="display:none; position:fixed; top:180px; right:20px; transform: translateY(-20px); transition: transform 0.3s ease, opacity 0.3s ease; opacity:0; width:340px; max-width:calc(100% - 40px); padding:16px; background:#f8f9fa; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.12); border-left:4px solid #8B4513; z-index:9999;">
-                <h4 style="margin:0 0 15px 0; color:#333;">Bulk Operations (<span id="selected-count">0</span> selected)</h4>
+            <div id="bulk-operations" style="display:none; position:fixed; bottom:90px; right:20px; transform: translateY(20px); transition: transform 0.3s ease, opacity 0.3s ease; opacity:0; width:260px; max-width:calc(100% - 40px); padding:12px; background:#f8f9fa; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.12); z-index:9999;">
+                <h4 class="bulk-ops-title">Bulk Operations <div>(<span id="selected-count">0</span> selected)</div></h4>
                 
                 <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
                     <!-- Set Category -->
                     <div style="display:flex; flex-direction:column; gap:8px;">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <label style="font-weight:600; color:#000;">Category:</label>
-                            <select name="new_category" id="category-select" onchange="toggleNewCategoryInput()" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em; width:140px;">
+                            <select name="new_category" id="category-select" onchange="toggleNewCategoryInput()" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em; width:70px;">
                                 <option value="">Select Category</option>
                                 <option value="new_category">+ Add New Category</option>
                                 <?php foreach ($categories as $cat): ?>
@@ -452,8 +461,7 @@ $page_title = "Products";
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                            <button type="submit" name="bulk_operation" value="set_category" 
-                                    style="background:#8B4513; color:white; padding:4px 10px; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;">
+                            <button type="submit" name="bulk_operation" value="set_category" class="bulk-update-btn">
                                 Update
                             </button>
                         </div>
@@ -466,8 +474,7 @@ $page_title = "Products";
                         <label style="font-weight:600; color:#000;">Price (RM):</label>
                         <input type="number" name="new_price" step="0.01" min="0" 
                                style="width:100px; padding:6px 10px; border:1px solid #ddd; border-radius:4px;" placeholder="0.00">
-                        <button type="submit" name="bulk_operation" value="set_price" 
-                                style="background:#8B4513; color:white; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">
+                        <button type="submit" name="bulk_operation" value="set_price" class="bulk-update-btn">
                             Update
                         </button>
                     </div>
@@ -476,24 +483,22 @@ $page_title = "Products";
                     <div style="display:flex; align-items:center; gap:8px;">
                         <label style="font-weight:600; color:#000;">Stock:</label>
                         <input type="number" name="new_stock" min="0" 
-                               style="width:80px; padding:6px 10px; border:1px solid #ddd; border-radius:4px;" placeholder="0">
-                        <button type="submit" name="bulk_operation" value="set_stock" 
-                                style="background:#8B4513; color:white; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">
+                               style="width:100px; padding:6px 10px; border:1px solid #ddd; border-radius:4px;" placeholder="0">
+                        <button type="submit" name="bulk_operation" value="set_stock" class="bulk-update-btn">
                             Update
                         </button>
                     </div>
                     
                     <!-- Clear Selection -->
-                    <button type="button" onclick="clearSelection()" 
-                            style="background:#6c757d; color:white; padding:8px 16px; border:none; border-radius:5px; cursor:pointer; margin-left:auto;">
-                        <i class="fas fa-times"></i> Clear Selected
+                    <button type="button" onclick="clearSelection()" class="bulk-action-btn clear-btn right">
+                        <i class="fas fa-times"></i>
+                        <span>Clear</span>
                     </button>
 
                     <!-- Delete Selected -->
-                    <button type="submit" name="bulk_operation" value="delete" 
-                            style="background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:5px; cursor:pointer;"
-                            onclick="return confirm('Are you sure you want to delete selected products?')">
-                        <i class="fas fa-trash"></i> Delete Selected
+                    <button type="submit" name="bulk_operation" value="delete" class="bulk-action-btn delete-btn" onclick="return confirm('Are you sure you want to delete selected products?')">
+                        <i class="fas fa-trash"></i>
+                        <span>Delete</span>
                     </button>
                 </div>
             </div>

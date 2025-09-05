@@ -75,6 +75,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/index.css">
 </head>
+
 <body data-user-id="<?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : ''; ?>">
     <header class="wooden-header">
         <div class="header-container">
@@ -288,35 +289,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </ul>
         </div>
     </header>
-
-    <script>
-        function onSortChange(selectEl) {
-            var p = new URLSearchParams(window.location.search);
-            if (selectEl.name && selectEl.value) p.set(selectEl.name, selectEl.value);
-            // preserve existing order param if present
-            var existingOrder = p.get('order');
-            if (existingOrder) p.set('order', existingOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC');
-            p.set('page', '1');
-            window.location.search = p.toString();
-        }
-
-        // Same helper used by product list pages
-        function updateSort(sortValue) {
-            var p = new URLSearchParams(window.location.search);
-            if (sortValue) p.set('sort', sortValue);
-            p.set('page', '1');
-            window.location.search = p.toString();
-        }
-
-        function toggleOrder() {
-            var p = new URLSearchParams(window.location.search);
-            var currentOrder = (p.get('order') || 'ASC').toUpperCase();
-            var newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
-            p.set('order', newOrder);
-            p.set('page', '1');
-            window.location.search = p.toString();
-        }
-    </script>
 
     <!-- AI Chatbox Modal -->
     <div id="header-chat-modal" class="chat-modal" role="dialog" aria-labelledby="chat-title" aria-hidden="true">

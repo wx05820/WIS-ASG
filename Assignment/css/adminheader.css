@@ -70,6 +70,22 @@
     object-fit: cover; 
 }
 
+/* Large profile photo used inside header dropdown */
+.profile-photo-large {
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+}
+
+/* Dropdown header layout */
+.user-dropdown .dropdown-header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
 .username-display { 
     color: #fff; 
     font-weight: 600; 

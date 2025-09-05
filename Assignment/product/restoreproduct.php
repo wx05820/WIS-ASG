@@ -94,12 +94,19 @@ $page_title = "Restore Removed Products";
                 <!-- Search Bar -->
                 <div class="search-filter">
                     <form method="GET" action="" class="filter-form" style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" 
-                               name="query" 
-                               placeholder="Search products..." 
-                               value="<?php echo htmlspecialchars($search); ?>"
-                               class="search-input"
-                               style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem;">
+                        <div style="position:relative; display:inline-block;">
+                            <input type="text" 
+                                   name="query" 
+                                   placeholder="Search products..." 
+                                   value="<?php echo htmlspecialchars($search); ?>"
+                                   id="restore-search-input"
+                                   class="search-input"
+                                   style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem; padding-right:2.4rem;">
+                            <button type="button" id="restore-clear-search-btn" title="Clear search"
+                                    style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:none; background:transparent; font-size:1.2rem; cursor:pointer; color:#888; display: <?php echo empty($search) ? 'none' : 'inline-block'; ?>;">
+                                &times;
+                            </button>
+                        </div>
                         <button type="submit" class="search-btn" style="padding: 0.5rem 1rem; font-size: 1.1rem;">
                             <i class="fas fa-search"></i>
                         </button>
@@ -167,3 +174,15 @@ $page_title = "Restore Removed Products";
     <?php include '../footer.php'; ?>
 </body>
 </html>
+<script>
+    (function(){
+        try {
+            var input = document.getElementById('restore-search-input');
+            var clearBtn = document.getElementById('restore-clear-search-btn');
+            if (!input || !clearBtn) return;
+            clearBtn.style.display = input.value.trim() ? 'inline-block' : 'none';
+            input.addEventListener('input', function(){ clearBtn.style.display = input.value.trim() ? 'inline-block' : 'none'; });
+            clearBtn.addEventListener('click', function(){ input.value = ''; input.focus(); clearBtn.style.display = 'none'; });
+        } catch (e) { /* ignore */ }
+    })();
+</script>

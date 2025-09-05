@@ -85,4 +85,4 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 	</nav>
 </header>
 
-<script src="/js/adminheader.js" defer></script>
+<script src="<?php echo $image_base_path; ?>js/script.js" defer></script>

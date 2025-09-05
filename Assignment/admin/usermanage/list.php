@@ -123,14 +123,22 @@ $error_msg = get_temp('error');
                 <!-- Search Bar -->
                 <div class="search-filter">
                     <div class="filter-form" style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" 
-                               id="searchInput"
-                               placeholder="Search by ID, username, email, or name..." 
-                               class="search-input"
-                               style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem;">
+                        <div style="position:relative; display:inline-block;">
+                            <input type="text" 
+                                   id="searchInput"
+                                   placeholder="Search by ID, username, email, or name..." 
+                                   class="search-input"
+                                   style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem; padding-right:2.4rem;">
+                            <button type="button" id="clearSearchBtn" title="Clear search"
+                                    style="position:absolute; right:10px; top:50%; transform:translateY(-50%); border:none; background:transparent; font-size:1.2rem; cursor:pointer; color:#888; display:none;">
+                                &times;
+                            </button>
+                        </div>
+
                         <button type="button" class="search-btn" id="searchBtn" style="padding: 0.5rem 1rem; font-size: 1.1rem;">
                             <i class="fas fa-search"></i>
                         </button>
+                        
                         <select id="roleFilter" class="filter-select" style="width: 180px; padding: 0.5rem 0.7rem; font-size: 1rem;">
                             <option value="all">All Roles</option>
                             <option value="Admin">Admin</option>
@@ -153,11 +161,13 @@ $error_msg = get_temp('error');
                 </div>
             </div>
 
-                         <!-- Results Summary -->
-             <div class="results-summary">
-                 <p>Showing <span id="showing-start"><?php echo ($total_users > 0) ? (($pager->page - 1) * $pager->limit + 1) : 0; ?></span> - 
-                    <span id="showing-end"><?php echo min($pager->page * $pager->limit, $total_users); ?></span> of <span id="total-users"><?php echo $total_users; ?></span> users</p>
-             </div>
+            <!-- Results Summary -->
+            <div class="results-summary">
+                <p>Showing <span id="showing-start"><?php echo ($total_users > 0) ? (($pager->page - 1) * $pager->limit + 1) : 0; ?></span> - 
+                    <span id="showing-end"><?php echo min($pager->page * $pager->limit, $total_users); ?></span> of <span id="total-users"><?php echo $total_users; ?></span> 
+                users
+                </p>
+            </div>
         </div>
 
 
@@ -284,7 +294,7 @@ $error_msg = get_temp('error');
         ?>
     </div>
     <?php include '../../footer.php'; ?>
-    
+
     <script>
         // Search and filter functionality
         function filterUsers() {
@@ -501,7 +511,24 @@ $error_msg = get_temp('error');
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             // Set up event listeners
-            document.getElementById('searchInput').addEventListener('input', filterUsers);
+            var searchInput = document.getElementById('searchInput');
+            var clearSearchBtn = document.getElementById('clearSearchBtn');
+
+            // Show/hide clear button based on input value
+            if (searchInput && clearSearchBtn) {
+                clearSearchBtn.style.display = searchInput.value.trim() ? 'inline-block' : 'none';
+                searchInput.addEventListener('input', function() {
+                    clearSearchBtn.style.display = searchInput.value.trim() ? 'inline-block' : 'none';
+                });
+                clearSearchBtn.addEventListener('click', function() {
+                    searchInput.value = '';
+                    searchInput.focus();
+                    clearSearchBtn.style.display = 'none';
+                    filterUsers();
+                });
+            }
+
+            if (searchInput) searchInput.addEventListener('input', filterUsers);
             document.getElementById('searchBtn').addEventListener('click', filterUsers);
             document.getElementById('roleFilter').addEventListener('change', filterUsers);
             document.getElementById('statusFilter').addEventListener('change', filterUsers);

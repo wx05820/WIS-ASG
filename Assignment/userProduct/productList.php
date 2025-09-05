@@ -20,7 +20,8 @@ $sql = "SELECT p.*, c.name AS category_name
 $params = [];
 
 if (!empty($query)) {
-    $sql .= " AND (p.name LIKE ? OR p.description LIKE ?)";
+    $sql .= " AND (p.name LIKE ? OR p.description LIKE ? OR c.name LIKE ?)";
+    $params[] = "%$query%";
     $params[] = "%$query%";
     $params[] = "%$query%";
 }

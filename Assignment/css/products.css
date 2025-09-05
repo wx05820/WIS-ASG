@@ -55,11 +55,41 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     min-height: 120px; /* Match with image height + padding */
     align-items: center;
+    cursor: pointer;
 }
 
 .product-list-item:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    border-color: #d0d0d0;
+    transform: translateY(-5px);
+    box-shadow: 0 12px 35px rgba(139,89,43,0.3);
+    border-color: var(--gold-accent);
+    cursor: pointer;
+}
+
+.product-list-item.selected {
+    background: #fff7e6;
+    border-color: var(--wood-primary);
+    box-shadow: 0 14px 40px rgba(139,89,43,0.18);
+}
+
+/* Click animation: subtle lift and shadow when a product item is clicked */
+.product-clicked {
+    animation: productClick 420ms cubic-bezier(.2,.8,.2,1);
+    transform-origin: center;
+}
+
+@keyframes productClick {
+    0% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    30% {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
 }
 
 .product-image {
@@ -719,6 +749,62 @@ body {
 .add-to-cart-btn.disabled:hover {
     background: #6c757d;
     transform: none;
+}
+
+/* Bulk operation update buttons uniform style */
+.bulk-update-btn {
+    background: #8B4513;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.bulk-update-btn:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+}
+
+/* Small action buttons for bulk panel (Clear / Delete) */
+.bulk-action-btn {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.bulk-action-btn.right {
+    margin-left: auto;
+}
+.bulk-action-btn.clear-btn {
+    background: #6c757d;
+    color: #fff;
+}
+.bulk-action-btn.delete-btn {
+    background: #d20e22;
+    color: #fff;
+}
+.bulk-action-btn:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+}
+
+/* Bulk operations panel title styling (grey background) */
+.bulk-ops-title {
+    background: #e9ecef; /* light grey */
+    color: #333;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin: 0 0 12px 0;
+    font-weight: 600;
+    display: block;
 }
 
 /* Pagination */
