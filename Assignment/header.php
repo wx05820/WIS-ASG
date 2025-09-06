@@ -23,7 +23,7 @@ $is_in_subdirectory = (strpos($current_path, '/product/') !== false ||
 
 $image_base_path = $is_in_subdirectory ? '../' : '';
 
-if (isset($_SESSION['user_id'])) {
+if (isLoggedIn()) {
     try {
         // Fetch user profile photo, username, and email from database
         $stm = $_db->prepare('SELECT username, photo, email FROM user WHERE userID = ?');
@@ -80,7 +80,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/index.css">
 </head>
 
-<body data-user-id="<?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : ''; ?>">
+<body data-user-id="<?php echo isLoggedIn() ? $_SESSION['user_id'] : ''; ?>">
     <header class="wooden-header">
         <div class="header-container">
             <!-- Logo and Company Name -->
@@ -145,7 +145,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <!-- User Icons Section -->
             <div class="user-section">
                 <div class="user-actions">
-                    <?php if (isset($_SESSION['user_id'])): ?>
+                    <?php if (isLoggedIn()): ?>
                         <!-- Logged-in User Dropdown -->
                         <div class="user-dropdown">
                             <button class="user-profile-btn" aria-label="User menu" aria-expanded="false">
@@ -193,7 +193,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php endif; ?>
                     
                     <!-- Cart Icon -->                        
-                    <?php if (isset($_SESSION['user_id'])): ?>
+                    <?php if (isLoggedIn()): ?>
                         <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)" id="mini-cart">
                             <i class="fas fa-shopping-cart"></i>
                             <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>
@@ -211,10 +211,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <i class="fas fa-truck"></i>
                         </button>
                         <div class="dropdown-content" role="menu">
-                            <a href="/tracking.php" role="menuitem">
+                            <a href="/order/tracking.php" role="menuitem">
                                 <i class="fas fa-search"></i> Track Shipping
                             </a>
-                            <?php if (isset($_SESSION['user_id'])): ?>
+                            <?php if (isLoggedIn()): ?>
                                 <a href="/order/history.php" role="menuitem">
                                     <i class="fas fa-history"></i> Order History
                                 </a>
@@ -280,9 +280,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         <li><a href="room.php?type=outdoor">Outdoor</a></li>
                     </ul>
                 </li>
-                <li><a href="/about.php">About Us</a></li>
-                <li><a href="/contact.php">Contact</a></li>
-                <?php if (!isset($_SESSION['user_id'])): ?>
+                <li><a href="/headerInfo/about.php">About Us</a></li>
+                <li><a href="/headerInfo/contact.php">Contact</a></li>
+                <?php if (!isLoggedIn()): ?>
                     <li class="mobile-auth">
                         <a href="/user/login.php">Login</a>
                     </li>

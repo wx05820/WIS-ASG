@@ -809,11 +809,36 @@ input[type="password"]::-webkit-clear-button { display: none; }
     cursor: pointer;
     font-size: 0.875rem;
     color: var(--gray-600);
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    position: relative;
+}
+
+.checkbox-container:hover {
+    background-color: var(--gray-100);
+    color: var(--wood-dark);
 }
 
 .checkbox-container input {
-    margin-right: 0.5rem;
+    margin-right: 0.75rem;
     accent-color: var(--wood-medium);
+    width: 1.125rem;
+    height: 1.125rem;
+    cursor: pointer;
+}
+
+.checkbox-label {
+    font-weight: 500;
+    color: var(--wood-dark);
+}
+
+.checkbox-help {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    font-style: italic;
 }
 
 /* Loading Spinner */
@@ -1214,4 +1239,1220 @@ input[type="password"]::-webkit-clear-button { display: none; }
     background-color: #f0f0f0;  
     color: #666;               
     cursor: not-allowed;      
+
+.password-toggle {
+
+    position: absolute;
+
+    right: 0.75rem;
+
+    left: auto;
+
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    background: transparent;
+
+    border: none;
+
+    color: var(--wood-medium);
+
+    cursor: pointer;
+
+    font-size: 1.125rem;
+
+    transition: var(--transition-normal);
+
+    padding: 0.25rem;
+
+    border-radius: var(--radius-sm);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 2rem;
+
+    height: 2rem;
+
+}
+
+
+
+.password-toggle:hover {
+
+    color: var(--wood-dark);
+
+    background: var(--gray-100);
+
+    transform: translateY(-50%) scale(1.1);
+
+}
+
+
+
+.password-toggle:active {
+
+    transform: translateY(-50%) scale(0.95);
+
+}
+
+
+
+/* Eye icon styling */
+
+.password-toggle .eye-icon {
+
+    transition: var(--transition-normal);
+
+    font-size: 1.5rem; /* bigger eye */
+
+    color: var(--wood-medium); /* brown tone */
+
+}
+
+
+
+.password-toggle .eye-icon.show {
+
+    opacity: 1;
+
+    transform: scale(1);
+
+}
+
+
+
+.password-toggle .eye-icon.hide {
+
+    opacity: 0.6;
+
+    transform: scale(0.9);
+
+}
+
+
+
+.password-toggle:hover .eye-icon {
+
+    color: var(--wood-dark);
+
+    transform: scale(1.15);
+
+}
+
+
+
+/* Eye icon animation for state change */
+
+.password-toggle .eye-icon.state-change {
+
+    animation: eyeBlink 0.3s ease-in-out;
+
+}
+
+
+
+@keyframes eyeBlink {
+
+    0% { transform: scale(1); }
+
+    50% { transform: scale(0.8); }
+
+    100% { transform: scale(1); }
+
+}
+
+
+
+/* Progress Bar Styles */
+
+.progress-bar {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    margin: 1.25rem 0 1.875rem 0;
+
+    padding: 0 1.25rem;
+
+}
+
+
+
+.progress-step {
+
+    width: 2.5rem;
+
+    height: 2.5rem;
+
+    border-radius: 50%;
+
+    background-color: var(--gray-300);
+
+    color: var(--gray-600);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-weight: 600;
+
+    font-size: 1rem;
+
+    transition: all 0.3s ease;
+
+}
+
+
+
+.progress-step.active {
+
+    background-color: var(--wood-medium);
+
+    color: white;
+
+}
+
+
+
+.progress-line {
+
+    width: 5rem;
+
+    height: 2px;
+
+    background-color: var(--gray-300);
+
+    transition: all 0.3s ease;
+
+}
+
+
+
+.progress-line.active {
+
+    background-color: var(--wood-medium);
+
+}
+
+
+
+/* Step Content Styles */
+
+.step-content {
+
+    text-align: center;
+
+    margin-bottom: 1.875rem;
+
+}
+
+
+
+.step-content h3 {
+
+    color: var(--wood-dark);
+
+    margin-bottom: 0.625rem;
+
+    font-size: 1.5rem;
+
+    font-weight: 600;
+
+}
+
+
+
+.step-content p {
+
+    color: var(--gray-600);
+
+    margin-bottom: 1.25rem;
+
+    font-size: 1rem;
+
+}
+
+
+
+/* CAPTCHA Styles */
+
+.captcha-container {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 0.9375rem;
+
+    margin-top: 0.3125rem;
+
+}
+
+
+
+.captcha-question {
+
+    background-color: var(--gray-100);
+
+    border: 2px solid var(--wood-light);
+
+    padding: 0.75rem 1rem;
+
+    border-radius: var(--radius-lg);
+
+    font-family: monospace;
+
+    font-size: 1.125rem;
+
+    font-weight: bold;
+
+    color: var(--gray-700);
+
+    min-width: 7.5rem;
+
+    text-align: center;
+
+}
+
+
+
+.captcha-input {
+
+    width: 5rem !important;
+
+    text-align: center;
+
+    font-size: 1.125rem;
+
+    font-weight: bold;
+
+}
+
+
+
+.security-notice {
+
+    text-align: center;
+
+    margin-top: 1.25rem;
+
+    color: #856404;
+
+    background-color: #fff3cd;
+
+    border: 1px solid #ffeaa7;
+
+    padding: 0.5rem 0.75rem;
+
+    border-radius: var(--radius-md);
+
+    font-size: 0.875rem;
+
+}
+
+
+
+/* Password Requirements */
+
+.password-requirements {
+
+    margin-top: 0.5rem;
+
+    padding: 0.625rem;
+
+    background-color: var(--gray-100);
+
+    border-radius: var(--radius-lg);
+
+    border-left: 3px solid var(--wood-medium);
+
+}
+
+
+
+.password-requirements small {
+
+    font-weight: 600;
+
+    color: var(--gray-700);
+
+    display: block;
+
+    margin-bottom: 0.3125rem;
+
+}
+
+
+
+.password-requirements ul {
+
+    margin: 0;
+
+    padding-left: 1.125rem;
+
+    font-size: 0.8125rem;
+
+    color: var(--gray-600);
+
+}
+
+
+
+.password-requirements li {
+
+    margin: 0.125rem 0;
+
+}
+
+
+
+/* Form Options */
+
+.form-options {
+
+    margin: 0.9375rem 0;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+}
+
+
+
+.checkbox-container {
+
+    display: flex;
+
+    align-items: center;
+
+    cursor: pointer;
+
+    font-size: 0.875rem;
+
+    color: var(--gray-600);
+
+}
+
+
+
+.checkbox-container input {
+
+    margin-right: 0.5rem;
+
+    accent-color: var(--wood-medium);
+
+}
+
+
+
+/* Loading Spinner */
+
+.btn-loading {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 0.5rem;
+
+}
+
+
+
+.spinner {
+
+    width: 1rem;
+
+    height: 1rem;
+
+    border: 2px solid #ffffff40;
+
+    border-top: 2px solid #ffffff;
+
+    border-radius: 50%;
+
+    animation: spin 1s linear infinite;
+
+}
+
+
+
+/* OTP Input Container */
+
+.otp-container {
+
+    display: flex;
+
+    justify-content: center;
+
+    gap: 0.75rem;
+
+    margin: 1.5rem 0;
+
+}
+
+
+
+/* Individual OTP Input */
+
+.otp-input {
+
+    width: 3.125rem !important;
+
+    height: 3.75rem;
+
+    text-align: center;
+
+    font-size: 1.5rem;
+
+    font-weight: bold;
+
+    border: 2px solid var(--wood-light);
+
+    border-radius: var(--radius-lg);
+
+    background: white;
+
+    color: var(--gray-800);
+
+    transition: var(--transition-normal);
+
+    box-shadow: var(--shadow-sm);
+
+}
+
+
+
+/* Focus State */
+
+.otp-input:focus {
+
+    outline: none;
+
+    border-color: var(--wood-medium);
+
+    box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.1);
+
+    transform: translateY(-2px);
+
+}
+
+
+
+/* Error State */
+
+.otp-input.error {
+
+    border-color: var(--error-color);
+
+    animation: shake 0.5s ease-in-out;
+
+}
+
+
+
+/* Info box styling */
+
+.info-box {
+
+    background-color: var(--gray-100);
+
+    border: 1px solid var(--wood-light);
+
+    border-radius: var(--radius-lg);
+
+    padding: 1.25rem;
+
+    margin-top: 1.25rem;
+
+}
+
+
+
+.info-box h4 {
+
+    color: var(--gray-700);
+
+    margin: 0 0 0.625rem 0;
+
+    font-size: 1rem;
+
+    font-weight: 600;
+
+}
+
+
+
+.info-box ul {
+
+    margin: 0;
+
+    padding-left: 1.25rem;
+
+}
+
+
+
+.info-box li {
+
+    color: var(--gray-600);
+
+    font-size: 0.875rem;
+
+    margin-bottom: 0.3125rem;
+
+}
+
+
+
+/* Password strength indicator */
+
+#password-strength {
+
+    width: 100%;
+
+    height: 6px;
+
+    background-color: var(--gray-300);
+
+    border-radius: 3px;
+
+    margin-top: 0.5rem;
+
+    overflow: hidden;
+
+}
+
+
+
+#strength-bar {
+
+    height: 100%;
+
+    width: 0%;
+
+    transition: all 0.3s ease;
+
+    border-radius: 3px;
+
+}
+
+
+
+#strength-text {
+
+    font-size: 0.75rem;
+
+    margin-top: 0.3125rem;
+
+    font-weight: 500;
+
+}
+
+
+
+/* OTP info styling */
+
+.otp-info {
+
+    text-align: center;
+
+    margin-top: 0.9375rem;
+
+}
+
+
+
+.countdown {
+
+    font-size: 0.875rem;
+
+    color: var(--gray-600);
+
+}
+
+
+
+#timer {
+
+    font-weight: bold;
+
+    color: var(--error-color);
+
+}
+
+
+
+/* Animation for Error State */
+
+@keyframes shake {
+
+    0%, 100% { transform: translateX(0); }
+
+    25% { transform: translateX(-5px); }
+
+    75% { transform: translateX(5px); }
+
+    50% { transform: translateX(-3px); }
+
+}
+
+
+
+/* Animations */
+
+@keyframes fadeIn {
+
+    to {
+
+        opacity: 1;
+
+        transform: translateY(0);
+
+    }
+
+}
+
+
+
+@keyframes alertSlideIn {
+
+    0% {
+
+        opacity: 0;
+
+        transform: translateY(-20px);
+
+    }
+
+    100% {
+
+        opacity: 1;
+
+        transform: translateY(0);
+
+    }
+
+}
+
+
+
+@keyframes slideInError {
+
+    0% {
+
+        opacity: 0;
+
+        transform: translateY(-10px) scaleY(0);
+
+    }
+
+    100% {
+
+        opacity: 1;
+
+        transform: translateY(0) scaleY(1);
+
+    }
+
+}
+
+
+
+@keyframes spin {
+
+    0% { transform: rotate(0deg); }
+
+    100% { transform: rotate(360deg); }
+
+}
+
+
+
+@keyframes slideInUp {
+
+    from {
+
+        opacity: 0;
+
+        transform: translateY(40px);
+
+    }
+
+    to {
+
+        opacity: 1;
+
+        transform: translateY(0);
+
+    }
+
+}
+
+
+
+/* Responsive Design */
+
+@media (max-width: 768px) {
+
+    .form-container {
+
+        padding: 1.5rem;
+
+        border-width: 2px;
+
+    }
+
+    
+
+    .register-container,
+
+    .login-container {
+
+        padding: 1.5rem;
+
+    }
+
+    
+
+    .form-header h1 {
+
+        font-size: 1.75rem;
+
+    }
+
+    
+
+    .form-header p {
+
+        font-size: 1rem;
+
+    }
+
+    
+
+    .form-actions {
+
+        flex-direction: column;
+
+    }
+
+    
+
+    .progress-bar {
+
+        padding: 0 0.625rem;
+
+    }
+
+    
+
+    .progress-line {
+
+        width: 2.5rem;
+
+    }
+
+    
+
+    .progress-step {
+
+        width: 2.1875rem;
+
+        height: 2.1875rem;
+
+        font-size: 0.875rem;
+
+    }
+
+    
+
+    .captcha-container {
+
+        flex-direction: column;
+
+        gap: 0.625rem;
+
+    }
+
+    
+
+    .captcha-question {
+
+        min-width: auto;
+
+        width: 100%;
+
+    }
+
+    
+
+    .captcha-input {
+
+        width: 100% !important;
+
+    }
+
+}
+
+
+
+@media (max-width: 480px) {
+
+    body {
+
+        padding: 0.625rem;
+
+    }
+
+    
+
+    .otp-container {
+
+        gap: 0.3125rem;
+
+    }
+
+    
+
+    .otp-input {
+
+        width: 2.1875rem !important;
+
+        height: 2.8125rem;
+
+        font-size: 1rem;
+
+    }
+
+    
+
+    .captcha-container {
+
+        flex-direction: column;
+
+        align-items: stretch;
+
+        gap: 0.625rem;
+
+    }
+
+    
+
+    .captcha-input {
+
+        width: 100% !important;
+
+    }
+
+    
+
+    .progress-line {
+
+        width: 2.5rem;
+
+    }
+
+    
+
+    .info-box {
+
+        padding: 0.9375rem;
+
+    }
+
+}
+
+
+
+/* High contrast mode support */
+
+@media (prefers-contrast: high) {
+
+    .form-input.error {
+
+        border-width: 3px;
+
+        border-color: #ff0000;
+
+    }
+
+    
+
+    .error-message {
+
+        font-weight: 600;
+
+        color: #cc0000;
+
+    }
+
+}
+
+
+
+/* Reduced motion support */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .form-input.error,
+
+    .error-message,
+
+    .alert {
+
+        animation: none;
+
+    }
+
+    
+
+    .btn:hover,
+
+    .btn:active {
+
+        transform: none;
+
+    }
+
+}
+
+
+
+/* Focus States for Accessibility */
+
+.btn:focus,
+
+.form-input:focus,
+
+.password-toggle:focus {
+
+    outline: 2px solid var(--accent-gold);
+
+    outline-offset: 2px;
+
+}
+
+
+
+/* Selection color */
+
+::selection {
+
+    background-color: rgba(139, 69, 19, 0.2);
+
+}
+
+
+
+/* Scrollbar Styling */
+
+::-webkit-scrollbar {
+
+    width: 8px;
+
+}
+
+
+
+::-webkit-scrollbar-track {
+
+    background: var(--gray-100);
+
+}
+
+
+
+::-webkit-scrollbar-thumb {
+
+    background: var(--wood-medium);
+
+    border-radius: 4px;
+
+}
+
+
+
+::-webkit-scrollbar-thumb:hover {
+
+    background: var(--wood-dark);
+
+}
+
+
+
+/* Dialog Styles */
+
+.dialog {
+
+    display: none;
+
+    position: fixed;
+
+    z-index: 1000;
+
+    left: 0;
+
+    top: 0;
+
+    width: 100%;
+
+    height: 100%;
+
+    background-color: rgba(0,0,0,0.5);
+
+    justify-content: center;
+
+    align-items: center;
+
+}
+
+
+
+.dialog-content {
+
+    background-color: #fefefe;
+
+    margin: auto;
+
+    padding: 30px;
+
+    border-radius: 10px;
+
+    width: 400px;
+
+    max-width: 90%;
+
+    text-align: center;
+
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+
+    position: relative;
+
+    animation: popIn 0.3s ease;
+
+}
+
+
+
+.close-btn {
+
+    color: #aaa;
+
+    float: right;
+
+    font-size: 28px;
+
+    font-weight: bold;
+
+    position: absolute;
+
+    top: 10px;
+
+    right: 15px;
+
+    cursor: pointer;
+
+}
+
+
+
+.close-btn:hover,
+
+.close-btn:focus {
+
+    color: #000;
+
+    text-decoration: none;
+
+    cursor: pointer;
+
+}
+
+
+
+.dialog-content h2 {
+
+    margin-top: 0;
+
+    color: #d32f2f;
+
+}
+
+
+
+.dialog-content p {
+
+    margin: 20px 0;
+
+    font-size: 16px;
+
+    line-height: 1.5;
+
+}
+
+
+
+.dialog-content .btn {
+
+    background-color: #d32f2f;
+
+    color: white;
+
+    padding: 10px 20px;
+
+    border: none;
+
+    border-radius: 5px;
+
+    cursor: pointer;
+
+    font-size: 14px;
+
+    margin-top: 10px;
+
+}
+
+
+
+.dialog-content .btn:hover {
+
+    background-color: #b71c1c;
+
+}
+
+
+
+@keyframes popIn {
+
+    from { transform: scale(0.7); opacity: 0; }
+
+    to { transform: scale(1); opacity: 1; }
+
+}
+
+
+
+.readonly-email {
+
+    background-color: #f0f0f0;  
+
+    color: #666;               
+
+    cursor: not-allowed;      
+
+    }
 }

@@ -15,9 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 isAudioInitialized = true;
-                console.log('Audio context initialized');
             } catch (e) {
-                console.warn('Web Audio API not supported');
             }
         }
     }
@@ -36,6 +34,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    const rememberMeCheckbox = document.getElementById('remember_me');
+    if (rememberMeCheckbox) {
+        rememberMeCheckbox.addEventListener('change', function() {
+            const container = this.closest('.checkbox-container');
+            if (this.checked) {
+                container.style.backgroundColor = 'var(--gray-100)';
+                container.style.border = '1px solid var(--wood-medium)';
+                container.style.boxShadow = '0 0 0 2px rgba(139, 69, 19, 0.1)';
+            } else {
+                container.style.backgroundColor = '';
+                container.style.border = '';
+                container.style.boxShadow = '';
+            }
+        });
+    }
 
     const passwordInput = document.getElementById('password');
     const strengthBar = document.getElementById('password-strength-bar');
@@ -85,9 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (playPromise !== undefined) {
             playPromise.then(() => {
-                console.log('Error sound played successfully');
             }).catch(error => {
-                console.warn('HTML5 audio failed, trying Web Audio API fallback:', error);
                 playWebAudioErrorSound();
             });
         } else {
@@ -97,7 +109,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function playWebAudioErrorSound() {
         if (!audioContext) {
-            console.warn('No audio context available');
             return;
         }
 
@@ -124,9 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.5);
             
-            console.log('Web Audio API error sound played');
         } catch (fallbackError) {
-            console.warn('Web Audio API also failed:', fallbackError);
         }
     }
 
@@ -179,13 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         const passwordField = formElement.querySelector('#password');
-        if (passwordField && passwordField.value) {
-            if (passwordField.value.length < 8) {
-                showErrorWithSound(passwordField, 'Password must be at least 8 characters');
-                hasErrors = true;
-                errorCount++;
-            }
-        }
+        // Password length validation removed for login - users can login with any length password
         
         const confirmField = formElement.querySelector('#confirm');
         if (confirmField && passwordField) {
@@ -205,14 +208,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        console.log(`Form validation completed: ${errorCount} errors found`);
         return !hasErrors;
     }
 
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {
         form.addEventListener('submit', function(event) {
-            console.log('Form submit event triggered');
             
             if (!isAudioInitialized) {
                 initializeAudio();
@@ -221,7 +222,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const isValid = validateFormWithSound(this);
             
             if (!isValid) {
-                console.log('Form validation failed, preventing submission');
                 event.preventDefault();
                 
                 const firstError = this.querySelector('.form-input.error');
@@ -233,13 +233,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
-            console.log('Form validation passed, allowing submission');
         });
         
         const submitButtons = form.querySelectorAll('button[type="submit"]');
         submitButtons.forEach(button => {
             button.addEventListener('click', function(event) {
-                console.log('Submit button clicked');
                 
                 if (!isAudioInitialized) {
                     initializeAudio();
@@ -248,7 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => {
                     const isValid = validateFormWithSound(form);
                     if (!isValid) {
-                        console.log('Button click validation failed');
                         event.preventDefault();
                         
                         const firstError = form.querySelector('.form-input.error');
@@ -267,7 +264,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const alertErrors = document.querySelectorAll('.alert-error');
         
         if (serverErrorInputs.length > 0 || serverErrorMessages.length > 0 || alertErrors.length > 0) {
-            console.log('Server errors detected, will play sound on user interaction');
             
             const playServerErrorSound = () => {
                 playErrorSound();
@@ -317,7 +313,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.validateFormWithSound = validateFormWithSound;
     window.playErrorSound = playErrorSound;
     
-    console.log('Enhanced login/register JavaScript loaded');
 });
 
         function togglePassword() {

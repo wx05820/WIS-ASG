@@ -95,16 +95,16 @@ if ($product) {
                     <?php if ($product['qty'] > 0): ?>
                         <?php if ($user_id): ?>
                             <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                                <label for="detail-qty" style="min-width:60px;">Qty</label>
+                                <label for="detail-qty-loggedin" style="min-width:60px;">Qty</label>
                                 <div class="qty-control" style="display:flex;align-items:center;gap:6px;">
-                                    <button type="button" class="qty-btn" data-target="#detail-qty" aria-label="Decrease quantity" style="padding:6px 10px;">−</button>
-                                    <input id="detail-qty" name="qty" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;">
-                                    <button type="button" class="qty-btn" data-target="#detail-qty" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">+</button>
+                                    <button type="button" class="qty-btn" data-target="#detail-qty-loggedin" aria-label="Decrease quantity" style="padding:6px 10px;">−</button>
+                                    <input id="detail-qty-loggedin" name="qty" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;">
+                                    <button type="button" class="qty-btn" data-target="#detail-qty-loggedin" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">+</button>
                                 </div>
                             </div>
 
                             <!-- Add to Cart Form -->
-                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form" onsubmit="return setQtyFromInput(this)">
+                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form">
                                 <input type="hidden" name="action" value="add">
                                 <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
                                 <input type="hidden" name="qty" value="1">
@@ -128,8 +128,8 @@ if ($product) {
                             </form>
                         <?php else: ?>
                             <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                                <label for="detail-qty" style="min-width:60px;">Qty</label>
-                                <input id="detail-qty" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;" disabled>
+                                <label for="detail-qty-guest" style="min-width:60px;">Qty</label>
+                                <input id="detail-qty-guest" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;" disabled>
                             </div>
                             <button type="button" class="btn-add" onclick="showLoginPrompt()">Add to Cart</button>
                             <button type="button" class="btn-checkout" onclick="showLoginPrompt()">Buy Now</button>
@@ -145,52 +145,101 @@ if ($product) {
 </main>
 
 <script>
-function handleFormSubmit(form) {
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn && !submitBtn.disabled) {
-        const originalText = submitBtn.textContent;
-        submitBtn.disabled = true;
-        
-        if (submitBtn.classList.contains('btn-add')) {
-            submitBtn.textContent = 'Adding...';
-        } else if (submitBtn.classList.contains('btn-checkout')) {
-            submitBtn.textContent = 'Processing...';
-        }
-        
-        // Re-enable after 3 seconds in case of error
-        setTimeout(() => {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-        }, 3000);
+function setQtyForBuyNow(form){
+    const qtyInput = document.getElementById('detail-qty-loggedin') || document.getElementById('detail-qty-guest');
+    const hiddenQty = form.querySelector('input[name="qty"]');
+    if(qtyInput && hiddenQty){
+        const val = parseInt(qtyInput.value) || 1;
+        hiddenQty.value = Math.max(1, val);
     }
     return true;
 }
 
-function setQtyFromInput(form){
-    const qtyInput = document.getElementById('detail-qty');
-    const hiddenQty = form.querySelector('input[name="qty"]');
-    if(qtyInput && hiddenQty){
-        const val = parseInt(qtyInput.value) || 1;
-        hiddenQty.value = Math.max(1, val);
-    }
-    return handleFormSubmit(form);
-}
-
-function setQtyForBuyNow(form){
-    const qtyInput = document.getElementById('detail-qty');
-    const hiddenQty = form.querySelector('input[name="qty"]');
-    if(qtyInput && hiddenQty){
-        const val = parseInt(qtyInput.value) || 1;
-        hiddenQty.value = Math.max(1, val);
-    }
-    return handleFormSubmit(form);
-}
-
 function showLoginPrompt() {
-    showError('Please log in to add items to your cart');
-    setTimeout(() => {
-        window.location.href = '../user/login.php';
-    }, 2000);
+    // Create a more prominent login prompt
+    const loginModal = document.createElement('div');
+    loginModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease-out;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        text-align: center;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    modalContent.innerHTML = `
+        <div style="font-size: 48px; color: #8B4513; margin-bottom: 20px;">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h3 style="color: #8B4513; margin-bottom: 15px;">Login Required</h3>
+        <p style="color: #666; margin-bottom: 25px; line-height: 1.5;">
+            Please log in to add items to your cart or make a purchase.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <button onclick="window.location.href='../user/login.php'" 
+                    style="background: #8B4513; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <button onclick="closeLoginModal()" 
+                    style="background: #6c757d; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer;">
+                Cancel
+            </button>
+        </div>
+    `;
+    
+    // Add CSS animations if not already present
+    if (!document.querySelector('#login-modal-styles')) {
+        const style = document.createElement('style');
+        style.id = 'login-modal-styles';
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    loginModal.appendChild(modalContent);
+    document.body.appendChild(loginModal);
+    
+    // Close modal when clicking outside
+    loginModal.addEventListener('click', function(e) {
+        if (e.target === loginModal) {
+            closeLoginModal();
+        }
+    });
+    
+    // Store reference for closing
+    window.currentLoginModal = loginModal;
+}
+
+function closeLoginModal() {
+    if (window.currentLoginModal) {
+        window.currentLoginModal.remove();
+        window.currentLoginModal = null;
+    }
 }
 
 function showError(message) {
@@ -203,7 +252,7 @@ function showSuccess(message) {
 
 function showNotification(message, type = 'error') {
     // Remove any existing notifications
-    const existing = document.querySelector('.c');
+    const existing = document.querySelector('.detail-notification');
     if (existing) {
         existing.remove();
     }

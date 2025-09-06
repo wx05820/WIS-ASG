@@ -1,238 +1,184 @@
 <?php
+session_start();
 require_once '../_base.php';
 
-$user_id = $_SESSION['user_id'] ?? null;
+$userID = $_SESSION['user_id'] ?? null;
 checkLogin();
 
-// Get user's order history
-$stmt = $_db->prepare("
-    SELECT 
-        o.*,
-        (SELECT p.payMethod FROM payment p WHERE p.payID = o.payID LIMIT 1) AS payMethod,
-        (SELECT p.payStatus FROM payment p WHERE p.payID = o.payID LIMIT 1) AS payStatus,
-        (SELECT p.payDate   FROM payment p WHERE p.payID = o.payID LIMIT 1) AS payDate
-    FROM `order` o
-    WHERE o.userID = ?
-    ORDER BY o.orderDate DESC, o.orderID DESC
-");
-$stmt->execute([$user_id]);
-$orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Only show orders with specific statuses
+$allowedStatuses = ['Delivered', 'Cancelled', 'Refunded'];
+$statusShow = implode(',', array_fill(0, count($allowedStatuses), '?'));
 
-$page_title = 'Order History';
-$skip_fontawesome = true; // Skip Font Awesome since this page doesn't use icons
+// Get orders
+$ordersQuery = "SELECT o.*, 
+                COUNT(oi.orderID) as item_count,
+                SUM(oi.qty) as total_items
+                FROM `order` o 
+                LEFT JOIN order_items oi ON o.orderID = oi.orderID 
+                WHERE o.userID = ? AND o.status IN ($statusShow)
+                GROUP BY o.orderID 
+                ORDER BY o.orderDate DESC, o.orderID DESC";
+
+$ordersStmt = $_db->prepare($ordersQuery);
+$ordersStmt->execute(array_merge([$userID], $allowedStatuses));
+$orders = $ordersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get order items for each order
+$orderItems = [];
+if (!empty($orders)) {
+    $orderIDs = array_column($orders, 'orderID');
+    $placeholders = str_repeat('?,', count($orderIDs) - 1) . '?';
+    
+    $itemsQuery = "SELECT oi.*, p.name, p.price, p.image1, p.prodID
+                   FROM order_items oi 
+                   JOIN product p ON oi.prodID = p.prodID 
+                   WHERE oi.orderID IN ($placeholders)
+                   ORDER BY oi.orderID, oi.order_item_id";
+    
+    $itemsStmt = $_db->prepare($itemsQuery);
+    $itemsStmt->execute($orderIDs);
+    $result = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($result as $item) {
+        $orderItems[$item['orderID']][] = $item;
+    }
+}
+
+function formatDate($date) {
+    return date('M d, Y - H:i', strtotime($date));
+}
+
 include '../header.php';
 ?>
 
-<link rel="stylesheet" href="../css/index.css">
+<link rel="stylesheet" href="../css/history.css">
+<script src="../js/userProduct.js" defer></script>
 
-<main class="container" style="padding: 20px 0;">
-    <h1>Your Order History</h1>
-    
-    <?php if (empty($orders)): ?>
-        <div class="empty-state">
-            <div class="empty-icon">📦</div>
-            <h3>No Orders Yet</h3>
-            <p>You haven't placed any orders yet. Start shopping to see your order history here.</p>
-            <a href="/userProduct/productList.php" class="btn btn-primary">Start Shopping</a>
-        </div>
-    <?php else: ?>
-        <div class="orders-list">
-            <?php foreach ($orders as $order): ?>
-                <div class="order-card">
-                    <div class="order-header">
-                        <div class="order-info">
-                            <h3>Order #<?= htmlspecialchars($order['orderID']) ?></h3>
-                            <p class="order-date"><?= date('F j, Y', strtotime($order['orderDate'])) ?></p>
-                        </div>
-                        <div class="order-status">
-                            <span class="status-badge status-<?= strtolower($order['status']) ?>">
-                                <?= htmlspecialchars($order['status']) ?>
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <div class="order-details">
-                        <div class="detail-row">
-                            <span><strong>Payment Method:</strong></span>
-                            <span><?= htmlspecialchars($order['payMethod']) ?></span>
-                        </div>
-                        <div class="detail-row">
-                            <span><strong>Payment Status:</strong></span>
-                            <span class="status-badge status-<?= strtolower($order['payStatus']) ?>">
-                                <?= htmlspecialchars($order['payStatus']) ?>
-                            </span>
-                        </div>
-                        <div class="detail-row">
-                            <span><strong>Shipping:</strong></span>
-                            <span><?= ucfirst(htmlspecialchars($order['shipping_method'])) ?> Delivery</span>
-                        </div>
-                        <div class="detail-row">
-                            <span><strong>Total:</strong></span>
-                            <span class="order-total">RM <?= number_format($order['total'], 2) ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="order-actions">
-                        <a href="/order/order_details.php?order_id=<?= htmlspecialchars($order['orderID']) ?>" 
-                           class="btn btn-secondary">View Details</a>
-                        <?php if ($order['status'] === 'Pending'): ?>
-                            <button class="btn btn-danger" onclick="cancelOrder('<?= htmlspecialchars($order['orderID']) ?>')">
-                                Cancel Order
-                            </button>
-                        <?php endif; ?>
-                    </div>
+<body data-user-id="<?= $userID ?>">
+    <div class="container mt-4">
+        <div class="row">
+            <div>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="fas fa-history"></i> Order History</h2>
+                    <a href="../index.php" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back 
+                    </a>
                 </div>
-            <?php endforeach; ?>
+
+                <?php if (empty($orders)): ?>
+                    <div class="no-orders">
+                        <i class="fas fa-shopping-bag"></i>
+                        <h4>No Orders Found</h4>
+                        <p>You don't have any completed orders yet.</p>                       
+                    </div>
+                <?php else: ?>
+                    
+                    <!-- Orders List -->
+                    <?php foreach ($orders as $order): ?>
+                        <div class="order-card">
+                            <div class="order-header">
+                                <div class="order-info">
+                                    <strong>Order #<?= htmlspecialchars($order['orderID']) ?></strong><br>
+                                    <small class="text-muted"><?= formatDate($order['orderDate']) ?></small>
+                                </div>
+                                <div class="order-status">
+                                    <span class="badge bg-<?= strtolower($order['status']) ?>">
+                                        <?= htmlspecialchars($order['status']) ?>
+                                    </span>
+                                </div>
+                                <div class="item-count">                                        
+                                    <small class="text-muted">Total items: <?= $order['total_items'] ?> item(s)</small>
+                                </div>                                                                   
+                            </div>
+
+                            <!-- Show View Items button only if more than 1 items -->
+                            <?php if ($order['item_count'] > 1): ?>
+                                <div class="items-toggle">
+                                    <button class="btn btn-sm btn-outline-primary toggle-items" 
+                                            data-bs-toggle="collapse" 
+                                            data-bs-target="#items-<?= $order['orderID'] ?>"
+                                            aria-expanded="false">
+                                        <i class="fas fa-chevron-down"></i> View Items (<?= $order['total_items'] ?>)
+                                    </button>
+                                </div>
+                            <?php endif; ?>
+
+                            <!-- Order Items -->
+                            <div class="order-items <?= $order['item_count'] > 1 ? 'collapse' : '' ?>" 
+                                id="items-<?= $order['orderID'] ?>">
+                                <?php if (isset($orderItems[$order['orderID']])): ?>
+                                    <div class="items-list">
+                                        <?php foreach ($orderItems[$order['orderID']] as $item): ?>
+                                            <div class="item-row">
+                                                <div class="item-image-container">
+                                                    <img src="<?= !empty($item['image1']) ? 'data:image/jpeg;base64,'.base64_encode($item['image1']) : '../images/placeholder.jpg' ?>" 
+                                                            alt="<?= htmlspecialchars($item['name']) ?>" 
+                                                            class="item-image">
+                                                </div>
+                                                <div class="item-details">
+                                                    <div class="item-name"><?= htmlspecialchars($item['name']) ?></div>
+                                                    <?php if (!empty($item['product_color'])): ?>
+                                                        <div class="item-color">Color: <?= htmlspecialchars($item['product_color']) ?></div>
+                                                    <?php endif; ?>
+                                                    <div class="item-price">
+                                                        $<?= number_format($item['price'], 2) ?> each
+                                                        <span class="item-qty">× <?= $item['qty'] ?></span>
+                                                    </div>
+                                                </div>
+                                                <div class="item-total">
+                                                    <strong>$<?= number_format($item['price'] * $item['qty'], 2) ?></strong>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="text-muted">No items found for this order.</p>
+                                <?php endif; ?>
+                            </div>
+
+
+                            <!-- Order Actions -->
+                            <div class="order-actions">
+                                <div class="row">
+                                    <div class="total">
+                                        <strong><?= money($order['total']) ?></strong><br>
+                                    </div>                                    
+                                    <div class="action-buttons">
+                                        <a href="order_details.php?id=<?= $order['orderID'] ?>" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i> View Details
+                                        </a>
+                                        <?php if ($order['status'] === 'Delivered'): ?>
+                                            <form method="POST" action="reorder.php" style="display: inline;">
+                                                <input type="hidden" name="orderID" value="<?= $order['orderID'] ?>">
+                                                <input type="hidden" name="redirect" value="<?= $_SERVER['REQUEST_URI'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-primary reorder-btn" 
+                                                        data-order="<?= $order['orderID'] ?>">
+                                                    <i class="fas fa-redo"></i> Reorder
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                        
+                                        <form method="POST" action="cancel_order.php" style="display: inline;">
+                                            <input type="hidden" name="orderID" value="<?= htmlspecialchars($order['orderID']) ?>">
+                                            <input type="hidden" name="redirect" value="<?= $_SERVER['REQUEST_URI'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger cancel-order-btn" 
+                                                    data-order="<?= htmlspecialchars($order['orderID']) ?>"
+                                                    onclick="return confirm('Are you sure you want to cancel this order?')">
+                                                <i class="fas fa-times"></i> Cancel Order
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
         </div>
-    <?php endif; ?>
-</main>
+    </div>
 
-<style>
-.empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    margin: 40px 0;
-}
-
-.empty-icon {
-    font-size: 64px;
-    margin-bottom: 20px;
-}
-
-.empty-state h3 {
-    color: #333;
-    margin-bottom: 10px;
-}
-
-.empty-state p {
-    color: #6c757d;
-    margin-bottom: 20px;
-}
-
-.orders-list {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.order-card {
-    background: white;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.order-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.order-info h3 {
-    margin: 0 0 5px 0;
-    color: #333;
-}
-
-.order-date {
-    color: #6c757d;
-    margin: 0;
-    font-size: 14px;
-}
-
-.order-details {
-    margin-bottom: 15px;
-}
-
-.detail-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 14px;
-}
-
-.detail-row:last-child {
-    margin-bottom: 0;
-}
-
-.order-total {
-    font-weight: 600;
-    color: #28a745;
-}
-
-.order-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.status-badge {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    text-transform: uppercase;
-}
-
-.status-pending {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.status-shipped {
-    background: #cce5ff;
-    color: #004085;
-}
-
-.status-delivered {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-cancelled {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.status-success {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-failed {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-@media (max-width: 768px) {
-    .order-header {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .order-actions {
-        flex-direction: column;
-    }
-    
-    .detail-row {
-        flex-direction: column;
-        gap: 2px;
-    }
-}
-</style>
-
-<script>
-function cancelOrder(orderId) {
-    if (confirm('Are you sure you want to cancel this order?')) {
-        // Here you would typically make an AJAX call to cancel the order
-        alert('Order cancellation feature will be implemented soon.');
-    }
-}
-</script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/history.js"></script>
+</body>
 <?php include '../footer.php'; ?>

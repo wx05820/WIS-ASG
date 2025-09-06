@@ -54,10 +54,13 @@ if (is_post()) {
                     temp('error', 'Your account is inactive. Please contact support.');
                     redirect('login.php');
                 }
-                // Handle remember me
-                if (isset($_POST['remember_me'])) {
-                    setRememberMeCookie($user->userID); // Use object notation
-                }
+        if (isset($_POST['remember_me'])) {
+            setRememberMeCookie($user->userID);
+            setcookie('remember_me_opted_in', '1', time() + (30 * 24 * 60 * 60), '/', '', isset($_SERVER['HTTPS']), true);
+        } else {
+            clearRememberMeCookie();
+            setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
+        }
         
                 // Success message
                 $display_name = !empty($user->name) ? $user->name : $user->username;
@@ -189,10 +192,11 @@ $page_title = 'Login';
 
             <div class="form-options">
                 <label class="checkbox-container">
-                    <input type="checkbox" name="remember_me" id="remember_me">
+                    <input type="checkbox" name="remember_me" id="remember_me" value="1">
                     <span class="checkmark"></span>
-                    Remember me
+                    <span class="checkbox-label">Remember me for 30 days</span>
                 </label>
+                <small class="checkbox-help">Keep me logged in on this device</small>
             </div>
 
             <div class="form-actions">
@@ -218,4 +222,3 @@ $page_title = 'Login';
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="/js/loginRegister.js"></script>
 </body>
-</html>

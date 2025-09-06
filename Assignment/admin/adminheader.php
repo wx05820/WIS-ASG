@@ -13,7 +13,6 @@ if (isset($_SESSION['staff_id'])) {
 		$stm->execute([$_SESSION['staff_id']]);
 		$staff_user = $stm->fetch();
 	} catch (PDOException $e) {
-		error_log('adminheader fetch error: ' . $e->getMessage());
 	}
 }
 
@@ -24,16 +23,20 @@ $is_in_subdirectory = (strpos($current_path, '/product/') !== false ||
                       strpos($current_path, '/userProduct/') !== false ||
                       preg_match('/\/[^\/]+\/[^\/]+\.php$/', $current_path)); // Any subdirectory pattern
 
+// Check if we're in an admin subdirectory (like usermanage/)
+$is_in_admin_subdirectory = (strpos($current_path, '/admin/') !== false && 
+                            strpos($current_path, '/admin/usermanage/') !== false);
+
 $image_base_path = $is_in_subdirectory ? '/../' : '';
 ?>
 
 <header class="wooden-header">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-<link rel="stylesheet" href="/css/adminheader.css">
+<link rel="stylesheet" href="../../css/adminheader.css">
 	<div class="header-container">
 		<div class="logo-section">
-			<a href="/admin/adminpage.php">
-				<img src="/images/logo.png" alt="AiKUN Furniture Logo" class="logo">
+			<a href="adminpage.php">
+				<img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
 				<span class="company-name">AiKUN Admin</span>
 			</a>
 		</div>
@@ -57,12 +60,12 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 								</div>
 							</div>
 							<hr class="dropdown-divider">
-							<a href="/user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
-							<a href="/admin/logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
+							<a href="../user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
+							<a href="logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
 						</div>
 					</div>
 				<?php else: ?>
-					<a href="/admin/loginstaff.php" class="user-icon" aria-label="Staff Login">
+					<a href="loginstaff.php" class="user-icon" aria-label="Staff Login">
 						<i class="fas fa-user-shield"></i>
 					</a>
 				<?php endif; ?>
@@ -72,11 +75,13 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 
 	<!-- Main Navigation -->
 	<nav class="main-navigation" role="navigation" aria-label="Main navigation">
-		<ul>
-			<li><a href="/product/list.php">Product Manage</a></li>
-			<li><a href="/admin/usermanage/list.php">User Manage</a></li>
-			<li><a href="/product/orderhistory.php">Order History</a></li>
-		</ul>
+        <ul>
+            <li><a href="../../product/list.php">Product Manage</a></li>
+            <li><a href="../../admin/usermanage/list.php">User Manage</a></li>
+            <li><a href="../../product/orderhistory.php">Order History</a></li>
+            <li><a href="../../admin/contact_messages.php">Contact Messages</a></li>
+            <li><a href="../../admin/report.php">Reports</a></li>
+        </ul>
 			
 		<!-- Mobile Menu Toggle -->
 		<div class="mobile-menu-toggle" aria-label="Toggle mobile menu">
@@ -85,4 +90,4 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 	</nav>
 </header>
 
-<script src="<?php echo $image_base_path; ?>js/script.js" defer></script>
+<script src="../js/script.js" defer></script>

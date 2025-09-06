@@ -1,6 +1,6 @@
 <?php
 $page_title = "About Us - Furniture Store";
-include '../header.php';
+require_once '../header.php';
 ?>
 
 <link rel="stylesheet" href="../css/about.css">
@@ -216,8 +216,8 @@ include '../header.php';
                 <h2>Ready to Transform Your Space?</h2>
                 <p>Visit our showroom or browse our online collection to find the perfect furniture for your home.</p>
                 <div class="cta-buttons">
-                    <a href="/userProduct/productList.php" class="btn btn-primary">Shop Now</a>
-                    <a href="/headerInfo/contact.php" class="btn btn-secondary">Contact Us</a>
+                     <a href="../userProduct/productList.php" class="btn btn-primary">Shop Now</a>
+                     <a href="contact.php" class="btn btn-secondary">Contact Us</a>
                 </div>
             </div>
         </section>
@@ -226,3 +226,11 @@ include '../header.php';
 
 
 <?php include '../footer.php'; ?>
+
+
+
+
+
+
+
+

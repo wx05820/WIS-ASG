@@ -36,11 +36,25 @@ try {
 $_err = [];
 
 $public_pages = ['login.php', 'register.php', 'forgot-password.php', 'index.php'];
-if (!isLoggedIn() && !in_array(basename($_SERVER['PHP_SELF']), $public_pages)) {
-    $autoLoginUser = checkRememberMeToken();
-    if ($autoLoginUser) {
-        $display_name = !empty($autoLoginUser->name) ? $autoLoginUser->name : $autoLoginUser->username;
-        temp('info', 'Welcome back, ' . htmlspecialchars($display_name) . '!');
+// Only check remember me token if user explicitly chose to be remembered
+// TEMPORARILY DISABLED AUTO-LOGIN TO TEST LOGOUT ISSUE
+// This prevents automatic login when user didn't check "Remember Me"
+if (false && !isLoggedIn() && !in_array(basename($_SERVER['PHP_SELF']), $public_pages)) {
+    // Debug: Log what's happening
+    error_log("Auto-login check: remember_token=" . (isset($_COOKIE['remember_token']) ? 'exists' : 'not set') . 
+              ", remember_me_opted_in=" . (isset($_COOKIE['remember_me_opted_in']) ? 'exists' : 'not set'));
+    
+    // Check if there's a remember me token AND the user previously opted in
+    if (isset($_COOKIE['remember_token']) && isset($_COOKIE['remember_me_opted_in'])) {
+        error_log("Attempting auto-login with remember me token");
+        $autoLoginUser = checkRememberMeToken();
+        if ($autoLoginUser) {
+            error_log("Auto-login successful for user: " . $autoLoginUser->username);
+            $display_name = !empty($autoLoginUser->name) ? $autoLoginUser->name : $autoLoginUser->username;
+            temp('info', 'Welcome back, ' . htmlspecialchars($display_name) . '!');
+        } else {
+            error_log("Auto-login failed - invalid token");
+        }
     }
 }
 
@@ -66,7 +80,6 @@ function authenticateUser($loginInput, $password) {
         }
         return false;
     } catch (PDOException $e) {
-        error_log("Authentication error: " . $e->getMessage());
         return false;
     }
 }
@@ -90,18 +103,38 @@ function loginUser($user) {
         $forceUpdate = $_db->prepare("UPDATE user SET last_login = NOW() WHERE userID = ?");
         $forceUpdate->execute([$user->userID]);
     } catch (Exception $e) {
-        error_log("Force update failed: " . $e->getMessage());
     }
     return true;
 }
 
 function isLoggedIn() {
-    if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) return false;
-    if (!isset($_SESSION['user_id'])) return false;
+    // Debug: Log session state
+    error_log("isLoggedIn() called - Session data: " . print_r($_SESSION, true));
+    
+    // Check if session is valid and user is logged in
+    if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
+        error_log("isLoggedIn() returning false - logged_in not set or false");
+        return false;
+    }
+    if (!isset($_SESSION['user_id'])) {
+        error_log("isLoggedIn() returning false - user_id not set");
+        return false;
+    }
+    
+    // Check for session timeout (2 hours)
     if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time']) > 7200) {
+        error_log("isLoggedIn() returning false - session timeout");
         logoutUser();
         return false;
     }
+    
+    // Additional check: if we have a user_id but no logged_in flag, user is not logged in
+    if (isset($_SESSION['user_id']) && !isset($_SESSION['logged_in'])) {
+        error_log("isLoggedIn() returning false - user_id exists but logged_in is false");
+        return false;
+    }
+    
+    error_log("isLoggedIn() returning true");
     return true;
 }
 
@@ -113,14 +146,19 @@ function getCurrentUser() {
         $stm->execute([$_SESSION['user_id']]);
         return $stm->fetch();
     } catch (PDOException $e) {
-        error_log("Get current user error: " . $e->getMessage());
         return false;
     }
 }
 
 function logoutUser() {
     clearRememberMeCookie();
+    // Clear the remember me opted in flag
+    setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
+    
+    // Explicitly set logged_in to false before clearing session
+    $_SESSION['logged_in'] = false;
     $_SESSION = [];
+    
     if (isset($_COOKIE[session_name()])) {
         setcookie(session_name(), '', time() - 3600, '/');
     }
@@ -133,35 +171,43 @@ function setRememberMeCookie($user_id) {
         $token = bin2hex(random_bytes(32));
         $hashed_token = hash('sha256', $token);
         $expires = time() + (30 * 24 * 60 * 60);
-        $stm = $_db->prepare("INSERT INTO remember_tokens (user_id, token, expires_at) VALUES (?, ?, ?)");
+        $stm = $_db->prepare("INSERT INTO remember_tokens (userID, token, expires_at) VALUES (?, ?, ?)");
         $stm->execute([$user_id, $hashed_token, date('Y-m-d H:i:s', $expires)]);
         setcookie('remember_token', $token, $expires, '/', '', isset($_SERVER['HTTPS']), true);
         return true;
     } catch (Exception $e) {
-        error_log("Set remember me cookie error: " . $e->getMessage());
         return false;
     }
 }
 
 function checkRememberMeToken() {
     global $_db;
-    if (!isset($_COOKIE['remember_token'])) return false;
+    if (!isset($_COOKIE['remember_token'])) {
+        error_log("checkRememberMeToken: No remember_token cookie found");
+        return false;
+    }
+    
     $token = $_COOKIE['remember_token'];
     $hashed_token = hash('sha256', $token);
+    error_log("checkRememberMeToken: Checking token hash: " . substr($hashed_token, 0, 10) . "...");
+    
     try {
-        $stmt = $_db->prepare("SELECT rt.user_id, rt.expires_at, u.* FROM remember_tokens rt JOIN user u ON rt.user_id = u.userID WHERE rt.token = ? AND rt.expires_at > NOW()");
+        $stmt = $_db->prepare("SELECT rt.userID, rt.expires_at, u.* FROM remember_tokens rt JOIN user u ON rt.userID = u.userID WHERE rt.token = ? AND rt.expires_at > NOW()");
         $stmt->execute([$hashed_token]);
         $result = $stmt->fetch();
+        
         if ($result) {
+            error_log("checkRememberMeToken: Valid token found for user " . $result->username);
             loginUser($result);
-            refreshRememberToken($result->user_id, $hashed_token);
+            refreshRememberToken($result->userID, $hashed_token);
             return $result;
         } else {
+            error_log("checkRememberMeToken: No valid token found in database");
             clearRememberMeCookie();
             return false;
         }
     } catch (Exception $e) {
-        error_log("Remember me token check error: " . $e->getMessage());
+        error_log("checkRememberMeToken: Database error: " . $e->getMessage());
         clearRememberMeCookie();
         return false;
     }
@@ -173,13 +219,12 @@ function refreshRememberToken($userID, $oldHashedToken) {
         $newToken = bin2hex(random_bytes(32));
         $newHashedToken = hash('sha256', $newToken);
         $expires = date('Y-m-d H:i:s', strtotime('+30 days'));
-        $stmt = $_db->prepare("UPDATE remember_tokens SET token = ?, expires_at = ? WHERE user_id = ? AND token = ?");
+        $stmt = $_db->prepare("UPDATE remember_tokens SET token = ?, expires_at = ? WHERE userID = ? AND token = ?");
         $stmt->execute([$newHashedToken, $expires, $userID, $oldHashedToken]);
         $cookie_expires = time() + (30 * 24 * 60 * 60);
         setcookie('remember_token', $newToken, $cookie_expires, '/', '', isset($_SERVER['HTTPS']), true);
         return true;
     } catch (Exception $e) {
-        error_log("Remember token refresh error: " . $e->getMessage());
         return false;
     }
 }
@@ -193,10 +238,11 @@ function clearRememberMeCookie() {
             $stmt = $_db->prepare("DELETE FROM remember_tokens WHERE token = ?");
             $stmt->execute([$hashed_token]);
         } catch (Exception $e) {
-            error_log("Clear remember token error: " . $e->getMessage());
         }
         setcookie('remember_token', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
     }
+    // Also clear the opted-in flag
+    setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
 }
 
 function clearAllRememberTokens($user_id) {
@@ -206,7 +252,6 @@ function clearAllRememberTokens($user_id) {
         $stmt = $_db->prepare("DELETE FROM remember_tokens WHERE user_id = ?");
         $stmt->execute([$user_id]);
     } catch (Exception $e) {
-        error_log("Failed to clear remember tokens: " . $e->getMessage());
     }
 }
 
@@ -217,7 +262,6 @@ function cleanupExpiredTokens() {
         $stmt->execute();
         return $stmt->rowCount();
     } catch (Exception $e) {
-        error_log("Cleanup expired tokens error: " . $e->getMessage());
         return 0;
     }
 }
@@ -531,10 +575,84 @@ function generateCSRFToken($expiration = 3600) {
 }
 
 function validateCSRFToken($token, $expiration = 3600) {
-    return isset($_SESSION['csrf_token']) && 
+    return isset($_SESSION['csrf_token']) &&
            isset($_SESSION['csrf_token_time']) &&
            (time() - $_SESSION['csrf_token_time']) <= $expiration &&
            hash_equals($_SESSION['csrf_token'], $token);
+}
+
+function sendContactReplyEmail($message_id, $reply_message) {
+    global $_db;
+    
+    try {
+        // Get the original message details
+        $stmt = $_db->prepare("
+            SELECT cm.*, u.name as customer_name 
+            FROM contact_messages cm
+            LEFT JOIN user u ON cm.email = u.email
+            WHERE cm.id = ?
+        ");
+        $stmt->execute([$message_id]);
+        $message = $stmt->fetch();
+        
+        if (!$message) {
+            return false;
+        }
+        
+        // Get staff member who replied
+        $stmt = $_db->prepare("SELECT name, username FROM user WHERE userID = ?");
+        $stmt->execute([$_SESSION['staff_id']]);
+        $staff = $stmt->fetch();
+        
+        $mail = get_mail();
+        $mail->addAddress($message->email, $message->customer_name ?: $message->name);
+        $mail->Subject = 'Re: ' . $message->subject . ' - AiKUN Furniture';
+        
+        $mail->Body = "
+            <h2>Reply from AiKUN Furniture</h2>
+            <p>Dear " . htmlspecialchars($message->name) . ",</p>
+            
+            <p>Thank you for contacting us. Here is our reply to your message:</p>
+            
+            <div style='background: #f8f9fa; padding: 15px; border-left: 4px solid #8B4513; margin: 20px 0;'>
+                <strong>Your original message:</strong><br>
+                Subject: " . htmlspecialchars($message->subject) . "<br>
+                Message: " . nl2br(htmlspecialchars($message->message)) . "
+            </div>
+            
+            <div style='background: #e8f5e8; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0;'>
+                <strong>Our reply:</strong><br>
+                " . nl2br(htmlspecialchars($reply_message)) . "
+            </div>
+            
+            <p>If you have any further questions, please don't hesitate to contact us.</p>
+            
+            <p>Best regards,<br>
+            " . htmlspecialchars($staff->name ?: $staff->username) . "<br>
+            AiKUN Furniture Team</p>
+            
+            <hr>
+            <p style='font-size: 12px; color: #666;'>
+                This is an automated reply. Please do not reply to this email directly.
+                If you need to contact us, please use our contact form or call us directly.
+            </p>
+        ";
+        
+        $mail->isHTML(true);
+        $result = $mail->send();
+        
+        if ($result) {
+            error_log("Contact reply email sent successfully to: " . $message->email);
+        } else {
+            error_log("Failed to send contact reply email: " . $mail->ErrorInfo);
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log("Contact reply email error: " . $e->getMessage());
+        return false;
+    }
 }
 
 function sanitizeInput($input, $type = 'text') {
@@ -1073,7 +1191,6 @@ function loginUserStaff($user) {
         $forceUpdate = $_db->prepare("UPDATE user SET last_login = NOW() WHERE userID = ?");
         $forceUpdate->execute([$user->userID]);
     } catch (Exception $e) {
-        error_log("Force update failed: " . $e->getMessage());
     }
     return true;
 }
@@ -1172,5 +1289,3 @@ function refreshCartCount($user_id) {
     // Clear any cached cart data if you have any
     return getCartCount($user_id);
 }
-
-?>

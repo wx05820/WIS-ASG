@@ -8,7 +8,7 @@ $id = $_GET['id'];
 // Check if token exists
 if (!is_exists($id, 'staffregistertoken', 'id')) {
     temp('info', 'Invalid or expired token. Try again.');
-    redirect('/index.php');
+    redirect('../index.php');
 }
 
 // Retrieve the email from token table

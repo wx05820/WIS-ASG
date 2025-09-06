@@ -45,7 +45,7 @@ elseif (isset($_SESSION['checkout_items']) && is_array($_SESSION['checkout_items
 
 if (empty($selected_product_ids)) {
     $_SESSION['error'] = "No items selected for checkout. Please select items from your cart.";
-    redirect('cart_page.php');
+    redirect('../order/cart_page.php');
 }
 
 // Get user address

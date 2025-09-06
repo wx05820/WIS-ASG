@@ -80,7 +80,7 @@ unset($p);
     <main class="product-list">
         <?php if($pager->count > 0): ?>
             <?php foreach ($products as $p): ?>
-                <div class="product-card" data-id="<?= $p['prodID']; ?>">
+                <div class="product-card" data-id="<?= $p['prodID']; ?>" onclick="window.location.href='product_detail.php?prodID=<?= urlencode($p['prodID']); ?>'" style="cursor: pointer;">
                     <div class="product-img">
                         <img src="<?= htmlspecialchars($p['img']); ?>" 
                             alt="<?= htmlspecialchars($p['name']); ?>" 
@@ -95,11 +95,11 @@ unset($p);
                         <p class="stock <?= ($p['qty'] > 0 ? 'in-stock' : 'out-stock'); ?>">
                             <?= $p['qty'] > 0 ? "In Stock: {$p['qty']}" : "Out of Stock"; ?>
                         </p>
-                        <div class="actions" onclick="event.stopPropagation();">
+                        <div class="actions" onclick="event.stopPropagation(); event.preventDefault();">
                             <?php if ($p['qty'] > 0): ?>
                                 <?php if ($user_id): ?>
                                         <!-- Add to Cart Form -->
-                                        <form action="../order/cart_add.php" method="POST" class="cart-form" onsubmit="return handleFormSubmit(this)" id="btn-add">
+                                        <form action="../order/cart_add.php" method="POST" class="cart-form" id="btn-add">
                                             <input type="hidden" name="action" value="add">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin:8px 0;">
@@ -115,14 +115,14 @@ unset($p);
                                         </form>
                                         
                                         <!-- Buy Now Form -->
-                                        <form action="../order/checkout.php" method="POST" class="checkout-form" onsubmit="return handleFormSubmit(this)">
+                                        <form action="../order/checkout.php" method="POST" class="checkout-form">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <input type="hidden" name="buy_now" value="1">
                                             <button type="submit" class="btn-checkout">Buy Now</button>
                                         </form>
 
                                         <!-- Add to Wishlist -->
-                                        <form action="../user/wishlist.php" method="POST" class="wishlist-form" onsubmit="return handleFormSubmit(this)" style="margin-top:6px;">
+                                        <form action="../user/wishlist.php" method="POST" class="wishlist-form" style="margin-top:6px;">
                                             <input type="hidden" name="action" value="add">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <button type="submit" class="btn-secondary btn-wishlist"><i class="fas fa-heart"></i> Wishlist</button>
@@ -150,6 +150,96 @@ unset($p);
             </div>
         <?php endif; ?>
     </main>
+
+<script>
+function showLoginPrompt() {
+    // Create a more prominent login prompt
+    const loginModal = document.createElement('div');
+    loginModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease-out;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        text-align: center;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    modalContent.innerHTML = `
+        <div style="font-size: 48px; color: #8B4513; margin-bottom: 20px;">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h3 style="color: #8B4513; margin-bottom: 15px;">Login Required</h3>
+        <p style="color: #666; margin-bottom: 25px; line-height: 1.5;">
+            Please log in to add items to your cart or make a purchase.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <button onclick="window.location.href='../user/login.php'" 
+                    style="background: #8B4513; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <button onclick="closeLoginModal()" 
+                    style="background: #6c757d; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer;">
+                Cancel
+            </button>
+        </div>
+    `;
+    
+    // Add CSS animations if not already present
+    if (!document.querySelector('#login-modal-styles')) {
+        const style = document.createElement('style');
+        style.id = 'login-modal-styles';
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    loginModal.appendChild(modalContent);
+    document.body.appendChild(loginModal);
+    
+    // Close modal when clicking outside
+    loginModal.addEventListener('click', function(e) {
+        if (e.target === loginModal) {
+            closeLoginModal();
+        }
+    });
+    
+    // Store reference for closing
+    window.currentLoginModal = loginModal;
+}
+
+function closeLoginModal() {
+    if (window.currentLoginModal) {
+        window.currentLoginModal.remove();
+        window.currentLoginModal = null;
+    }
+}
+</script>
+
 </body>
 
 <?php

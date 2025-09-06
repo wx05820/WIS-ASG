@@ -345,15 +345,30 @@ function logLogoutActivity($user_id, $user_email, $logout_type = 'manual', $addi
 function clearRememberMeTokens($user_id) {
     global $_db;
     try {
-        $stm = $_db->prepare('DELETE FROM remember_tokens WHERE user_id = ?');
-        $stm->execute([$user_id]);
+        error_log("clearRememberMeTokens called for user_id: " . $user_id);
+        
+        $stm = $_db->prepare('DELETE FROM remember_tokens WHERE userID = ?');
+        $result = $stm->execute([$user_id]);
+        $deleted_rows = $stm->rowCount();
+        error_log("Deleted " . $deleted_rows . " remember me tokens for user " . $user_id);
         
         // Also clear any session tokens
         $stm = $_db->prepare('DELETE FROM user_sessions WHERE user_id = ?');
         $stm->execute([$user_id]);
         
+        // Clear the remember me cookie with multiple attempts
+        setcookie('remember_token', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
+        setcookie('remember_token', '', time() - 3600, '/', '', false, true);
+        setcookie('remember_token', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), false);
+        
+        setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
+        setcookie('remember_me_opted_in', '', time() - 3600, '/', '', false, true);
+        setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), false);
+        
+        error_log("Remember me tokens and cookies cleared for user " . $user_id);
         return true;
     } catch (Exception $e) {
+        error_log("Error clearing remember me tokens: " . $e->getMessage());
         return false;
     }
 }
@@ -413,9 +428,10 @@ function performSecureLogout($logout_type = 'manual') {
         }
         
         // Secure session destruction
+        $_SESSION['logged_in'] = false;
         $_SESSION = [];
         
-        // Destroy session cookie
+        // Destroy session cookie with multiple attempts
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
             setcookie(
@@ -427,14 +443,24 @@ function performSecureLogout($logout_type = 'manual') {
                 $params["secure"], 
                 $params["httponly"]
             );
+            // Additional attempts to clear session cookie
+            setcookie(session_name(), '', time() - 42000, '/', '', false, true);
+            setcookie(session_name(), '', time() - 42000, '/', '', isset($_SERVER['HTTPS']), false);
         }
         
         // Destroy session
         session_destroy();
         
+        // Force clear session data
+        $_SESSION = [];
+        session_write_close();
+        
         // Start new session for temporary messages
         session_start();
         session_regenerate_id(true);
+        
+        // Explicitly set logged_in to false in new session
+        $_SESSION['logged_in'] = false;
         
         // Set security headers for new session
         $_SESSION['security_token'] = bin2hex(random_bytes(32));

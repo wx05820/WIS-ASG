@@ -1,92 +1,93 @@
-function showLoginPrompt() {
-    showError('Please log in to add items to your cart');
-    setTimeout(() => {
-        window.location.href = '../user/login.php';
-    }, 2000);
-}
+// User Product functionality JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize product page functionality
+    initializeProductPage();
+    initializeProductList();
+});
 
-async function addToCart(productId, qty = 1) {
-    try {
-        const userId = document.body.dataset.userId || document.querySelector('.container')?.dataset.userId;
-        if (!userId) {
-            showLoginPrompt();
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('action', 'add');
-        formData.append('prodID', productId);
-        formData.append('qty', qty);
-
-        // Resolve endpoint from the form's action attribute (avoid collision with input[name="action"]) 
-        const cartForm = document.querySelector('form.cart-form');
-        const endpoint = (cartForm && cartForm.getAttribute('action')) || '/order/cart_add.php';
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: formData
+function initializeProductPage() {
+    // Product detail page specific functionality
+    const productDetailPage = document.querySelector('.product-detail');
+    if (!productDetailPage) return;
+    
+    // Image gallery functionality
+    const mainImage = document.querySelector('.main-image img');
+    const thumbnails = document.querySelectorAll('.thumbnail');
+    
+    if (mainImage && thumbnails.length > 0) {
+        thumbnails.forEach(thumbnail => {
+            thumbnail.addEventListener('click', function() {
+                const newSrc = this.src;
+                if (mainImage.src !== newSrc) {
+                    mainImage.src = newSrc;
+                    
+                    // Update active thumbnail
+                    thumbnails.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                }
+            });
         });
-
-        // If server redirects to login, follow it
-        if (response.redirected && response.url.includes('/user/login.php')) {
-            window.location.href = response.url;
-            return;
-        }
-
-        if (!response.ok) {
-            throw new Error('Unable to add item to your cart');
-        }
-
-        showSuccess('Added item to your cart successfully');
-        
-        // Update mini cart if function exists
-        if (typeof updateMiniCart === 'function') {
-            updateMiniCart();
-        }
-
-    } catch (error) {
-        console.error('Add to cart error:', error);
-        showError('Unable to add item to your cart');
+    }
+    
+    // Quantity controls for product detail page
+    const qtyInput = document.getElementById('detail-qty');
+    if (qtyInput) {
+        // Ensure quantity input works properly
+        qtyInput.addEventListener('change', function() {
+            const value = parseInt(this.value);
+            const min = parseInt(this.getAttribute('min')) || 1;
+            const max = parseInt(this.getAttribute('max')) || 999;
+            
+            if (isNaN(value) || value < min) {
+                this.value = min;
+            } else if (value > max) {
+                this.value = max;
+            }
+        });
     }
 }
 
-async function buyNow(productId) {
-    try {
-        const userId = document.body.dataset.userId || document.querySelector('.container')?.dataset.userId;
-        if (!userId) {
-            showError("Please log in to make a purchase");
-            setTimeout(() => { window.location.href = "/user/login.php"; }, 2000);
-            return;
-        }
-
-        // Create form for buy now
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/order/checkout.php';
-        
-        const prodInput = document.createElement('input');
-        prodInput.type = 'hidden';
-        prodInput.name = 'prodID';
-        prodInput.value = productId;
-        
-        const buyNowInput = document.createElement('input');
-        buyNowInput.type = 'hidden';
-        buyNowInput.name = 'buy_now';
-        buyNowInput.value = '1';
-        
-        form.appendChild(prodInput);
-        form.appendChild(buyNowInput);
-        document.body.appendChild(form);
-        form.submit();
-
-    } catch (error) {
-        console.error('Buy now error:', error);
-        showError('Unable to proceed to checkout');
+function initializeProductList() {
+    // Product list page specific functionality
+    const productListPage = document.querySelector('.product-list');
+    if (!productListPage) return;
+    
+    // Search functionality
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            // Real-time search could be implemented here
+            console.log('Search query:', this.value);
+        });
     }
+    
+    // Filter functionality
+    const filterSelects = document.querySelectorAll('select[name="category"], select[name="sort"]');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            // Auto-submit form when filter changes
+            const form = this.closest('form');
+            if (form) {
+                form.submit();
+            }
+        });
+    });
+    
+    // Product card hover effects
+    const productCards = document.querySelectorAll('.product-card');
+    productCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
 }
 
+// Utility functions
 function showError(message) {
     showNotification(message, 'error');
 }
@@ -96,372 +97,172 @@ function showSuccess(message) {
 }
 
 function showNotification(message, type = 'error') {
-    // Remove any existing notifications
-    const existing = document.querySelector('.user-notification');
-    if (existing) {
-        existing.remove();
-    }
+    // Remove existing notifications
+    const existingNotifications = document.querySelectorAll('.product-notification');
+    existingNotifications.forEach(notification => notification.remove());
     
-    const notificationDiv = document.createElement('div');
-    notificationDiv.className = 'user-notification';
-    const bgColor = type === 'error' ? '#ff4444' : '#4CAF50';
-    notificationDiv.style.cssText = `
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `product-notification ${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
-        background: ${bgColor};
+        background: ${type === 'success' ? '#28a745' : '#dc3545'};
         color: white;
-        padding: 15px 20px;
-        border-radius: 8px;
+        padding: 12px 20px;
+        border-radius: 5px;
         z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-weight: 500;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        animation: slideIn 0.3s ease-out;
         max-width: 300px;
-        opacity: 0;
-        transform: translateX(100%);
-        transition: all 0.3s ease-in-out;
+        word-wrap: break-word;
     `;
-    notificationDiv.textContent = message;
     
-    document.body.appendChild(notificationDiv);
+    // Add animation CSS if not already present
+    if (!document.querySelector('#product-notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'product-notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
     
-    // Animate in
+    document.body.appendChild(notification);
+    
+    // Remove after 4 seconds
     setTimeout(() => {
-        notificationDiv.style.opacity = '1';
-        notificationDiv.style.transform = 'translateX(0)';
-    }, 100);
-    
-    // Auto remove after 4 seconds
-    setTimeout(() => {
-        if (notificationDiv.parentNode) {
-            notificationDiv.style.opacity = '0';
-            notificationDiv.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                if (notificationDiv.parentNode) {
-                    notificationDiv.parentNode.removeChild(notificationDiv);
-                }
-            }, 300);
-        }
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
     }, 4000);
 }
 
-// Consolidated DOMContentLoaded event listener
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize add to cart buttons if function exists
-    if (typeof initAddToCartButtons === "function") {
-        initAddToCartButtons();
-    }
-
-    // Auto-hide alerts after 5 seconds
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(alert => {
-        setTimeout(() => {
-            alert.style.opacity = '0';
-            setTimeout(() => alert.remove(), 300);
-        }, 5000);
-    });
-
-    // Product card click navigation
-    document.querySelectorAll('.product-card').forEach(card => {
-        card.addEventListener('click', function(e) {
-            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('form')) {
-                e.stopPropagation();
-                return;
-            }
-            const prodID = this.dataset.id;
-            window.location.href = `product_detail.php?prodID=${prodID}`;
-        });
-    });
-
-    // Add to cart button handlers
-    document.querySelectorAll('.add-to-cart, .btn-add').forEach(btn => {
-        btn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const formEl = this.closest('form');
-            let productId = this.dataset.productId || this.closest('.product-card')?.dataset.id || formEl?.querySelector('input[name="prodID"]').value;
-            
-            if (!productId) {
-                showError('Unable to find product information');
-                return;
-            }
-            
-            const originalText = this.textContent;
-            this.disabled = true;
-            this.textContent = 'Adding...';
-            
-            try {
-                const userId = document.body.dataset.userId;
-                if (!userId) {
-                    showLoginPrompt();
-                    return;
-                }
-
-                const formData = new FormData();
-                formData.append('action', 'add');
-                formData.append('prodID', productId);
-                // Prefer quantity from associated input if present
-                const qtyInput = formEl?.querySelector('input[name="qty"], input[id^="list-qty-"], #detail-qty');
-                const qtyVal = qtyInput ? parseInt(qtyInput.value || '1', 10) : 1;
-                formData.append('qty', Math.max(1, qtyVal));
-
-                const endpoint = (formEl && formEl.getAttribute('action')) ? formEl.getAttribute('action') : '/order/cart_add.php';
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: formData
-                });
-
-                // Handle redirect to login
-                if (response.redirected && response.url.includes('/user/login.php')) {
-                    window.location.href = response.url;
-                    return;
-                }
-
-                if (!response.ok) {
-                    throw new Error('Unable to add item to your cart');
-                }
-
-                showSuccess('Added item to your cart successfully');
-                
-                if (typeof updateMiniCart === 'function') {
-                    updateMiniCart();
-                }
-
-            } catch (error) {
-                console.error('Add to cart error:', error);
-                showError('Unable to add item to your cart');
-            } finally {
-                this.disabled = false;
-                this.textContent = originalText;
-            }
-        });
-    });
-
-    // AJAX wishlist add/remove on product pages/lists
-    document.querySelectorAll('.wishlist-form').forEach(form => {
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            // Confirm remove
-            const action = (this.querySelector('input[name="action"]')?.value || '').toLowerCase();
-            if (action === 'remove') {
-                const title = this.closest('.product-card')?.querySelector('.product-name')?.textContent?.trim() || 'this item';
-                if (!confirm(`Remove ${title} from wishlist?`)) {
-                    return;
-                }
-            }
-            const userId = document.body.dataset.userId;
-            if (!userId) {
-                showError("Please log in to use wishlist");
-                setTimeout(() => { window.location.href = "/user/login.php"; }, 1200);
-                return;
-            }
-            const btn = this.querySelector('button[type="submit"]');
-            const actionInput = this.querySelector('input[name="action"]');
-            const original = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-heart"></i> Saving...';
-            try {
-                const formData = new FormData(this);
-                const res = await fetch(this.getAttribute('action'), { method: 'POST', body: formData, headers: {'X-Requested-With':'XMLHttpRequest'} });
-                if (!res.ok) throw new Error('Wishlist request failed');
-                // Toggle UI/state
-                if (formData.get('action') === 'add') {
-                    btn.classList.add('added');
-                    btn.innerHTML = '<i class="fas fa-heart"></i> Added';
-                    if (actionInput) actionInput.value = 'remove';
-                } else {
-                    btn.classList.remove('added');
-                    btn.innerHTML = '<i class="fas fa-heart"></i> Wishlist';
-                    if (actionInput) actionInput.value = 'add';
-                }
-                showSuccess('Wishlist updated');
-            } catch (err) {
-                console.error(err);
-                showError('Unable to update wishlist');
-            } finally {
-                btn.disabled = false;
-            }
-        });
-    });
-
-    // AJAX wishlist add/remove on product pages/lists
-    document.querySelectorAll('.wishlist-form').forEach(form => {
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            // Confirm remove
-            const action = (this.querySelector('input[name="action"]')?.value || '').toLowerCase();
-            if (action === 'remove') {
-                const title = this.closest('.product-card')?.querySelector('.product-name')?.textContent?.trim() || 'this item';
-                if (!confirm(`Remove ${title} from wishlist?`)) {
-                    return;
-                }
-            }
-            const userId = document.body.dataset.userId;
-            if (!userId) {
-                showError("Please log in to use wishlist");
-                setTimeout(() => { window.location.href = "/user/login.php"; }, 1200);
-                return;
-            }
-            const btn = this.querySelector('button[type="submit"]');
-            const actionInput = this.querySelector('input[name="action"]');
-            const original = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-heart"></i> Saving...';
-            try {
-                const formData = new FormData(this);
-                const res = await fetch(this.getAttribute('action'), { method: 'POST', body: formData, headers: {'X-Requested-With':'XMLHttpRequest'} });
-                if (!res.ok) throw new Error('Wishlist request failed');
-                // Toggle UI/state
-                if (formData.get('action') === 'add') {
-                    btn.classList.add('added');
-                    btn.innerHTML = '<i class="fas fa-heart"></i> Added';
-                    if (actionInput) actionInput.value = 'remove';
-                } else {
-                    btn.classList.remove('added');
-                    btn.innerHTML = '<i class="fas fa-heart"></i> Wishlist';
-                    if (actionInput) actionInput.value = 'add';
-                }
-                showSuccess('Wishlist updated');
-            } catch (err) {
-                console.error(err);
-                showError('Unable to update wishlist');
-            } finally {
-                btn.disabled = false;
-            }
-        });
-    });
-
-    // Buy now buttons
-    document.querySelectorAll('.btn-checkout').forEach(btn => {
-        btn.addEventListener('click', async function(e) {
-            // If inside a form, let the form handle submission
-            if (this.closest('form')) {
-                return; 
-            }
-            
-            e.preventDefault();
-            e.stopPropagation();
-            
-            let productId = this.dataset.productId || this.closest('.product-card')?.dataset.id || this.closest('form')?.querySelector('input[name="prodID"]')?.value;
-            
-            if (!productId) {
-                showError('Unable to find product information');
-                return;
-            }
-            
-            const originalText = this.textContent;
-            this.disabled = true;
-            this.textContent = 'Processing...';
-            
-            try {
-                await buyNow(productId);
-            } finally {
-                this.disabled = false;
-                this.textContent = originalText;
-            }
-        });
-    });
-
-    // Quantity +/- controls
-    document.querySelectorAll('.qty-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const targetSel = this.getAttribute('data-target');
-            const input = document.querySelector(targetSel);
-            if (!input) return;
-            const max = parseInt(input.getAttribute('max') || '9999', 10);
-            const min = parseInt(input.getAttribute('min') || '1', 10);
-            let val = parseInt(input.value || '1', 10);
-            const isPlus = this.getAttribute('data-op') === 'plus';
-            val = isPlus ? Math.min(max, val + 1) : Math.max(min, val - 1);
-            input.value = val;
-            // Trigger change for any listeners
-            input.dispatchEvent(new Event('change'));
-        });
-    });
-
-    // Handle form submissions for buy now and add to cart
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        // Skip for add address form or other specific forms
-        if (form.id === 'addAddressForm') return;
+// Form validation
+function validateProductForm(form) {
+    const qtyInput = form.querySelector('input[name="qty"]');
+    if (qtyInput) {
+        const value = parseInt(qtyInput.value);
+        const min = parseInt(qtyInput.getAttribute('min')) || 1;
+        const max = parseInt(qtyInput.getAttribute('max')) || 999;
         
-        form.addEventListener('submit', function(e) {
-            const submitBtn = this.querySelector('button[type="submit"], input[type="submit"]');
-            if (submitBtn) {
-                const originalText = submitBtn.textContent || submitBtn.value;
-                submitBtn.disabled = true;
-                
-                if (submitBtn.classList.contains('btn-add') || submitBtn.classList.contains('add-to-cart')) {
-                    submitBtn.textContent = 'Adding...';
-                } else if (submitBtn.classList.contains('btn-checkout')) {
-                    submitBtn.textContent = 'Processing...';
-                } else {
-                    submitBtn.textContent = 'Processing...';
-                }
-                
-                // Re-enable after 3 seconds in case of error
-                setTimeout(() => {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
-                }, 3000);
-            }
-        });
-    });
-});
-
-// Additional functions moved from productList.php
-function handleFormSubmit(form) {
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn && !submitBtn.disabled) {
-        const originalText = submitBtn.textContent;
-        submitBtn.disabled = true;
-        
-        if (submitBtn.classList.contains('btn-add')) {
-            submitBtn.textContent = 'Adding...';
-        } else if (submitBtn.classList.contains('btn-checkout')) {
-            submitBtn.textContent = 'Processing...';
+        if (isNaN(value) || value < min || value > max) {
+            showError(`Please enter a valid quantity between ${min} and ${max}`);
+            return false;
         }
-        
-        // Re-enable after 3 seconds in case of error
-        setTimeout(() => {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-        }, 3000);
     }
+    
     return true;
 }
 
-// Lightweight helpers for header sort/order controls
-(function() {
-    if (typeof window.toggleOrder === 'undefined') {
-        window.toggleOrder = function() {
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const currentOrder = (urlParams.get('order') || 'ASC').toUpperCase();
-                const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
-                urlParams.set('order', newOrder);
-                urlParams.set('page', '1');
-                window.location.search = urlParams.toString();
-            } catch (e) {
-                window.location.reload();
-            }
-        };
-    }
+// Wishlist functionality
+function toggleWishlist(productId) {
+    // This would make an AJAX call to toggle wishlist
+    console.log('Toggle wishlist for product:', productId);
+}
 
-    if (typeof window.updateSort === 'undefined') {
-        window.updateSort = function(sortValue) {
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                if (sortValue) urlParams.set('sort', sortValue); else urlParams.delete('sort');
-                urlParams.set('page', '1');
-                window.location.search = urlParams.toString();
-            } catch (e) {
-                window.location.reload();
+// Quick view functionality
+function showQuickView(productId) {
+    // This would show a quick view modal
+    console.log('Show quick view for product:', productId);
+}
+
+// Login prompt functionality
+function showLoginPrompt() {
+    // Create a more prominent login prompt
+    const loginModal = document.createElement('div');
+    loginModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease-out;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        text-align: center;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    modalContent.innerHTML = `
+        <div style="font-size: 48px; color: #8B4513; margin-bottom: 20px;">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h3 style="color: #8B4513; margin-bottom: 15px;">Login Required</h3>
+        <p style="color: #666; margin-bottom: 25px; line-height: 1.5;">
+            Please log in to add items to your cart or make a purchase.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <button onclick="window.location.href='../user/login.php'" 
+                    style="background: #8B4513; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <button onclick="closeLoginModal()" 
+                    style="background: #6c757d; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer;">
+                Cancel
+            </button>
+        </div>
+    `;
+    
+    // Add CSS animations if not already present
+    if (!document.querySelector('#login-modal-styles')) {
+        const style = document.createElement('style');
+        style.id = 'login-modal-styles';
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
             }
-        };
+            @keyframes slideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
     }
-})();
+    
+    loginModal.appendChild(modalContent);
+    document.body.appendChild(loginModal);
+    
+    // Close modal when clicking outside
+    loginModal.addEventListener('click', function(e) {
+        if (e.target === loginModal) {
+            closeLoginModal();
+        }
+    });
+    
+    // Store reference for closing
+    window.currentLoginModal = loginModal;
+}
+
+function closeLoginModal() {
+    if (window.currentLoginModal) {
+        window.currentLoginModal.remove();
+        window.currentLoginModal = null;
+    }
+}

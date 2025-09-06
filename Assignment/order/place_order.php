@@ -6,7 +6,7 @@ checkLogin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $_SESSION['error'] = "Invalid request method";
-    redirect('/order/checkout.php');
+    redirect('checkout.php');
 }
 
 $orderData = $_POST;
@@ -22,7 +22,7 @@ if (!isset($_SESSION['order_idem_tokens']) || !is_array($_SESSION['order_idem_to
 if (!$idem_key || !array_key_exists($idem_key, $_SESSION['order_idem_tokens'])) {
     // Invalid or missing token -> prevent processing and send user back
     $_SESSION['error'] = "Your session expired. Please try checkout again.";
-    redirect('/order/checkout.php');
+    redirect('checkout.php');
 }
 
 if ($_SESSION['order_idem_tokens'][$idem_key] === 'used') {
@@ -34,7 +34,7 @@ if ($_SESSION['order_idem_tokens'][$idem_key] === 'used') {
         redirect("/order/success.php?order_id=" . $existing_order_id);
     }
     $_SESSION['error'] = "This order was already processed.";
-    redirect('/order/checkout.php');
+    redirect('checkout.php');
 }
 
 $selected_items = [];
@@ -56,7 +56,7 @@ $selected_items = array_values(array_filter(array_map('trim', $selected_items), 
 
 if (empty($selected_items)) {
     $_SESSION['error'] = "Please select items to checkout";
-    redirect('/order/cart_page.php');
+    redirect('cart_page.php');
 }
 
 // Store selected items in session for checkout page
@@ -78,7 +78,7 @@ if ($has_addresses && (empty($address_id))) {
     $address_id = $stmt->fetchColumn();
     if (!$address_id) {
         $_SESSION['error'] = "Please select a delivery address";
-        redirect('/order/checkout.php');
+        redirect('checkout.php');
     }
 }
 
@@ -90,13 +90,13 @@ if ($has_addresses) {
     
     if (!$valid_address) {
         $_SESSION['error'] = "Invalid delivery address selected";
-        redirect('/order/checkout.php');
+        redirect('checkout.php');
     }
 }
 
 if (!$shipping_method || !$pay_method) {
     $_SESSION['error'] = "Please select shipping method and payment method";
-    redirect('/order/checkout.php');
+    redirect('checkout.php');
 }
 
 try {
@@ -112,7 +112,7 @@ try {
 
         if (!$buy_now_prod_id) {
             $_SESSION['error'] = "Invalid Buy Now request (missing product)";
-            redirect('/order/checkout.php');
+            redirect('checkout.php');
         }
 
         $stmt = $_db->prepare("SELECT prodID, name, price, color, qty FROM product WHERE prodID = ?");
@@ -121,7 +121,7 @@ try {
 
         if (!$product_row) {
             $_SESSION['error'] = "Selected product not found";
-            redirect('/order/checkout.php');
+            redirect('checkout.php');
         }
 
         $cart_items = [[
@@ -148,7 +148,7 @@ try {
 
         if (empty($cart_items)) {
             $_SESSION['error'] = "Your cart is empty";
-            redirect('/order/checkout.php');
+            redirect('checkout.php');
         }
     }
 
@@ -160,7 +160,7 @@ try {
         
         if ($available_stock < $item['qty']) {
             $_SESSION['error'] = "Insufficient stock for " . htmlspecialchars($item['name']) . ". Available: " . $available_stock;
-            redirect('/order/checkout.php');
+            redirect('checkout.php');
         }
     }
 
@@ -222,7 +222,7 @@ try {
 
     if (!$address_details) {
         $_SESSION['error'] = "Invalid shipping address selected";
-        redirect('/order/checkout.php');
+        redirect('checkout.php');
     }
 
     // Ensure phone number fits in char(12) field
@@ -306,7 +306,7 @@ try {
 } catch (Exception $e) {
     if ($_db->inTransaction()) $_db->rollBack();
     $_SESSION['error'] = "Failed to place order: " . $e->getMessage();
-    redirect('/order/checkout.php');
+    redirect('checkout.php');
 }
 
 // Send order confirmation email
