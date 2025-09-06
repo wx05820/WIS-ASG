@@ -239,8 +239,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <ul>
                 <li><a href="/index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
                 <li><a href="/userProduct/productList.php" class="<?php echo ($current_page === '/userProduct/productList.php' || $current_page === 'list.php') ? 'active' : ''; ?>">All Products</a></li>
-                <li><a href="/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
-                <li><a href="/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
+                <li><a href="/headerInfo/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
+                <li><a href="/headerInfo/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
             </ul>
             
             <!-- Mobile Menu Toggle -->
