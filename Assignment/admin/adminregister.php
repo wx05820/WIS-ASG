@@ -78,6 +78,22 @@ if (is_post()) {
         $_err['name'] = 'Maximum 100 characters';
     }
 
+
+    // Validate: phoneNo (optional for staff - will auto-generate if empty)
+    $phoneNo = req('phoneNo');
+    if ($phoneNo && !preg_match('/^[\+]?[0-9\s\-\(\)]{10,20}$/', $phoneNo)) {
+        $_err['phoneNo'] = 'Invalid phone number format';
+    }
+    else if ($phoneNo && strlen($phoneNo) > 20) {
+        $_err['phoneNo'] = 'Phone number too long';
+    }
+    
+    // Auto-generate phone number if not provided
+    if (!$phoneNo) {
+        $phoneNo = generateUniquePhoneNumber($_db);
+    }
+
+
     if (!$_err) {
     do {
             $username = generateRandomUsername();
@@ -90,10 +106,10 @@ if (is_post()) {
         
         // Insert staff
         $stm = $_db->prepare('
-        INSERT INTO user (username, email, password, photo, name, role, created_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, NOW(),?)
+        INSERT INTO user (username, email, password, photo, name, role, phoneNo, created_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(),?)
         ');
-        $stm->execute([$username, $email, $password_hash, $defaultProfilePhoto, $name,$roleFromToken, "Active"]);
+        $stm->execute([$username, $email, $password_hash, $defaultProfilePhoto, $name, $roleFromToken, $phoneNo, "Active"]);
 
 
         // Delete used token*/
@@ -125,7 +141,7 @@ if (is_post()) {
 
         <form method="post" class="form" novalidate>
             <!-- Hidden Email -->
-            <input type="hidden" name="email" value="<?php echo htmlspecialchars($emailFromToken); ?>">  
+            <input type="hidden" name="email" value="<?php echo $emailFromToken; ?>">  
             <div class="form-group">
             <label for="email">Email</label>
             <input 
@@ -133,7 +149,7 @@ if (is_post()) {
              id="email" 
              name="email" 
             class="form-input readonly-email" 
-            value="<?php echo htmlspecialchars($emailFromToken); ?>" 
+            value="<?php echo $emailFromToken; ?>" 
             readonly>
 </div>
             <div class="form-group">
@@ -143,7 +159,7 @@ if (is_post()) {
             id="roles" 
             name="roles" 
             class="form-input readonly-email" 
-            value="<?php echo htmlspecialchars($roleFromToken); ?>" 
+            value="<?php echo $roleFromToken; ?>" 
             readonly
     >
 </div>
@@ -162,6 +178,22 @@ if (is_post()) {
                 >
                 <?php if (isset($_err['name'])): ?>
                     <div class="error-message"><?php echo htmlspecialchars($_err['name']); ?></div>
+                <?php endif; ?>
+            </div>
+
+            <div class="form-group">
+                <label for="phoneNo">Phone Number (Optional - Auto-generated if empty)</label>
+                <input 
+                    type="tel" 
+                    id="phoneNo" 
+                    name="phoneNo" 
+                    class="form-input <?php echo isset($_err['phoneNo']) ? 'error' : ''; ?>" 
+                    maxlength="20"
+                    placeholder="Enter your phone number (or leave empty for auto-generation)"
+                    value="<?php echo htmlspecialchars(req('phoneNo')); ?>"
+                >
+                <?php if (isset($_err['phoneNo'])): ?>
+                    <div class="error-message"><?php echo htmlspecialchars($_err['phoneNo']); ?></div>
                 <?php endif; ?>
             </div>
             <div class="security-notice">
@@ -219,42 +251,13 @@ if (is_post()) {
     </div>
 
     <script src="../js/loginRegister.js"></script>
+     <!-- Admin JavaScript -->
+     <script src="../js/admin.js"></script>
+     
      <script>
-         document.addEventListener('DOMContentLoaded', function() {
-             const inputs = document.querySelectorAll('.form-input');
-             
-             inputs.forEach(input => {
-                 input.addEventListener('input', function() {
-                     if (this.classList.contains('error')) {
-                         this.classList.remove('error');
-                         const errorMsg = this.parentNode.querySelector('.error-message');
-                         if (errorMsg) errorMsg.style.display = 'none';
-                     }
-                 });
-             });
-         });
-
-         // Password toggle function
+         // Password toggle function (using AdminJS)
          function togglePassword(fieldId) {
-             const passwordField = document.getElementById(fieldId);
-             if (!passwordField) return;
-
-             const toggleButton = passwordField.parentNode.querySelector('.password-toggle');
-             const eyeIcon = toggleButton.querySelector('.eye-icon');
-
-             if (passwordField.type === 'password') {
-                 passwordField.type = 'text';
-                 eyeIcon.classList.remove('show', 'fas', 'fa-eye');
-                 eyeIcon.classList.add('hide', 'fas', 'fa-eye-slash');
-                 eyeIcon.classList.add('state-change');
-                 setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
-             } else {
-                 passwordField.type = 'password';
-                 eyeIcon.classList.remove('hide', 'fas', 'fa-eye-slash');
-                 eyeIcon.classList.add('show', 'fas', 'fa-eye');
-                 eyeIcon.classList.add('state-change');
-                 setTimeout(() => eyeIcon.classList.remove('state-change'), 300);
-             }
+             AdminJS.togglePassword(fieldId);
          }
      </script>
 </body>

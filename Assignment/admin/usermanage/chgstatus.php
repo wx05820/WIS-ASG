@@ -14,14 +14,6 @@ if (is_post() && isset($_POST['action'])) {
         $stm = $_db->prepare('UPDATE user SET status = "Active" WHERE userID = ?');
         $stm->execute([$user_id]);
         temp('success', 'User activated successfully');
-
-
-
-
-
-
-
-
         
     } elseif ($_POST['action'] === 'deactivate') {
         $stm = $_db->prepare('UPDATE user SET status = "Inactive" WHERE userID = ?');

@@ -35,8 +35,8 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 <link rel="stylesheet" href="../../css/adminheader.css">
 	<div class="header-container">
 		<div class="logo-section">
-			<a href="adminpage.php">
-				<img src="../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
+			<a href="/admin/adminpage.php">
+				<img src="/../images/logo.png" alt="AiKUN Furniture Logo" class="logo">
 				<span class="company-name">AiKUN Admin</span>
 			</a>
 		</div>
@@ -47,20 +47,20 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 					<div class="user-dropdown">
 						<button class="user-profile-btn" aria-label="Staff menu" aria-expanded="false">
 							<img src="<?php echo !empty($staff_user->photo) ? $image_base_path . $staff_user->photo : $image_base_path . 'images/default-avatar.png'; ?>" class="profile-photo-small">
-							<span class="username-display"><?php echo htmlspecialchars($staff_user->username); ?></span>
+							<span class="username-display"><?php echo $staff_user->username; ?></span>
 							<i class="fas fa-chevron-down dropdown-arrow"></i>
 						</button>
 						<div class="dropdown-content" role="menu">
 							<div class="dropdown-header">
 									<img src="<?php echo !empty($staff_user->photo) ? $image_base_path . $staff_user->photo : $image_base_path . 'images/default-avatar.png'; ?>" class="profile-photo-large">
 								<div class="user-info">
-									<h4><?php echo htmlspecialchars($staff_user->username); ?></h4>
-									<p class="user-email"><?php echo htmlspecialchars($staff_user->email); ?></p>
-									<p class="user-role"><?php echo htmlspecialchars($staff_user->role); ?></p>
+									<h4><?php echo $staff_user->username; ?></h4>
+									<p class="user-email"><?php echo $staff_user->email; ?></p>
+									<p class="user-role"><?php echo $staff_user->role; ?></p>
 								</div>
 							</div>
 							<hr class="dropdown-divider">
-							<a href="../user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
+							<a href="/../user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
 							<a href="logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
 						</div>
 					</div>
@@ -78,6 +78,7 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
         <ul>
             <li><a href="../../product/list.php">Product Manage</a></li>
             <li><a href="../../admin/usermanage/list.php">User Manage</a></li>
+			<li><a href="/admin/shipping.php">Shipping</a></li>
             <li><a href="../../product/orderhistory.php">Order History</a></li>
             <li><a href="../../admin/contact_messages.php">Contact Messages</a></li>
             <li><a href="../../admin/report.php">Reports</a></li>

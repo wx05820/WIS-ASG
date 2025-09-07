@@ -114,7 +114,7 @@ $error_msg = get_temp('error');
                         <div style="position:relative; display:inline-block;">
                             <input type="text" 
                                    id="searchInput"
-                                   placeholder="Search by ID, username, email, or name..." 
+                                   placeholder="Search by ID, username or email" 
                                    class="search-input"
                                    style="width: 350px; max-width: 100%; padding: 0.5rem 1rem; font-size: 1.1rem; padding-right:2.4rem;">
                             <button type="button" id="clearSearchBtn" title="Clear search"
@@ -163,18 +163,20 @@ $error_msg = get_temp('error');
         <?php if (!empty($users)): ?>
             <div class="users-table-container">
                 <?php foreach ($users as $user): ?>
-                    <div class="user-row user-card" 
-                         data-userid="<?php echo htmlspecialchars($user->userID); ?>"
-                         data-username="<?php echo htmlspecialchars(strtolower($user->username)); ?>" 
-                         data-email="<?php echo htmlspecialchars(strtolower($user->email)); ?>" 
-                         data-name="<?php echo htmlspecialchars(strtolower($user->name)); ?>"
-                         data-role="<?php echo htmlspecialchars($user->role); ?>"
-                         data-status="<?php echo htmlspecialchars($user->status); ?>">
+                    <div class="user-row user-card clickable-user-card" 
+                         data-userid="<?php echo $user->userID; ?>"
+                         data-username="<?php echo strtolower($user->username); ?>" 
+                         data-email="<?php echo strtolower($user->email); ?>" 
+                         data-name="<?php echo strtolower($user->name); ?>"
+                         data-role="<?php echo $user->role; ?>"
+                         data-status="<?php echo $user->status; ?>"
+                         onclick="navigateToUserDetail('<?php echo $user->userID; ?>')"
+                         title="Click to view user details">
                         
                         <!-- Profile Picture -->
                         <div class="user-image">
                             <?php if ($user->photo && file_exists('../../' . $user->photo)): ?>
-                                <img src="../../<?php echo htmlspecialchars($user->photo); ?>" 
+                                <img src="../../<?php echo $user->photo; ?>" 
                                      alt="Profile" 
                                      loading="lazy">
                             <?php else: ?>
@@ -187,17 +189,17 @@ $error_msg = get_temp('error');
                         <!-- User Info -->
                         <div class="user-info">
                             <div class="user-info-header">
-                                <h3><?php echo htmlspecialchars($user->username); ?></h3>
-                                <span class="role-badge"><?php echo htmlspecialchars($user->role); ?></span>
+                                <h3><?php echo $user->username; ?></h3>
+                                <span class="role-badge role-<?php echo strtolower($user->role); ?>"><?php echo $user->role; ?></span>
                                 <span class="status-badge <?php echo ($user->status === 'Active') ? 'status-active' : 'status-inactive'; ?>">
-                                    <?php echo htmlspecialchars($user->status); ?>
+                                    <?php echo $user->status; ?>
                                 </span>
                             </div>
                             <div class="user-id-info">
-                                <span class="label">User ID:</span> <?php echo htmlspecialchars($user->userID); ?>
+                                <span class="label">User ID:</span> <?php echo $user->userID; ?>
                             </div>
                             <div class="user-email">
-                                <?php echo htmlspecialchars($user->email); ?>
+                                <?php echo $user->email; ?>
                             </div>
                         </div>
 
@@ -214,10 +216,10 @@ $error_msg = get_temp('error');
                                     <span class="never">Never</span>
                                 <?php endif; ?>
                             </div>
-                        </div>
+                            </div>
 
                         <!-- Action Button -->
-                        <div class="user-actions">
+                        <div class="user-actions" onclick="event.stopPropagation();">
                             <?php if ($user->status === 'Active'): ?>
                                 <?php if ($user->role === 'Admin' || $user->role === 'Supervisor'): ?>
                                     <form method="post" style="display: inline;">
@@ -289,249 +291,22 @@ $error_msg = get_temp('error');
     </div>
     <?php include '../../footer.php'; ?>
 
+    <!-- Admin JavaScript -->
+    <script src="../../js/admin.js"></script>
+    
+    <!-- Consolidated List/Shipping JavaScript -->
+    <script src="../../js/listusershipping.js"></script>
+    
     <script>
-        // Search and filter functionality
-        function filterUsers() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-            const roleFilter = document.getElementById('roleFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-            const userCards = document.querySelectorAll('.user-card');
-            const productsList = document.querySelector('.products-list');
-            const noProductsDiv = document.querySelector('.no-products');
-            
-            let visibleCount = 0;
-            
-            userCards.forEach(card => {
-                const userid = card.dataset.userid.toString().toLowerCase();
-                const username = card.dataset.username;
-                const email = card.dataset.email;
-                const name = card.dataset.name;
-                const role = card.dataset.role;
-                const status = card.dataset.status;
-                
-                // Check search term (ID, username, email, or name)
-                let matchesSearch = true;
-                if (searchTerm) {
-                    matchesSearch = userid.includes(searchTerm) || 
-                                   username.includes(searchTerm) || 
-                                   email.includes(searchTerm) || 
-                                   name.includes(searchTerm);
-                }
-                
-                // Check role filter
-                const matchesRole = roleFilter === 'all' || role === roleFilter;
-                
-                // Check status filter
-                const matchesStatus = statusFilter === 'all' || status === statusFilter;
-                
-                // Show/hide card based on all filters
-                if (matchesSearch && matchesRole && matchesStatus) {
-                    card.style.display = '';
-                    visibleCount++;
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-            
-            // Handle "No record found" message and users list visibility
-            const usersContainer = document.querySelector('.users-table-container');
-            const noUsersFiltered = document.querySelector('.no-users-filtered');
-            
-            if (visibleCount === 0) {
-                // Hide the users container and show the "no filtered results" message
-                if (usersContainer) usersContainer.style.display = 'none';
-                if (noUsersFiltered) noUsersFiltered.style.display = 'block';
-            } else {
-                // Show the users container and hide the "no filtered results" message
-                if (usersContainer) usersContainer.style.display = '';
-                if (noUsersFiltered) noUsersFiltered.style.display = 'none';
-            }
-            
-            // Update results counter
-            updateResultsCounter(visibleCount);
-        }
-        
-        // Update results counter
-        function updateResultsCounter(visibleCount) {
-            const totalUsers = document.querySelectorAll('.user-card').length;
-            const showingStart = document.getElementById('showing-start');
-            const showingEnd = document.getElementById('showing-end');
-            const totalUsersSpan = document.getElementById('total-users');
-            
-            if (showingStart && showingEnd && totalUsersSpan) {
-                if (visibleCount === 0) {
-                    showingStart.textContent = '0';
-                    showingEnd.textContent = '0';
-                } else {
-                    showingStart.textContent = '1';
-                    showingEnd.textContent = visibleCount.toString();
-                }
-                totalUsersSpan.textContent = totalUsers.toString();
-            }
-        }
-        
-                 // Update URL with current filter values
-         function updateURLWithFilters() {
-             const searchValue = document.getElementById('searchInput').value.trim();
-             const roleValue = document.getElementById('roleFilter').value;
-             const statusValue = document.getElementById('statusFilter').value;
-             
-             const currentParams = new URLSearchParams(window.location.search);
-             
-             // Update or remove parameters based on values
-             if (searchValue) {
-                 currentParams.set('search', searchValue);
-             } else {
-                 currentParams.delete('search');
-             }
-             
-             if (roleValue !== 'all') {
-                 currentParams.set('role', roleValue);
-             } else {
-                 currentParams.delete('role');
-             }
-             
-             if (statusValue !== 'all') {
-                 currentParams.set('status', statusValue);
-             } else {
-                 currentParams.delete('status');
-             }
-             
-             // Reset to first page when filters change
-             currentParams.set('page', '1');
-             
-             // Update URL without reloading the page
-             const newURL = window.location.pathname + (currentParams.toString() ? '?' + currentParams.toString() : '');
-             window.history.replaceState({}, '', newURL);
-         }
-         
-         // Restore filter values from URL parameters on page load
-         function restoreFiltersFromURL() {
-             const urlParams = new URLSearchParams(window.location.search);
-             
-             // Restore search input
-             const searchValue = urlParams.get('search') || '';
-             const searchInput = document.getElementById('searchInput');
-             if (searchInput) {
-                 searchInput.value = searchValue;
-             }
-             
-             // Restore role filter
-             const roleValue = urlParams.get('role') || 'all';
-             const roleFilter = document.getElementById('roleFilter');
-             if (roleFilter) {
-                 roleFilter.value = roleValue;
-             }
-             
-             // Restore status filter
-             const statusValue = urlParams.get('status') || 'all';
-             const statusFilter = document.getElementById('statusFilter');
-             if (statusFilter) {
-                 statusFilter.value = statusValue;
-             }
-             
-             // Apply filters if any values were restored
-             if (searchValue || roleValue !== 'all' || statusValue !== 'all') {
-                 setTimeout(function() {
-                     filterUsers();
-                 }, 100);
-             }
-         }
-         
-         // Handle sort toggle while preserving all current filters
-         function handleSortToggle(newSortOrder) {
-             const currentParams = new URLSearchParams(window.location.search);
-             
-             // Preserve current filter values from form inputs
-             const searchValue = document.getElementById('searchInput').value.trim();
-             const roleValue = document.getElementById('roleFilter').value;
-             const statusValue = document.getElementById('statusFilter').value;
-             
-             // Update filter parameters
-             if (searchValue) {
-                 currentParams.set('search', searchValue);
-             } else {
-                 currentParams.delete('search');
-             }
-             
-             if (roleValue !== 'all') {
-                 currentParams.set('role', roleValue);
-             } else {
-                 currentParams.delete('role');
-             }
-             
-             if (statusValue !== 'all') {
-                 currentParams.set('status', statusValue);
-             } else {
-                 currentParams.delete('status');
-             }
-             
-             // Update sort order
-             currentParams.set('id_order', newSortOrder);
-             currentParams.set('page', '1'); // Reset to first page
-             
-             // Navigate to new URL
-             const newURL = window.location.pathname + '?' + currentParams.toString();
-             window.location.href = newURL;
-         }
-         
-         // Clear search and filters
-         function clearFilters() {
-             document.getElementById('searchInput').value = '';
-             document.getElementById('roleFilter').value = 'all';
-             document.getElementById('statusFilter').value = 'all';
-             
-             // Clear URL parameters
-             const currentParams = new URLSearchParams(window.location.search);
-             currentParams.delete('search');
-             currentParams.delete('role');
-             currentParams.delete('status');
-             currentParams.set('page', '1');
-             
-             // Update URL
-             const newURL = window.location.pathname + (currentParams.toString() ? '?' + currentParams.toString() : '');
-             window.history.replaceState({}, '', newURL);
-             
-             filterUsers();
-         }
-        
-        // Modified filter function to update URL
-        const originalFilterUsers = filterUsers;
-        filterUsers = function() {
-            originalFilterUsers();
-            updateURLWithFilters();
-        };
-        
-        // Event listeners
+        // User list specific functionality
         document.addEventListener('DOMContentLoaded', function() {
-            // Set up event listeners
-            var searchInput = document.getElementById('searchInput');
-            var clearSearchBtn = document.getElementById('clearSearchBtn');
-
-            // Show/hide clear button based on input value
-            if (searchInput && clearSearchBtn) {
-                clearSearchBtn.style.display = searchInput.value.trim() ? 'inline-block' : 'none';
-                searchInput.addEventListener('input', function() {
-                    clearSearchBtn.style.display = searchInput.value.trim() ? 'inline-block' : 'none';
-                });
-                clearSearchBtn.addEventListener('click', function() {
-                    searchInput.value = '';
-                    searchInput.focus();
-                    clearSearchBtn.style.display = 'none';
-                    filterUsers();
+            // Additional event listeners for user list specific elements
+            const searchBtn = document.getElementById('searchBtn');
+            if (searchBtn) {
+                searchBtn.addEventListener('click', function() {
+                    ListUserShipping.filterItems();
                 });
             }
-
-            if (searchInput) searchInput.addEventListener('input', filterUsers);
-            document.getElementById('searchBtn').addEventListener('click', filterUsers);
-            document.getElementById('roleFilter').addEventListener('change', filterUsers);
-            document.getElementById('statusFilter').addEventListener('change', filterUsers);
-            document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
-            
-            // Restore filters from URL on page load
-            setTimeout(function() {
-                restoreFiltersFromURL();
-            }, 50);
         });
     </script>
 </body>

@@ -34,6 +34,15 @@ if (is_post()) {
             if ($user) {
                 // Login successful
                 loginUserStaff($user);
+
+                if ($user->status === 'Inactive') {
+                    logoutUser(); // Clear session
+                    logFailedLoginAttempt($login_input, 'Attempt to login to inactive account');
+                    // Set temp message after logout to avoid session clearing
+                    session_start(); // Restart session after logout
+                    temp('error', 'Your account is inactive. Please contact support.');
+                    redirect('login.php');
+                }
                 
                 // Clear failed attempts
                 $clear_attempts = $_db->prepare("DELETE FROM failed_attempts WHERE email = ?");
@@ -57,7 +66,7 @@ $page_title = 'Staff Login';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($page_title); ?> - AiKUN Furniture</title>
+    <title><?php echo $page_title; ?> - AiKUN Furniture</title>
     <link rel="stylesheet" href="../css/loginRegister.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

@@ -478,6 +478,46 @@ function generateRandomUsername($length = 8) {
     return $username;
 }
 
+function generateUniquePhoneNumber($db = null) {
+    if (!$db) {
+        global $_db;
+        $db = $_db;
+    }
+    
+    // Malaysian phone number format: 6XXXXXXXXX (10 digits starting with 6)
+    // Staff prefix: 6X9XXXXXXX (starting with 6, second digit 9 for staff)
+    $prefix = '69'; // Staff prefix
+    $maxAttempts = 100;
+    
+    for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+        // Generate 8 random digits
+        $randomDigits = '';
+        for ($i = 0; $i < 8; $i++) {
+            $randomDigits .= rand(0, 9);
+        }
+        
+        $phoneNumber = $prefix . $randomDigits;
+        
+        // Check if this phone number already exists
+        try {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM user WHERE phoneNo = ?");
+            $stmt->execute([$phoneNumber]);
+            $count = $stmt->fetchColumn();
+            
+            if ($count == 0) {
+                return $phoneNumber;
+            }
+        } catch (PDOException $e) {
+            error_log("Error checking phone number uniqueness: " . $e->getMessage());
+            // If database error, return a timestamp-based number as fallback
+            return '6' . date('YmdHis') . rand(100, 999);
+        }
+    }
+    
+    // Fallback: if we can't find a unique number, use timestamp-based approach
+    return '6' . date('YmdHis') . rand(100, 999);
+}
+
 function err($key) {
     global $_err;
     if (isset($_err[$key]) && $_err[$key]) {
