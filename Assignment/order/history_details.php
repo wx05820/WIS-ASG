@@ -169,7 +169,17 @@ include '../header.php';
                                     
                                     <?php if ($existingReview): ?>
                                         <!-- Show existing review -->
-                                        <div class="existing-review" style="background: linear-gradient(135deg, #faf8f3 0%, #f5f1e8 100%); padding: 1.25rem; border-radius: 8px; border: 2px solid #d4c4a8; box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);">
+                                        <div class="existing-review" 
+                                             data-product-id="<?= htmlspecialchars($item['prodID']) ?>"
+                                             data-review-id="<?= htmlspecialchars($existingReview['review_id']) ?>"
+                                             data-order-id="<?= htmlspecialchars($orderID) ?>"
+                                             data-rating="<?= htmlspecialchars($existingReview['rating']) ?>"
+                                             data-title="<?= htmlspecialchars($existingReview['title']) ?>"
+                                             data-review-text="<?= htmlspecialchars($existingReview['review_text']) ?>"
+                                             data-quality-rating="<?= htmlspecialchars($existingReview['quality_rating'] ?? '') ?>"
+                                             data-delivery-rating="<?= htmlspecialchars($existingReview['delivery_rating'] ?? '') ?>"
+                                             data-value-rating="<?= htmlspecialchars($existingReview['value_rating'] ?? '') ?>"
+                                             style="background: linear-gradient(135deg, #faf8f3 0%, #f5f1e8 100%); padding: 1.25rem; border-radius: 8px; border: 2px solid #d4c4a8; box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);">
                                             <div class="review-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                                                 <div class="review-rating" style="display: flex; align-items: center; gap: 2px;">
                                                     <?php for ($i = 1; $i <= 5; $i++): ?>
@@ -195,6 +205,11 @@ include '../header.php';
                                                 </div>
                                             <?php endif; ?>
                                             
+                                            <div class="review-actions" style="margin-top: 0.5rem;">
+                                                <button onclick="editReview(<?= $item['prodID'] ?>)" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i> Edit Review
+                                                </button>
+                                            </div>
                                         </div>
                                     <?php else: ?>
                                         <!-- Review Form -->

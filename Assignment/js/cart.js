@@ -1,6 +1,5 @@
 // Consolidated Cart functionality JavaScript
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Cart JS loaded');
     initializeCart();
     initializeQuantityControls();
     initializeFormHandlers();
@@ -11,8 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeCart() {
-    // Update cart count in header if element exists
-    updateCartCountDisplay();
+    // Cart count will be updated by refreshCartCount() called in DOMContentLoaded
 }
 
 function initializeQuantityControls() {
@@ -120,10 +118,8 @@ function initializeQuantityControls() {
 function initializeFormHandlers() {
     // Enhanced form submission handling with AJAX support
     const cartForms = document.querySelectorAll('form[action*="cart_add"], .cart-form');
-    console.log('Found cart forms:', cartForms.length);
     
     cartForms.forEach((form, index) => {
-        console.log(`Setting up form ${index}:`, form);
         
         // Store the original action URL
         const originalAction = form.getAttribute('action') || '../order/cart_add.php';
@@ -134,21 +130,17 @@ function initializeFormHandlers() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             e.stopImmediatePropagation();
-            
-            console.log('Form submitted:', form);
-            console.log('Form action property:', form.action);
-            console.log('Form action type:', typeof form.action);
+            e.stopPropagation();
             
             // Always use the stored original action to avoid [object HTMLInputElement] issues
-            console.log('Using stored original action:', originalAction);
             handleFormSubmitWithAction(form, originalAction);
+            
+            return false;
         });
     });
     
     // Buy Now forms should submit normally without JavaScript interference
     const buyNowForms = document.querySelectorAll('form[action*="checkout"]');
-    console.log('Found buy now forms:', buyNowForms.length);
-    console.log('Buy Now forms will submit normally to checkout.php');
     
     // Wishlist form handling
     const wishlistForms = document.querySelectorAll('form[action*="wishlist"]');
@@ -207,22 +199,25 @@ function initializeFormHandlers() {
 }
 
 function handleFormSubmitWithAction(form, actionUrl) {
-    console.log('Handling form submit with explicit action URL:', actionUrl);
-    
     // Sync quantity from visible input to form
-    const qtyInput = form.querySelector('input[type="number"]:not([type="hidden"])');
+    // First look inside the form, then look outside the form
+    let qtyInput = form.querySelector('input[type="number"]:not([type="hidden"])');
+    
+    // If not found inside form, look for common quantity input IDs outside the form
+    if (!qtyInput) {
+        qtyInput = document.getElementById('detail-qty-loggedin') || 
+                  document.getElementById('detail-qty-guest') ||
+                  document.querySelector('input[id*="qty"]:not([type="hidden"])');
+    }
+    
     if (qtyInput) {
         const qty = qtyInput.value || 1;
-        console.log('Syncing quantity from visible input:', qty);
         
         // Update hidden qty field
         const hiddenQty = form.querySelector('input[name="qty"][type="hidden"]');
         if (hiddenQty) {
             hiddenQty.value = qty;
-            console.log('Updated hidden qty to:', hiddenQty.value);
         }
-    } else {
-        console.log('No visible quantity input found in form, using default qty=1');
     }
     
     // Get form data
@@ -252,8 +247,6 @@ function handleFormSubmitWithAction(form, actionUrl) {
         }
     })
     .then(response => {
-        console.log('Response status:', response.status);
-        
         // Check if response is ok
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -261,19 +254,13 @@ function handleFormSubmitWithAction(form, actionUrl) {
         
         // Get response text first to see what we're actually receiving
         return response.text().then(text => {
-            console.log('Raw response:', text);
-            console.log('Response length:', text.length);
-            console.log('Response type:', typeof text);
-            
         // Check if response is empty
         if (!text || text.trim() === '') {
-            console.error('Empty response detected');
             throw new Error('Server returned empty response');
         }
         
         // Check if it's a login required response
         if (text.includes('Please log in to add items to cart')) {
-            console.log('Login required response detected');
             // Show login modal instead of error
             showLoginModal();
             return null; // Don't process further
@@ -282,14 +269,8 @@ function handleFormSubmitWithAction(form, actionUrl) {
             // Try to parse as JSON
             try {
                 const data = JSON.parse(text);
-                console.log('Parsed JSON data:', data);
-                console.log('Success status:', data.success);
-                console.log('Message:', data.message);
                 return data;
             } catch (e) {
-                console.error('JSON parse error:', e);
-                console.error('Response was not valid JSON:', text.substring(0, 200));
-                
                 // If it's HTML, it might be an error page
                 if (text.includes('<!doctype') || text.includes('<html')) {
                     throw new Error('Server returned HTML error page instead of JSON');
@@ -300,38 +281,32 @@ function handleFormSubmitWithAction(form, actionUrl) {
         });
     })
     .then(data => {
-        console.log('Response data:', data);
-        
         // If data is null (login required), don't process further
         if (data === null) {
             return;
         }
         
         if (data.success) {
-            console.log('Success response received');
             // Show success message
             showCartNotification(data.message, 'success');
             
             // Update cart count
             if (data.data && data.data.cart_count !== undefined) {
-                console.log('Updating cart count to:', data.data.cart_count);
                 updateCartCountDisplay(data.data.cart_count);
             } else if (data.cart_count !== undefined) {
-                console.log('Updating cart count to:', data.cart_count);
                 updateCartCountDisplay(data.cart_count);
             } else {
                 // Fallback: refresh cart count from server
-                console.log('No cart count in response, refreshing from server...');
                 refreshCartCount();
             }
             
             // Update product button
             updateProductButton(form, 'added');
-        } else {
-            console.log('Error response received:', data);
-            // Show error message
-            console.error('Server error:', data);
             
+            // Preserve quantity input value after successful add to cart
+            preserveQuantityInput(form);
+        } else {
+            // Show error message
             // Check if it's a stock-related error
             if (data.message && data.message.includes('Cannot add more items')) {
                 showCartNotification(data.message, 'warning');
@@ -341,8 +316,6 @@ function handleFormSubmitWithAction(form, actionUrl) {
         }
     })
     .catch(error => {
-        console.error('AJAX error:', error);
-        
         // Show specific error message
         let errorMessage = 'Failed to add item to cart. ';
         if (error.message.includes('empty response')) {
@@ -429,16 +402,44 @@ function updateCartCountDisplay(count = null) {
     console.log('updateCartCountDisplay called with count:', count);
     console.log('Found cart count elements:', cartCountElements.length);
     
-    if (count !== null) {
+    if (count !== null && count !== undefined) {
         cartCountElements.forEach((element, index) => {
             console.log(`Updating element ${index}:`, element, 'to count:', count);
             element.textContent = count;
         });
+    } else {
+        // If no count provided, refresh from server (but only if not already refreshing)
+        if (!isRefreshingCartCount) {
+            console.log('No count provided, refreshing from server...');
+            // Add a small delay to prevent rapid successive calls
+            cartCountRefreshTimeout = setTimeout(() => {
+                refreshCartCount();
+            }, 100);
+        } else {
+            console.log('Cart count refresh already in progress, skipping updateCartCountDisplay call');
+        }
     }
 }
 
+// Flag to prevent multiple simultaneous cart count requests
+let isRefreshingCartCount = false;
+let cartCountRefreshTimeout = null;
+
 // Function to refresh cart count from server
 function refreshCartCount() {
+    // Prevent multiple simultaneous requests
+    if (isRefreshingCartCount) {
+        console.log('Cart count refresh already in progress, skipping...');
+        return;
+    }
+    
+    // Clear any pending timeout
+    if (cartCountRefreshTimeout) {
+        clearTimeout(cartCountRefreshTimeout);
+        cartCountRefreshTimeout = null;
+    }
+    
+    isRefreshingCartCount = true;
     console.log('Refreshing cart count from server...');
     
     // Determine the correct path based on current location
@@ -466,11 +467,15 @@ function refreshCartCount() {
     .then(data => {
         console.log('Cart count response data:', data);
         if (data.success) {
-            updateCartCountDisplay(data.cart_count);
+            const cartCount = data.data ? data.data.cart_count : data.cart_count;
+            updateCartCountDisplay(cartCount);
         }
     })
     .catch(error => {
         console.error('Error refreshing cart count:', error);
+    })
+    .finally(() => {
+        isRefreshingCartCount = false;
     });
 }
 
@@ -622,26 +627,42 @@ function clearCart() {
 
 // Set quantity from input for cart forms
 function setQtyFromInput(form) {
-    const qtyInput = form.querySelector('input[name="qty"]');
+    // Look for visible quantity input first (not hidden)
+    const qtyInput = form.querySelector('input[name="qty"]:not([type="hidden"])') || 
+                     form.querySelector('input[id*="qty"]:not([type="hidden"])') ||
+                     document.getElementById('detail-qty-loggedin') ||
+                     document.getElementById('detail-qty-guest');
+    
     if (qtyInput) {
         const qty = parseInt(qtyInput.value) || 1;
         const hiddenQty = form.querySelector('input[type="hidden"][name="qty"]');
         if (hiddenQty) {
             hiddenQty.value = qty;
+            console.log('Updated hidden qty from visible input:', qtyInput.value, '-> hidden:', hiddenQty.value);
         }
+    } else {
+        console.log('No visible quantity input found in form');
     }
     return true;
 }
 
 // Set quantity for buy now forms
 function setQtyForBuyNow(form) {
-    const qtyInput = form.querySelector('input[name="qty"]');
+    // Look for visible quantity input first (not hidden)
+    const qtyInput = form.querySelector('input[name="qty"]:not([type="hidden"])') || 
+                     form.querySelector('input[id*="qty"]:not([type="hidden"])') ||
+                     document.getElementById('detail-qty-loggedin') ||
+                     document.getElementById('detail-qty-guest');
+    
     if (qtyInput) {
         const qty = parseInt(qtyInput.value) || 1;
         const hiddenQty = form.querySelector('input[type="hidden"][name="qty"]');
         if (hiddenQty) {
             hiddenQty.value = qty;
+            console.log('Updated hidden qty for buy now from visible input:', qtyInput.value, '-> hidden:', hiddenQty.value);
         }
+    } else {
+        console.log('No visible quantity input found in buy now form');
     }
     return true;
 }
@@ -834,4 +855,68 @@ function initializeCartCheckboxes() {
 // Initialize cart checkboxes when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeCartCheckboxes();
+    restoreQuantityInputs();
 });
+
+// Preserve quantity input value after successful add to cart
+function preserveQuantityInput(form) {
+    // Find the quantity input that was used
+    let qtyInput = form.querySelector('input[type="number"]:not([type="hidden"])');
+    
+    // If not found inside form, look for common quantity input IDs outside the form
+    if (!qtyInput) {
+        qtyInput = document.getElementById('detail-qty-loggedin') || 
+                  document.getElementById('detail-qty-guest') ||
+                  document.querySelector('input[id*="qty"]:not([type="hidden"])');
+    }
+    
+    if (qtyInput) {
+        const currentValue = qtyInput.value;
+        
+        // Store the current value in sessionStorage for persistence across page refreshes
+        const productId = form.querySelector('input[name="prodID"]')?.value;
+        if (productId) {
+            const storageKey = `qty_${productId}`;
+            sessionStorage.setItem(storageKey, currentValue);
+        }
+        
+        // Keep the current value in the input field
+        qtyInput.value = currentValue;
+    }
+}
+
+// Restore quantity input values on page load
+function restoreQuantityInputs() {
+    // Find all quantity inputs
+    const qtyInputs = document.querySelectorAll('input[type="number"]:not([type="hidden"])');
+    
+    qtyInputs.forEach(input => {
+        // Try to find associated product ID
+        const form = input.closest('form');
+        let productId = null;
+        
+        if (form) {
+            const prodIdInput = form.querySelector('input[name="prodID"]');
+            if (prodIdInput) {
+                productId = prodIdInput.value;
+            }
+        }
+        
+        // If we can't find product ID from form, try to extract from input ID
+        if (!productId && input.id) {
+            const match = input.id.match(/qty-(\w+)/);
+            if (match) {
+                productId = match[1];
+            }
+        }
+        
+        if (productId) {
+            const storageKey = `qty_${productId}`;
+            const storedValue = sessionStorage.getItem(storageKey);
+            
+            if (storedValue && storedValue !== '1') {
+                input.value = storedValue;
+            }
+        }
+    });
+}

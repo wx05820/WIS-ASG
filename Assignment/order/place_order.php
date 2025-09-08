@@ -101,6 +101,8 @@ if (!$shipping_method || !$pay_method) {
 }
 
 try {
+    // Debug: Log the start of order processing
+    error_log("Starting order processing for user: " . $user_id);
     $_db->beginTransaction();
 
     // Determine if this is a Buy Now flow
@@ -297,16 +299,20 @@ try {
 
     $_db->commit();
 
-    //
+    // Debug: Log successful order creation
+    error_log("Order created successfully with ID: " . $order_id);
     
     // Mark idempotency token as used to block repeat submissions
     $_SESSION['order_idem_tokens'][$idem_key] = 'used';
 
     $_SESSION['success'] = "Order placed successfully! Order ID: #" . $order_id;
+    error_log("Redirecting to success page with order ID: " . $order_id);
     redirect("/order/success.php?order_id=" . $order_id);
 
 } catch (Exception $e) {
     if ($_db->inTransaction()) $_db->rollBack();
+    error_log("Order processing error: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     $_SESSION['error'] = "Failed to place order: " . $e->getMessage();
     redirect('checkout.php');
 }

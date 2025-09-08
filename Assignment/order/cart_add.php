@@ -105,6 +105,9 @@ $prodID = trim($_POST['prodID'] ?? '');
 $qty = intval($_POST['qty'] ?? 1);
 $requestId = $_POST['request_id'] ?? '';
 
+// Debug: Log received data
+error_log("Cart add request - Product ID: $prodID, Quantity: $qty, User ID: $userID");
+
 // Input validation
 if (empty($prodID)) {
     sendJsonResponse(false, "Invalid product ID");
@@ -180,14 +183,16 @@ try {
         $updateQuery = "UPDATE cart_items SET qty = ? WHERE cartID = ? AND prodID = ?";
         $updateStmt = $_db->prepare($updateQuery);
         $updateStmt->execute([$newQty, $cartID, $prodID]);
-        $message = "Updated " . $product['name'] . " quantity in cart";
+        $message = "Updated " . $product['name'] . " quantity in cart (was " . $existingItem['qty'] . ", now " . $newQty . ")";
+        error_log("Updated cart item: Product $prodID, old qty: " . $existingItem['qty'] . ", added: $qty, new qty: $newQty");
     } else {
         // Add new item
         $cartItemID = 'CI' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
         $addQuery = "INSERT INTO cart_items (cart_item_id, cartID, prodID, qty) VALUES (?, ?, ?, ?)";
         $addStmt = $_db->prepare($addQuery);
         $addStmt->execute([$cartItemID, $cartID, $prodID, $qty]);
-        $message = "Added " . $product['name'] . " to cart";
+        $message = "Added " . $product['name'] . " to cart (qty: $qty)";
+        error_log("Added new cart item: Product $prodID, qty: $qty");
     }
     
     // Get updated cart count
@@ -197,12 +202,15 @@ try {
     $count = $countStmt->fetch(PDO::FETCH_ASSOC);
     $cartTotal = $count['total'] ?? 0;
     
+    error_log("Cart count calculation: Cart ID $cartID, Total items: $cartTotal");
+    
     $_SESSION['cart_count'] = $cartTotal;
     
     // Send success response
     sendJsonResponse(true, $message, [
         'cart_count' => $cartTotal,
-        'product_name' => $product['name']
+        'product_name' => $product['name'],
+        'updated_qty' => $newQty ?? $qty
     ]);
     
 } catch (Exception $e) {

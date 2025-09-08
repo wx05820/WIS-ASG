@@ -40,10 +40,13 @@ if (isLoggedIn()) {
         }
         
         // Get cart count for logged-in user
-        $cart_stm = $_db->prepare('SELECT SUM(ci.qty) as count FROM cart_items  ci LEFT JOIN cart c ON ci.cartID = c.cartID WHERE c.userID = ?');
+        // Always calculate from database to ensure accuracy
+        $cart_stm = $_db->prepare('SELECT SUM(ci.qty) as count FROM cart_items ci LEFT JOIN cart c ON ci.cartID = c.cartID WHERE c.userID = ?');
         $cart_stm->execute([$_SESSION['user_id']]);
         $cart_data = $cart_stm->fetch();
         $cart_count = $cart_data ? (int)$cart_data->count : 0;
+        // Update session with current count
+        $_SESSION['cart_count'] = $cart_count;
         
     } catch (PDOException $e) {
         $cart_count = 0;
