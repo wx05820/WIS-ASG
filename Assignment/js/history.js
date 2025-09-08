@@ -4,6 +4,201 @@
  * star ratings, and interactive elements
  */
 
+// Define edit review functions globally first
+function editReview(productId) {
+    console.log('editReview function called for product:', productId);
+    
+    // Find the review container for this product
+    let reviewContainer = document.querySelector(`[data-product-id="${productId}"] .existing-review`);
+    
+    console.log('Review container found:', reviewContainer);
+    
+    if (!reviewContainer) {
+        console.error('Review container not found for product:', productId);
+        console.log('Available elements with data-product-id:', document.querySelectorAll('[data-product-id]'));
+        console.log('Available existing-review elements:', document.querySelectorAll('.existing-review'));
+        return;
+    }
+    
+    // Get the existing review data
+    const reviewData = reviewContainer.dataset;
+    const reviewId = reviewData.reviewId;
+    const orderId = reviewData.orderId;
+    const rating = parseInt(reviewData.rating) || 0;
+    const title = reviewData.title || '';
+    const reviewText = reviewData.reviewText || '';
+    const qualityRating = parseInt(reviewData.qualityRating) || 0;
+    const deliveryRating = parseInt(reviewData.deliveryRating) || 0;
+    const valueRating = parseInt(reviewData.valueRating) || 0;
+    
+    // Hide the existing review and show edit form
+    reviewContainer.style.display = 'none';
+    
+    // Create edit form
+    const editForm = createEditReviewForm(reviewId, orderId, productId, {
+        rating: rating,
+        title: title,
+        reviewText: reviewText,
+        qualityRating: qualityRating,
+        deliveryRating: deliveryRating,
+        valueRating: valueRating
+    });
+    
+    // Insert edit form after the review container
+    reviewContainer.parentNode.insertBefore(editForm, reviewContainer.nextSibling);
+    
+    // Initialize star ratings for the edit form
+    initStarRatings();
+    
+    // Initialize form submission handler for the new edit form
+    initReviewFormSubmissions();
+}
+
+/**
+ * Create edit review form
+ */
+function createEditReviewForm(reviewId, orderId, productId, reviewData) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'update_review.php';
+    form.className = 'review-form edit-review-form';
+    form.enctype = 'multipart/form-data';
+    
+    // Get CSRF token and user_id
+    const csrfTokenInput = document.querySelector('input[name="csrf_token"]');
+    const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+    
+    const userIdInput = document.querySelector('input[name="user_id"]');
+    const userId = userIdInput ? userIdInput.value : '';
+    
+    form.innerHTML = `
+        <input type="hidden" name="csrf_token" value="${csrfToken}">
+        <input type="hidden" name="review_id" value="${reviewId}">
+        <input type="hidden" name="order_id" value="${orderId}">
+        <input type="hidden" name="product_id" value="${productId}">
+        <input type="hidden" name="user_id" value="${userId}">
+        
+        <div class="review-form-content" style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #dee2e6;">
+            <h4 style="color: #495057; margin-bottom: 1.5rem;">Edit Your Review</h4>
+            
+            <!-- Overall Rating -->
+            <div class="form-group mb-3">
+                <label class="form-label fw-bold">Overall Rating *</label>
+                <div class="star-rating" data-rating="${reviewData.rating}">
+                    <span class="star" data-value="1" style="font-size: 2rem; color: ${reviewData.rating >= 1 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 2px; display: inline-block; transition: all 0.2s;">★</span>
+                    <span class="star" data-value="2" style="font-size: 2rem; color: ${reviewData.rating >= 2 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 2px; display: inline-block; transition: all 0.2s;">★</span>
+                    <span class="star" data-value="3" style="font-size: 2rem; color: ${reviewData.rating >= 3 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 2px; display: inline-block; transition: all 0.2s;">★</span>
+                    <span class="star" data-value="4" style="font-size: 2rem; color: ${reviewData.rating >= 4 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 2px; display: inline-block; transition: all 0.2s;">★</span>
+                    <span class="star" data-value="5" style="font-size: 2rem; color: ${reviewData.rating >= 5 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 2px; display: inline-block; transition: all 0.2s;">★</span>
+                </div>
+                <input type="hidden" name="rating" value="${reviewData.rating}" required>
+                <small class="text-muted">Click stars to rate (1-5 stars)</small>
+            </div>
+            
+            <!-- Detailed Ratings -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Quality Rating</label>
+                        <div class="star-rating-small" data-rating="${reviewData.qualityRating}">
+                            <span class="star-small" data-value="1" style="font-size: 1.25rem; color: ${reviewData.qualityRating >= 1 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="2" style="font-size: 1.25rem; color: ${reviewData.qualityRating >= 2 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="3" style="font-size: 1.25rem; color: ${reviewData.qualityRating >= 3 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="4" style="font-size: 1.25rem; color: ${reviewData.qualityRating >= 4 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="5" style="font-size: 1.25rem; color: ${reviewData.qualityRating >= 5 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                        </div>
+                        <input type="hidden" name="quality_rating" value="${reviewData.qualityRating}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Value Rating</label>
+                        <div class="star-rating-small" data-rating="${reviewData.valueRating}">
+                            <span class="star-small" data-value="1" style="font-size: 1.25rem; color: ${reviewData.valueRating >= 1 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="2" style="font-size: 1.25rem; color: ${reviewData.valueRating >= 2 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="3" style="font-size: 1.25rem; color: ${reviewData.valueRating >= 3 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="4" style="font-size: 1.25rem; color: ${reviewData.valueRating >= 4 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="5" style="font-size: 1.25rem; color: ${reviewData.valueRating >= 5 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                        </div>
+                        <input type="hidden" name="value_rating" value="${reviewData.valueRating}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Delivery Rating</label>
+                        <div class="star-rating-small" data-rating="${reviewData.deliveryRating}">
+                            <span class="star-small" data-value="1" style="font-size: 1.25rem; color: ${reviewData.deliveryRating >= 1 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="2" style="font-size: 1.25rem; color: ${reviewData.deliveryRating >= 2 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="3" style="font-size: 1.25rem; color: ${reviewData.deliveryRating >= 3 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="4" style="font-size: 1.25rem; color: ${reviewData.deliveryRating >= 4 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                            <span class="star-small" data-value="5" style="font-size: 1.25rem; color: ${reviewData.deliveryRating >= 5 ? '#ffc107' : '#ddd'}; cursor: pointer; margin: 1px; display: inline-block; transition: all 0.2s;">★</span>
+                        </div>
+                        <input type="hidden" name="delivery_rating" value="${reviewData.deliveryRating}">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Review Title -->
+            <div class="form-group mb-3">
+                <label class="form-label fw-bold">Review Title *</label>
+                <input type="text" name="title" class="form-control" value="${reviewData.title}" required maxlength="255" placeholder="Summarize your review">
+            </div>
+            
+            <!-- Review Text -->
+            <div class="form-group mb-3">
+                <label class="form-label fw-bold">Your Review *</label>
+                <textarea name="review_text" class="form-control" rows="4" required maxlength="1000" placeholder="Share your detailed experience with this product...">${reviewData.reviewText}</textarea>
+            </div>
+            
+            <!-- Image Upload -->
+            <div class="form-group mb-3">
+                <label class="form-label">Upload New Photos (Optional)</label>
+                <input type="file" name="review_images[]" class="form-control" multiple accept="image/*" onchange="previewImages(this, ${productId})">
+                <small class="text-muted">You can upload up to 5 images (JPEG, PNG, GIF, WebP). Max 5MB per image.</small>
+                
+                <!-- Image Preview Container -->
+                <div id="edit-image-preview-${productId}" class="image-preview-container mt-3" style="display: none;">
+                    <div class="row" id="edit-preview-row-${productId}"></div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="form-group d-flex gap-3 justify-content-center">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Review
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="cancelEditReview(${productId})">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return form;
+}
+
+/**
+ * Cancel edit review
+ */
+function cancelEditReview(productId) {
+    // Remove edit form
+    const editForm = document.querySelector(`[data-product-id="${productId}"] .edit-review-form`);
+    if (editForm) {
+        editForm.remove();
+    }
+    
+    // Show original review
+    const reviewContainer = document.querySelector(`[data-product-id="${productId}"] .existing-review`);
+    if (reviewContainer) {
+        reviewContainer.style.display = 'block';
+    }
+}
+
+// Make functions globally available
+window.editReview = editReview;
+window.createEditReviewForm = createEditReviewForm;
+window.cancelEditReview = cancelEditReview;
+
 document.addEventListener('DOMContentLoaded', function() {
     initializeOrderHistory();
 });
@@ -464,6 +659,7 @@ function createActionForm(action, data, method = 'POST') {
 
 
 
+
 /**
  * Utility function to show success messages
  */
@@ -507,8 +703,16 @@ window.OrderHistoryUtils = {
     showButtonLoading,
     updateStarVisuals,
     showSuccess,
-    showError
+    showError,
+    editReview,
+    createEditReviewForm,
+    cancelEditReview
 };
+
+// Make edit review functions globally available
+window.editReview = editReview;
+window.createEditReviewForm = createEditReviewForm;
+window.cancelEditReview = cancelEditReview;
 
 // Debug helper
 window.OrderHistoryDebug = {

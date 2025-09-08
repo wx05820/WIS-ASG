@@ -112,7 +112,7 @@ if ($product) {
                             </div>
 
                             <!-- Add to Cart Form -->
-                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form" id="detail-cart-form" onsubmit="return setQtyFromInput(this)">
+                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form" id="detail-cart-form">
                                 <input type="hidden" name="action" value="add">
                                 <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
                                 <input type="hidden" name="qty" value="1">
@@ -164,6 +164,9 @@ function setQtyForBuyNow(form){
     if(qtyInput && hiddenQty){
         const val = parseInt(qtyInput.value) || 1;
         hiddenQty.value = Math.max(1, val);
+        console.log('Buy Now - Updated hidden qty from visible input:', qtyInput.value, '-> hidden:', hiddenQty.value);
+    } else {
+        console.log('Buy Now - Missing qty input or hidden field');
     }
     return true;
 }
@@ -322,6 +325,18 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
+    
+    // Add debugging for quantity input
+    const qtyInput = document.getElementById('detail-qty-loggedin');
+    if (qtyInput) {
+        qtyInput.addEventListener('change', function() {
+            console.log('Quantity input changed to:', this.value);
+        });
+        
+        qtyInput.addEventListener('input', function() {
+            console.log('Quantity input value:', this.value);
+        });
+    }
 });
 
 const mainImg = document.getElementById("mainProductImg");

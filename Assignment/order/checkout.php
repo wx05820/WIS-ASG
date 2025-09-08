@@ -505,11 +505,16 @@ function confirmAddAddress() {
 }
 
 function handleFormSubmit(event) {
+    console.log('Form submit handler called');
+    
     // Validate form first
     if (!validateCheckoutForm()) {
+        console.log('Form validation failed');
         event.preventDefault();
         return false;
     }
+    
+    console.log('Form validation passed, submitting...');
     
     // Disable submit button to prevent double submission
     const submitBtn = document.querySelector('.place-order-btn');
@@ -523,21 +528,16 @@ function handleFormSubmit(event) {
         }
     }
     
-    // For buy now, allow default form submission
-    const isBuyNow = <?= $buyNow ? 'true' : 'false' ?>;
-    if (!isBuyNow) {
-        event.preventDefault(); // Prevent default form submission for cart checkout
-        placeOrder();
-        return false;
-    }
-    
-    // For buy now, let the form submit normally
+    // Let the form submit normally for both buy now and cart checkout
     return true;
 }
 
 function validateCheckoutForm() {
+    console.log('Validating checkout form...');
+    
     // Check all address radio buttons
     const addressInputs = document.querySelectorAll('input[name="selected_address"]');
+    console.log('Found address inputs:', addressInputs.length);
     
     let selectedAddress = null;
     for (let i = 0; i < addressInputs.length; i++) {
@@ -548,6 +548,7 @@ function validateCheckoutForm() {
     }
     
     if (!selectedAddress) {
+        console.log('No address selected');
         alert('Please select a delivery address');
         return false;
     }
@@ -555,6 +556,7 @@ function validateCheckoutForm() {
     // Check if shipping method is selected
     const selectedShipping = document.querySelector('input[name="shipping_method"]:checked');
     if (!selectedShipping) {
+        console.log('No shipping method selected');
         alert('Please select a shipping method');
         return false;
     }
@@ -562,10 +564,12 @@ function validateCheckoutForm() {
     // Check if payment method is selected
     const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
     if (!selectedPayment) {
+        console.log('No payment method selected');
         alert('Please select a payment method');
         return false;
     }
     
+    console.log('Form validation passed');
     return true;
 }
 </script>
