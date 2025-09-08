@@ -144,6 +144,13 @@ body {
     box-shadow: 0 2px 8px rgba(130, 224, 170, 0.3);
 }
 
+.status-received {
+    background: linear-gradient(135deg, #82e0aa 0%, #58d68d 100%);
+    color: #2c3e50;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(130, 224, 170, 0.3);
+}
+
 .status-processing {
     background: linear-gradient(135deg, #f8c471 0%, #f39c12 100%);
     color: #8b4513;

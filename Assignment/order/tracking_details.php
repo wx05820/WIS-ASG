@@ -326,55 +326,6 @@ include '../header.php';
                     </div>
                 <?php endif; ?>
 
-                <!-- Delivery Status Timeline Card -->
-                <?php if (!empty($statusHistory)): ?>
-                    <div class="modern-card">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-truck"></i>
-                                Delivery Status
-                            </h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="status-timeline">
-                                <?php foreach ($statusHistory as $index => $history): ?>
-                                    <div class="timeline-item <?= $index === 0 ? 'active' : '' ?>">
-                                        <div class="timeline-marker">
-                                            <div class="timeline-dot"></div>
-                                            <?php if ($index < count($statusHistory) - 1): ?>
-                                                <div class="timeline-line"></div>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div class="timeline-content">
-                                            <div class="timeline-status">
-                                                <strong><?= ucfirst($history['status']) ?></strong>
-                                                <span class="timeline-time"><?= formatDate($history['updated_at']) ?></span>
-                                            </div>
-                                            <?php if (!empty($history['courier'])): ?>
-                                                <div class="timeline-detail">
-                                                    <i class="fas fa-truck"></i>
-                                                    <span>Courier: <?= htmlspecialchars($history['courier']) ?></span>
-                                                </div>
-                                            <?php endif; ?>
-                                            <?php if (!empty($history['current_location'])): ?>
-                                                <div class="timeline-detail">
-                                                    <i class="fas fa-map-marker-alt"></i>
-                                                    <span>Location: <?= htmlspecialchars($history['current_location']) ?></span>
-                                                </div>
-                                            <?php endif; ?>
-                                            <?php if (!empty($history['notes'])): ?>
-                                                <div class="timeline-detail">
-                                                    <i class="fas fa-info-circle"></i>
-                                                    <span><?= htmlspecialchars($history['notes']) ?></span>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
 
                 <!-- Order Actions Card -->
                 <div class="modern-card">

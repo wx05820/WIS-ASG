@@ -18,13 +18,13 @@ $csrfToken = $_POST['csrf_token'] ?? '';
 // Validate CSRF token
 if (!validateCSRFToken($csrfToken)) {
     $_SESSION['error'] = "Invalid security token. Please try again.";
-    header("Location: $redirect");
+    header("Location: tracking.php");
     exit();
 }
 
 if (empty($orderID)) {
     $_SESSION['error'] = "Invalid order ID";
-    header("Location: $redirect");
+    header("Location: tracking.php");
     exit();
 }
 
@@ -37,7 +37,7 @@ try {
     
     if (!$order) {
         $_SESSION['error'] = "Order not found, access denied, or order is not in Pending status";
-        header("Location: $redirect");
+        header("Location: tracking.php");
         exit();
     }
     
@@ -78,6 +78,6 @@ try {
     $_SESSION['error'] = "An error occurred while cancelling the order. Please try again.";
 }
 
-header("Location: $redirect");
+header("Location: tracking.php");
 exit();
 ?>

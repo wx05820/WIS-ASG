@@ -5,9 +5,70 @@ require_once '../_base.php';
 $userID = $_SESSION['user_id'] ?? null;
 checkLogin();
 
-// Only show orders with "Received" status (completed orders)
-$allowedStatuses = ['Received'];
+// Get filtering and sorting parameters
+$sortBy = $_GET['sort'] ?? 'date';
+$sortOrder = $_GET['order'] ?? 'desc';
+$statusFilter = $_GET['status'] ?? '';
+$dateFrom = $_GET['date_from'] ?? '';
+$dateTo = $_GET['date_to'] ?? '';
+
+// Validate sort parameters
+$allowedSorts = ['status', 'date', 'total'];
+$allowedOrders = ['asc', 'desc'];
+
+if (!in_array($sortBy, $allowedSorts)) {
+    $sortBy = 'date';
+}
+if (!in_array($sortOrder, $allowedOrders)) {
+    $sortOrder = 'desc';
+}
+
+// Show orders with "Received", "Cancelled", and "Refunded" statuses
+$allowedStatuses = ['Received', 'Cancelled', 'Refunded'];
+
+// Apply status filter if specified
+if (!empty($statusFilter) && in_array($statusFilter, $allowedStatuses)) {
+    $allowedStatuses = [$statusFilter];
+}
+
 $statusShow = implode(',', array_fill(0, count($allowedStatuses), '?'));
+
+// Build WHERE clause for date filtering
+$whereConditions = ["o.userID = ?", "o.status IN ($statusShow)"];
+$queryParams = [$userID];
+
+// Add status parameters
+$queryParams = array_merge($queryParams, $allowedStatuses);
+
+// Add date filtering
+if (!empty($dateFrom)) {
+    $whereConditions[] = "DATE(o.orderDate) >= ?";
+    $queryParams[] = $dateFrom;
+}
+if (!empty($dateTo)) {
+    $whereConditions[] = "DATE(o.orderDate) <= ?";
+    $queryParams[] = $dateTo;
+}
+
+$whereClause = implode(' AND ', $whereConditions);
+
+// Build ORDER BY clause based on sort parameters
+$orderByClause = '';
+switch ($sortBy) {
+    case 'status':
+        $orderByClause = "ORDER BY FIELD(o.status, 'Received', 'Refunded', 'Cancelled')";
+        if ($sortOrder === 'desc') {
+            $orderByClause = "ORDER BY FIELD(o.status, 'Cancelled', 'Refunded', 'Received')";
+        }
+        $orderByClause .= ", o.orderDate DESC, o.orderID DESC";
+        break;
+    case 'date':
+        $orderByClause = "ORDER BY o.orderDate " . strtoupper($sortOrder) . ", o.orderID DESC";
+        break;
+    case 'total':
+        $orderByClause = "ORDER BY o.total " . strtoupper($sortOrder) . ", o.orderDate DESC, o.orderID DESC";
+        break;
+}
 
 // Get orders
 $ordersQuery = "SELECT o.*, 
@@ -15,12 +76,12 @@ $ordersQuery = "SELECT o.*,
                 SUM(oi.qty) as total_items
                 FROM `order` o 
                 LEFT JOIN order_items oi ON o.orderID = oi.orderID 
-                WHERE o.userID = ? AND o.status IN ($statusShow)
+                WHERE $whereClause
                 GROUP BY o.orderID 
-                ORDER BY o.orderDate DESC, o.orderID DESC";
+                $orderByClause";
 
 $ordersStmt = $_db->prepare($ordersQuery);
-$ordersStmt->execute(array_merge([$userID], $allowedStatuses));
+$ordersStmt->execute($queryParams);
 $orders = $ordersStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get order items for each order
@@ -80,6 +141,44 @@ include '../header.php';
         <div class="row">
             <div>
 
+                <!-- Filtering Controls -->
+                <div class="filter-controls" style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+                    <form method="GET" id="filterForm" style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+                        <!-- Status Filter -->
+                        <div class="filter-group">
+                            <label for="status" style="margin-right: 0.5rem; color: #495057; font-weight: 500; min-width: 80px;">Status:</label>
+                            <select id="status" name="status" onchange="autoApplyFilters()" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white; min-width: 150px;">
+                                <option value="">All Statuses</option>
+                                <option value="Received" <?= $statusFilter === 'Received' ? 'selected' : '' ?>>Received</option>
+                                <option value="Cancelled" <?= $statusFilter === 'Cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                                <option value="Refunded" <?= $statusFilter === 'Refunded' ? 'selected' : '' ?>>Refunded</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Date Range Filter -->
+                        <div class="filter-group">
+                            <label for="date_from" style="margin-right: 0.5rem; color: #495057; font-weight: 500; min-width: 80px;">From Date:</label>
+                            <input type="date" id="date_from" name="date_from" value="<?= htmlspecialchars($dateFrom) ?>" onchange="autoApplyFilters()" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white;">
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="date_to" style="margin-right: 0.5rem; color: #495057; font-weight: 500; min-width: 80px;">To Date:</label>
+                            <input type="date" id="date_to" name="date_to" value="<?= htmlspecialchars($dateTo) ?>" onchange="autoApplyFilters()" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white;">
+                        </div>
+                        
+                        <!-- Hidden sort parameters (using defaults) -->
+                        <input type="hidden" name="sort" value="<?= htmlspecialchars($sortBy) ?>">
+                        <input type="hidden" name="order" value="<?= htmlspecialchars($sortOrder) ?>">
+                        
+                        <!-- Clear Filters Button -->
+                        <div class="filter-group" style="margin-left: auto;">
+                            <button type="button" onclick="clearFilters()" class="btn btn-outline-secondary btn-sm" style="padding: 0.5rem 1rem; border: 1px solid #6c757d; color: #6c757d; background: white; border-radius: 4px; text-decoration: none; font-weight: 500;">
+                                <i class="fas fa-times"></i> Clear Filters
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- Success/Error Messages -->
                 <?php if (isset($_SESSION['success'])): ?>
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -101,7 +200,7 @@ include '../header.php';
                     <div class="no-orders">
                         <i class="fas fa-shopping-bag"></i>
                         <h4>No Orders Found</h4>
-                        <p>You don't have any completed orders yet.</p>                       
+                        <p>You don't have any completed, cancelled, or refunded orders yet.</p>                       
                     </div>
                 <?php else: ?>
                     
@@ -116,7 +215,7 @@ include '../header.php';
                                 </div>
                                 <div class="order-status">
                                     <span class="status-badge status-<?= strtolower($order['status']) ?>">
-                                        <i class="fas fa-<?= strtolower($order['status']) === 'delivered' ? 'check-circle' : (strtolower($order['status']) === 'processing' ? 'cog' : (strtolower($order['status']) === 'cancelled' ? 'times-circle' : 'info-circle')) ?>"></i>
+                                        <i class="fas fa-<?= strtolower($order['status']) === 'received' ? 'check-circle' : (strtolower($order['status']) === 'cancelled' ? 'times-circle' : (strtolower($order['status']) === 'refunded' ? 'undo' : 'info-circle')) ?>"></i>
                                         <?= htmlspecialchars($order['status']) ?>
                                     </span>
                                 </div>
@@ -212,6 +311,21 @@ include '../header.php';
             const itemCount = allItems.querySelectorAll('.item-card').length;
             viewMoreBtn.innerHTML = `<i class="fas fa-chevron-down"></i> View More Products (${itemCount} more)`;
         }
+    }
+
+    function autoApplyFilters() {
+        // Auto-submit the form when any filter changes
+        document.getElementById('filterForm').submit();
+    }
+
+    function clearFilters() {
+        // Clear all form fields
+        document.getElementById('status').value = '';
+        document.getElementById('date_from').value = '';
+        document.getElementById('date_to').value = '';
+        
+        // Submit the form to reset all filters
+        document.getElementById('filterForm').submit();
     }
 </script>
 
