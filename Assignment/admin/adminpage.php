@@ -111,10 +111,6 @@ $page_title = 'Admin Dashboard';
                 <i class="fas fa-user-plus"></i>
                 <span>Add Staff</span>
             </a>
-                <a href="/admin/shipping.php" class="action-btn">
-                <i class="fas fa-truck"></i>
-                <span>Shipping</span>
-            </a>
         </div>
     </div>
 

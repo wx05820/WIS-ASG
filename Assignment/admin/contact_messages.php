@@ -121,15 +121,14 @@ $staff_users = $stmt->fetchAll();
 require_once 'adminheader.php';
 ?>
 
-<link rel="stylesheet" href="../css/adminheader.css">
+<link rel="stylesheet" href="../style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../css/userlist.css">
+<link rel="stylesheet" href="../css/products.css">
 <link rel="stylesheet" href="../css/contact_messages.css">
-<link rel="stylesheet" href="/style.css">
 <style>
 /* Fallback styles in case CSS doesn't load */
 .admin-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
     font-family: Arial, sans-serif;
 }
 .admin-header {
@@ -173,6 +172,13 @@ require_once 'adminheader.php';
 }
 </style>
 
+<script>
+document.body.className = 'product-list-main';
+document.body.style.marginTop = '0';
+document.body.style.paddingTop = '0';
+</script>
+
+<div class="container">
 <div class="admin-container">
     <div class="admin-header">
         <h1><i class="fas fa-envelope"></i> Contact Messages</h1>
@@ -379,6 +385,7 @@ require_once 'adminheader.php';
             </div>
         </form>
     </div>
+</div>
 </div>
 
     <script src="../js/contact.js"></script>
