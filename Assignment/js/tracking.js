@@ -79,7 +79,7 @@ function initFormHandlers() {
     // Handle other form submissions with loading states
     document.querySelectorAll('form button[type="submit"]:not(.reorder-btn)').forEach(btn => {
         btn.addEventListener('click', function() {
-            showButtonLoading(this, 'Processing...');
+            showButtonLoading(this, 'Processing');
         });
     });
 }
@@ -172,10 +172,10 @@ function addTrackingCardEffects() {
 }
 
 // Utility Functions
-function showButtonLoading(button, text = 'Processing...') {
+function showButtonLoading(button, text = 'Processing') {
     const originalContent = button.innerHTML;
     button.disabled = true;
-    button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
+    button.innerHTML = text;
     
     // Store original content for potential restoration
     button.dataset.originalContent = originalContent;

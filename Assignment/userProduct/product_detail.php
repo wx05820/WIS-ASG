@@ -29,6 +29,14 @@ $stmt = $_db->prepare($sql);
 $stmt->execute([$id]);
 $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Check if product is in wishlist (after $product is defined)
+$inWishlist = false;
+if ($user_id && $product) {
+    $wishlistStmt = $_db->prepare("SELECT COUNT(*) FROM wishlist WHERE userID = ? AND prodID = ?");
+    $wishlistStmt->execute([$user_id, $product['prodID']]);
+    $inWishlist = $wishlistStmt->fetchColumn() > 0;
+}
+
 if ($product) {
     // Prepare all images
     $product['images'] = [];
@@ -104,27 +112,30 @@ if ($product) {
                             </div>
 
                             <!-- Add to Cart Form -->
-                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form">
+                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form" id="detail-cart-form" onsubmit="return setQtyFromInput(this)">
                                 <input type="hidden" name="action" value="add">
                                 <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
                                 <input type="hidden" name="qty" value="1">
                                 <input type="hidden" name="redirect" value="<?= $_SERVER['REQUEST_URI']; ?>">
-                                <button type="submit" class="btn-add">Add to Cart</button>
+                                <button type="submit" class="btn-add" id="detail-add-btn">Add to Cart</button>
                             </form>
                             
                             <!-- Buy Now Form -->
-                            <form action="../order/checkout.php" method="POST" class="action-form" onsubmit="return setQtyForBuyNow(this)">
+                            <form action="../order/checkout.php" method="POST" class="action-form" id="detail-buy-now-form" onsubmit="return setQtyForBuyNow(this)">
                                 <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
                                 <input type="hidden" name="buy_now" value="1">
                                 <input type="hidden" name="qty" value="1">
-                                <button type="submit" class="btn-checkout">Buy Now</button>
+                                <button type="submit" class="btn-checkout" id="detail-buy-btn">Buy Now</button>
                             </form>
 
                             <!-- Add to Wishlist -->
-                            <form action="../user/wishlist.php" method="POST" class="action-form" style="margin-top:8px;">
-                                <input type="hidden" name="action" value="add">
+                            <form action="../user/wishlist.php" method="POST" class="action-form" id="detail-wishlist-form" style="margin-top:8px;">
+                                <input type="hidden" name="action" value="<?= $inWishlist ? 'remove' : 'add'; ?>">
                                 <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
-                                <button type="submit" class="btn-secondary btn-wishlist"><i class="fas fa-heart"></i> Add to Wishlist</button>
+                                <button type="submit" class="btn-secondary btn-wishlist <?= $inWishlist ? 'in-wishlist' : ''; ?>" id="detail-wishlist-btn">
+                                    <i class="fas fa-heart" style="<?= $inWishlist ? 'color: #e74c3c;' : ''; ?>"></i> 
+                                    <span class="wishlist-text"><?= $inWishlist ? 'In Wishlist' : 'Add to Wishlist'; ?></span>
+                                </button>
                             </form>
                         <?php else: ?>
                             <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -133,7 +144,9 @@ if ($product) {
                             </div>
                             <button type="button" class="btn-add" onclick="showLoginPrompt()">Add to Cart</button>
                             <button type="button" class="btn-checkout" onclick="showLoginPrompt()">Buy Now</button>
-                            <button type="button" class="btn-secondary btn-wishlist" onclick="showLoginPrompt()"><i class="fas fa-heart"></i> Add to Wishlist</button>
+                            <button type="button" class="btn-secondary btn-wishlist" onclick="showLoginPrompt()" style="margin-top:8px;">
+                                <i class="fas fa-heart"></i> Add to Wishlist
+                            </button>
                         <?php endif; ?>
                     <?php else: ?>
                         <button class="btn-disabled" disabled>Out of Stock</button>

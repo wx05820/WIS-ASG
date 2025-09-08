@@ -1,103 +1,154 @@
 <?php
-session_start();
-require_once '../_base.php';
+// Improved cart_add.php with better error handling
+ob_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
-// Set content type for AJAX responses
-if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-    header('Content-Type: application/json');
-    $isAjax = true;
-} else {
-    $isAjax = false;
-}
-
-// Function to send JSON response
+// Function to send JSON response - moved to top
 function sendJsonResponse($success, $message, $data = []) {
-    echo json_encode([
+    // Clear any output buffer completely
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Ensure no previous output
+    if (headers_sent($file, $line)) {
+        error_log("Headers already sent in $file on line $line");
+        return;
+    }
+    
+    // Set headers
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+    
+    // Create response
+    $response = json_encode([
         'success' => $success,
         'message' => $message,
         'data' => $data
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
+    
+    if ($response === false) {
+        error_log("JSON encoding failed: " . json_last_error_msg());
+        echo json_encode(['success' => false, 'message' => 'JSON encoding error']);
+    } else {
+        echo $response;
+    }
+    
     exit();
+}
+
+// Simplified error handler
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("PHP Error: $message in $file on line $line");
+    if (!headers_sent()) {
+        sendJsonResponse(false, 'Server error occurred', ['error' => $message]);
+    }
+});
+
+set_exception_handler(function($exception) {
+    error_log("Uncaught exception: " . $exception->getMessage());
+    if (!headers_sent()) {
+        sendJsonResponse(false, 'Server exception occurred', ['error' => $exception->getMessage()]);
+    }
+});
+
+// Include base file
+try {
+    require_once '../_base.php';
+} catch (Exception $e) {
+    error_log("Failed to include _base.php: " . $e->getMessage());
+    sendJsonResponse(false, 'Configuration error');
+}
+
+// Check if this is an AJAX request
+$isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+          strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+// Ensure we have required functions and database connection
+if (!function_exists('isLoggedIn') || !isset($_db)) {
+    error_log("Missing required functions or database connection");
+    if ($isAjax) {
+        sendJsonResponse(false, 'Server configuration error');
+    } else {
+        die('Server configuration error');
+    }
 }
 
 // Check if user is logged in
 if (!isLoggedIn()) {
     if ($isAjax) {
-        sendJsonResponse(false, "Please log in to add items to cart", ['redirect' => '../user/login.php']);
+        sendJsonResponse(false, "Please log in to add items to cart", [
+            'redirect' => '../user/login.php'
+        ]);
     } else {
         $_SESSION['error'] = "Please log in to add items to cart";
-        $_SESSION['redirect_after_login'] = $_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php';
         header('Location: ../user/login.php');
         exit();
     }
 }
 
-$userID = $_SESSION['user_id'];
-
-// Check if request is POST
+// Validate request method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     if ($isAjax) {
         sendJsonResponse(false, "Invalid request method");
     } else {
-        $_SESSION['error'] = "Invalid request method";
-        header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php'));
+        header('Location: ../userProduct/productList.php');
         exit();
     }
 }
 
-// Get and validate input
-$prodID = intval($_POST['prodID'] ?? 0);
+$userID = $_SESSION['user_id'];
+$prodID = trim($_POST['prodID'] ?? '');
 $qty = intval($_POST['qty'] ?? 1);
-$action = $_POST['action'] ?? 'add';
+$requestId = $_POST['request_id'] ?? '';
 
-if ($prodID <= 0) {
-    if ($isAjax) {
-        sendJsonResponse(false, "Invalid product ID");
-    } else {
-        $_SESSION['error'] = "Invalid product ID";
-        header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php'));
-        exit();
-    }
+// Input validation
+if (empty($prodID)) {
+    sendJsonResponse(false, "Invalid product ID");
 }
 
 if ($qty <= 0) {
-    if ($isAjax) {
-        sendJsonResponse(false, "Quantity must be greater than 0");
-    } else {
-        $_SESSION['error'] = "Quantity must be greater than 0";
-        header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php'));
-        exit();
+    sendJsonResponse(false, "Quantity must be greater than 0");
+}
+
+// Duplicate request check
+if (!empty($requestId)) {
+    $duplicateKey = "cart_add_" . $requestId;
+    if (isset($_SESSION[$duplicateKey])) {
+        sendJsonResponse(false, "Duplicate request detected");
     }
+    $_SESSION[$duplicateKey] = true;
 }
 
 try {
-    // Check if product exists and has sufficient stock
+    // Test database connection first
+    if (!$_db) {
+        throw new Exception("Database connection not available");
+    }
+    
+    // Check product exists and stock
     $productQuery = "SELECT prodID, name, price, qty FROM product WHERE prodID = ? AND (status IS NULL OR status != 'removed')";
     $productStmt = $_db->prepare($productQuery);
+    
+    if (!$productStmt) {
+        throw new Exception("Failed to prepare product query: " . implode(', ', $_db->errorInfo()));
+    }
+    
     $productStmt->execute([$prodID]);
     $product = $productStmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$product) {
-        if ($isAjax) {
-            sendJsonResponse(false, "Product not found or not available");
-        } else {
-            $_SESSION['error'] = "Product not found or not available";
-            header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php'));
-            exit();
-        }
+        sendJsonResponse(false, "Product not found or not available");
     }
     
     if ($product['qty'] < $qty) {
-        if ($isAjax) {
-            sendJsonResponse(false, "Insufficient stock. Available: " . $product['qty']);
-        } else {
-            $_SESSION['error'] = "Insufficient stock. Available: " . $product['qty'];
-            header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php'));
-            exit();
-        }
+        sendJsonResponse(false, "Insufficient stock. Available: " . $product['qty']);
     }
     
-    // Get or create cart for user
+    // Get or create cart
     $cartQuery = "SELECT cartID FROM cart WHERE userID = ?";
     $cartStmt = $_db->prepare($cartQuery);
     $cartStmt->execute([$userID]);
@@ -105,94 +156,57 @@ try {
     
     if (!$cart) {
         // Create new cart
-        $createCartQuery = "INSERT INTO cart (userID) VALUES (?)";
+        $cartID = 'C' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
+        $createCartQuery = "INSERT INTO cart (cartID, userID) VALUES (?, ?)";
         $createCartStmt = $_db->prepare($createCartQuery);
-        $createCartStmt->execute([$userID]);
-        $cartID = $_db->lastInsertId();
+        $createCartStmt->execute([$cartID, $userID]);
     } else {
         $cartID = $cart['cartID'];
     }
     
-    // Check if item already exists in cart
-    $existingItemQuery = "SELECT * FROM cart_items WHERE cartID = ? AND prodID = ?";
-    $existingItemStmt = $_db->prepare($existingItemQuery);
-    $existingItemStmt->execute([$cartID, $prodID]);
-    $existingItem = $existingItemStmt->fetch(PDO::FETCH_ASSOC);
+    // Check existing item
+    $existingQuery = "SELECT * FROM cart_items WHERE cartID = ? AND prodID = ?";
+    $existingStmt = $_db->prepare($existingQuery);
+    $existingStmt->execute([$cartID, $prodID]);
+    $existingItem = $existingStmt->fetch(PDO::FETCH_ASSOC);
     
     if ($existingItem) {
-        // Update existing item quantity
+        // Update existing item
         $newQty = $existingItem['qty'] + $qty;
-        
-        // Check if new quantity exceeds stock
         if ($newQty > $product['qty']) {
-            if ($isAjax) {
-                sendJsonResponse(false, "Cannot add more items. Available stock: " . $product['qty'] . ", Already in cart: " . $existingItem['qty']);
-            } else {
-                $_SESSION['error'] = "Cannot add more items. Available stock: " . $product['qty'] . ", Already in cart: " . $existingItem['qty'];
-                header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php'));
-                exit();
-            }
+            sendJsonResponse(false, "Cannot add more items. Available: " . $product['qty'] . ", In cart: " . $existingItem['qty']);
         }
         
-        // Update existing item - use the first column as primary key
-        $updateItemQuery = "UPDATE cart_items SET qty = ? WHERE cartID = ? AND prodID = ?";
-        $updateItemStmt = $_db->prepare($updateItemQuery);
-        $updateItemStmt->execute([$newQty, $cartID, $prodID]);
-        
-        $message = "Updated quantity for " . $product['name'] . " in cart";
-        $action_type = "updated";
+        $updateQuery = "UPDATE cart_items SET qty = ? WHERE cartID = ? AND prodID = ?";
+        $updateStmt = $_db->prepare($updateQuery);
+        $updateStmt->execute([$newQty, $cartID, $prodID]);
+        $message = "Updated " . $product['name'] . " quantity in cart";
     } else {
-        // Add new item to cart
-        $addItemQuery = "INSERT INTO cart_items (cartID, prodID, qty, price) VALUES (?, ?, ?, ?)";
-        $addItemStmt = $_db->prepare($addItemQuery);
-        $addItemStmt->execute([$cartID, $prodID, $qty, $product['price']]);
-        
+        // Add new item
+        $cartItemID = 'CI' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
+        $addQuery = "INSERT INTO cart_items (cart_item_id, cartID, prodID, qty) VALUES (?, ?, ?, ?)";
+        $addStmt = $_db->prepare($addQuery);
+        $addStmt->execute([$cartItemID, $cartID, $prodID, $qty]);
         $message = "Added " . $product['name'] . " to cart";
-        $action_type = "added";
     }
     
-    // Update cart count in session
-    $cartCountQuery = "SELECT SUM(qty) as total FROM cart_items WHERE cartID = ?";
-    $cartCountStmt = $_db->prepare($cartCountQuery);
-    $cartCountStmt->execute([$cartID]);
-    $cartCount = $cartCountStmt->fetch(PDO::FETCH_ASSOC);
-    $cartCountTotal = $cartCount['total'] ?? 0;
-    $_SESSION['cart_count'] = $cartCountTotal;
+    // Get updated cart count
+    $countQuery = "SELECT SUM(qty) as total FROM cart_items WHERE cartID = ?";
+    $countStmt = $_db->prepare($countQuery);
+    $countStmt->execute([$cartID]);
+    $count = $countStmt->fetch(PDO::FETCH_ASSOC);
+    $cartTotal = $count['total'] ?? 0;
     
-    // Get updated cart item details for AJAX response
-    $itemDetailsQuery = "SELECT ci.*, p.name, p.price, p.image1 
-                        FROM cart_items ci 
-                        JOIN product p ON ci.prodID = p.prodID 
-                        WHERE ci.cartID = ? AND ci.prodID = ?";
-    $itemDetailsStmt = $_db->prepare($itemDetailsQuery);
-    $itemDetailsStmt->execute([$cartID, $prodID]);
-    $itemDetails = $itemDetailsStmt->fetch(PDO::FETCH_ASSOC);
+    $_SESSION['cart_count'] = $cartTotal;
     
-    if ($isAjax) {
-        sendJsonResponse(true, $message, [
-            'cart_count' => $cartCountTotal,
-            'action_type' => $action_type,
-            'item' => $itemDetails,
-            'product_name' => $product['name']
-        ]);
-    } else {
-        $_SESSION['success'] = $message;
-    }
+    // Send success response
+    sendJsonResponse(true, $message, [
+        'cart_count' => $cartTotal,
+        'product_name' => $product['name']
+    ]);
     
 } catch (Exception $e) {
-    error_log("Cart add error: " . $e->getMessage());
-    $errorMessage = "Failed to add item to cart. Please try again.";
-    
-    if ($isAjax) {
-        sendJsonResponse(false, $errorMessage);
-    } else {
-        $_SESSION['error'] = $errorMessage;
-    }
-}
-
-// Redirect back to previous page (only for non-AJAX requests)
-if (!$isAjax) {
-    header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '../userProduct/productList.php'));
-    exit();
+    error_log("Cart add error: " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
+    sendJsonResponse(false, "Failed to add item to cart: " . $e->getMessage());
 }
 ?>

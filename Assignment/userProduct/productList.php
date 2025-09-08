@@ -57,6 +57,19 @@ if (isset($_SESSION['error'])) {
     unset($_SESSION['error']);
 }
 
+// Get wishlist status for all products if user is logged in
+$wishlistItems = [];
+if ($user_id && isset($_db) && $_db !== null) {
+    try {
+        $wishlistStmt = $_db->prepare("SELECT prodID FROM wishlist WHERE userID = ?");
+        $wishlistStmt->execute([$user_id]);
+        $wishlistItems = array_column($wishlistStmt->fetchAll(PDO::FETCH_ASSOC), 'prodID');
+    } catch (Exception $e) {
+        error_log("Wishlist query error: " . $e->getMessage());
+        $wishlistItems = [];
+    }
+}
+
 // Get current page
 $page = isset($_GET['page']) && ctype_digit($_GET['page']) ? (int)$_GET['page'] : 1;
 $pager = new SimplePager($sql, $params, 12, $page);
@@ -75,6 +88,25 @@ unset($p);
 <link rel="stylesheet" href="../css/userproduct.css">
 <script src="../js/cart.js" defer></script>
 <script src="../js/userproduct.js" defer></script>
+<script>
+// Initialize product list functionality
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Product list page loaded');
+    console.log('Checking for cart.js...');
+    
+    // Check if cart.js functions are available
+    if (typeof initializeFormHandlers === 'function') {
+        console.log('✅ cart.js functions available');
+    } else {
+        console.log('❌ cart.js functions NOT available');
+    }
+    
+    // Let cart.js handle all form submissions
+    console.log('Delegating form handling to cart.js');
+    
+    // Cart functionality is working, no test button needed
+});
+</script>
 
 <body class="product-list-main" data-user-id="<?= htmlspecialchars($user_id ?? ''); ?>">
     <main class="product-list">
@@ -95,37 +127,42 @@ unset($p);
                         <p class="stock <?= ($p['qty'] > 0 ? 'in-stock' : 'out-stock'); ?>">
                             <?= $p['qty'] > 0 ? "In Stock: {$p['qty']}" : "Out of Stock"; ?>
                         </p>
-                        <div class="actions" onclick="event.stopPropagation(); event.preventDefault();">
+                        <div class="actions" onclick="event.stopPropagation();">
                             <?php if ($p['qty'] > 0): ?>
                                 <?php if ($user_id): ?>
                                         <!-- Add to Cart Form -->
-                                        <form action="../order/cart_add.php" method="POST" class="cart-form" id="btn-add">
+                                        <form action="../order/cart_add.php" method="POST" class="cart-form" id="btn-add-<?= $p['prodID']; ?>" data-action="../order/cart_add.php" data-prod-id="<?= $p['prodID']; ?>">
                                             <input type="hidden" name="action" value="add">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin:8px 0;">
                                                 <label for="list-qty-<?= $p['prodID']; ?>" style="min-width:60px;">Qty</label>
                                                 <div class="qty-control" style="display:flex;align-items:center;gap:6px;">
                                                     <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" aria-label="Decrease quantity" style="padding:6px 10px;">−</button>
-                                                    <input id="list-qty-<?= $p['prodID']; ?>" name="qty" type="number" value="1" min="1" max="<?= (int)$p['qty']; ?>" style="width:80px;padding:6px;">
+                                                    <input id="list-qty-<?= $p['prodID']; ?>" type="number" value="1" min="1" max="<?= (int)$p['qty']; ?>" style="width:80px;padding:6px;">
                                                     <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">+</button>
                                                 </div>
                                             </div>
+                                            <input type="hidden" name="qty" value="1">
                                             <input type="hidden" name="redirect" value="<?= $_SERVER['REQUEST_URI']; ?>">
-                                            <button type="submit" class="btn-add">Add to Cart</button>
+                                            <button type="submit" class="btn-add" id="add-btn-<?= $p['prodID']; ?>">Add to Cart</button>
                                         </form>
                                         
                                         <!-- Buy Now Form -->
-                                        <form action="../order/checkout.php" method="POST" class="checkout-form">
+                                        <form action="../order/checkout.php" method="POST" class="checkout-form" id="buy-now-<?= $p['prodID']; ?>" onsubmit="return setQtyForBuyNow(this)">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <input type="hidden" name="buy_now" value="1">
-                                            <button type="submit" class="btn-checkout">Buy Now</button>
+                                            <input type="hidden" name="qty" value="1">
+                                            <button type="submit" class="btn-checkout" id="buy-btn-<?= $p['prodID']; ?>">Buy Now</button>
                                         </form>
 
                                         <!-- Add to Wishlist -->
-                                        <form action="../user/wishlist.php" method="POST" class="wishlist-form" style="margin-top:6px;">
-                                            <input type="hidden" name="action" value="add">
+                                        <form action="../user/wishlist.php" method="POST" class="wishlist-form" id="wishlist-<?= $p['prodID']; ?>" data-action="../user/wishlist.php" style="margin-top:6px;">
+                                            <input type="hidden" name="action" value="<?= in_array($p['prodID'], $wishlistItems) ? 'remove' : 'add'; ?>">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
-                                            <button type="submit" class="btn-secondary btn-wishlist"><i class="fas fa-heart"></i> Wishlist</button>
+                                            <button type="submit" class="btn-secondary btn-wishlist <?= in_array($p['prodID'], $wishlistItems) ? 'in-wishlist' : ''; ?>" id="wishlist-btn-<?= $p['prodID']; ?>">
+                                                <i class="fas fa-heart" style="<?= in_array($p['prodID'], $wishlistItems) ? 'color: #e74c3c;' : ''; ?>"></i> 
+                                                <span class="wishlist-text"><?= in_array($p['prodID'], $wishlistItems) ? 'In Wishlist' : 'Wishlist'; ?></span>
+                                            </button>
                                         </form>
                                     <?php else: ?>
                                         <button type="button" class="btn-add" onclick="showLoginPrompt()">
@@ -133,6 +170,9 @@ unset($p);
                                         </button>
                                         <button type="button" class="btn-checkout" onclick="showLoginPrompt()">
                                             Buy Now
+                                        </button>
+                                        <button type="button" class="btn-secondary btn-wishlist" onclick="showLoginPrompt()" style="margin-top:6px;">
+                                            <i class="fas fa-heart"></i> Wishlist
                                         </button>
                                     <?php endif; ?>
                                 <?php else: ?>
@@ -237,6 +277,16 @@ function closeLoginModal() {
         window.currentLoginModal.remove();
         window.currentLoginModal = null;
     }
+}
+
+function setQtyForBuyNow(form) {
+    const qtyInput = form.querySelector('input[id*="qty"]:not([name="qty"])');
+    const hiddenQty = form.querySelector('input[name="qty"]');
+    if (qtyInput && hiddenQty) {
+        const val = parseInt(qtyInput.value) || 1;
+        hiddenQty.value = Math.max(1, val);
+    }
+    return true;
 }
 </script>
 

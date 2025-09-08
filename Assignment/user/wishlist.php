@@ -18,16 +18,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ins = $_db->prepare('INSERT INTO wishlist(userID, prodID, created_at) VALUES(?, ?, NOW())');
                 $ins->execute([$user_id, $prodID]);
                 $_SESSION['success'] = 'Added to wishlist';
+                $response = ['ok' => true, 'message' => 'Added to wishlist'];
+            } else {
+                $_SESSION['error'] = 'Item already in wishlist';
+                $response = ['ok' => false, 'message' => 'Item already in wishlist'];
             }
         } elseif ($action === 'remove') {
             $del = $_db->prepare('DELETE FROM wishlist WHERE userID=? AND prodID=?');
             $del->execute([$user_id, $prodID]);
             $_SESSION['success'] = 'Removed from wishlist';
+            $response = ['ok' => true, 'message' => 'Removed from wishlist'];
         }
     }
     if (strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest') {
         header('Content-Type: application/json');
-        echo json_encode(['ok' => true]);
+        echo json_encode($response ?? ['ok' => false, 'message' => 'Invalid action']);
         exit;
     }
     redirect('/user/wishlist.php');

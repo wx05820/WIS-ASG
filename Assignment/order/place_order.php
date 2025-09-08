@@ -66,6 +66,7 @@ $address_id = $_POST['address_id'] ?? ($_POST['selected_address'] ?? null);
 $shipping_method = $_POST['shipping_method'] ?? null;
 $pay_method = $_POST['payment_method'] ?? null;
 
+
 //Check if user has addresses and validate address selection
 $stmt = $_db->prepare("SELECT COUNT(*) FROM user_address WHERE userID = ?");
 $stmt->execute([$user_id]);
@@ -73,7 +74,7 @@ $has_addresses = $stmt->fetchColumn() > 0;
 
 if ($has_addresses && (empty($address_id))) {
     // Fallback to user's default address (or first address) if none posted
-    $stmt = $_db->prepare("SELECT ID FROM user_address WHERE userID = ? ORDER BY isDefault DESC, created_at DESC LIMIT 1");
+    $stmt = $_db->prepare("SELECT ID FROM user_address WHERE userID = ? ORDER BY isDefault DESC LIMIT 1");
     $stmt->execute([$user_id]);
     $address_id = $stmt->fetchColumn();
     if (!$address_id) {
@@ -197,16 +198,17 @@ try {
     
     $payStatus = $pay_status_map[$pay_method] ?? 'Pending';
 
-    //Insert payment
-    $stmt = $_db->prepare("INSERT INTO payment (payMethod, payStatus, payDate, amount) VALUES (?, ?, NOW(), ?)");
+    // Generate payment ID
+    $payID = 'P' . date('Ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+    
+    // Insert payment
+    $stmt = $_db->prepare("INSERT INTO payment (payID, payMethod, payStatus, payDate, amount) VALUES (?, ?, ?, NOW(), ?)");
     $stmt->execute([
+        $payID,
         $db_pay_method,
         $payStatus,
         $total
     ]);
-
-    // Get the last inserted payment ID
-    $payID = (int)$_db->lastInsertId();
 
     // Get shipping address details for the order
     $address_details = null;

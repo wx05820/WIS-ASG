@@ -6,6 +6,7 @@ function initializeOrderHistory() {
     initToggleButtons();
     initFormHandlers();
     initUtilityFunctions();
+    checkRefundButtonStates();
 }
 
 function initToggleButtons() {
@@ -53,10 +54,16 @@ function initFormHandlers() {
         });
     });
 
-    // Handle other form submissions with loading states
+    // Handle other form submissions with loading states (excluding all refund-related buttons)
     document.querySelectorAll('form button[type="submit"]:not(.reorder-btn)').forEach(btn => {
         btn.addEventListener('click', function() {
-            showButtonLoading(this, 'Processing...');
+            // Don't interfere with refund-related buttons - let PHP handle the display
+            const form = this.closest('form');
+            if (form && (form.action.includes('request_refund.php') || form.action.includes('cancel_refund_request.php'))) {
+                // Let the form submit naturally without JavaScript interference
+                return;
+            }
+            showButtonLoading(this, 'Processing');
         });
     });
 
@@ -117,9 +124,9 @@ function initFormHandlers() {
                     submitBtn.disabled = true;
                     
                     if (submitBtn.textContent !== undefined) {
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                        submitBtn.innerHTML = 'Processing';
                     } else {
-                        submitBtn.value = 'Processing...';
+                        submitBtn.value = 'Processing';
                     }
                 }, 10);
                 
@@ -154,21 +161,42 @@ function initUtilityFunctions() {
     });
 }
 
-function showButtonLoading(button, text = 'Processing...') {
+function checkRefundButtonStates() {
+    // Don't modify buttons that are already in Processing state
+    // The PHP already handles the correct button display based on order status
+    console.log('Refund button states checked - PHP handles the display based on order status');
+    
+    // Debug: Check what buttons exist
+    const refundButtons = document.querySelectorAll('.refund-btn');
+    const cancelButtons = document.querySelectorAll('form[action*="cancel_refund_request"] button');
+    console.log('Found refund buttons:', refundButtons.length);
+    console.log('Found cancel buttons:', cancelButtons.length);
+}
+
+function showButtonLoading(button, text = 'Processing') {
+    // Don't interfere with refund-related buttons
+    const form = button.closest('form');
+    if (form && (form.action.includes('request_refund.php') || form.action.includes('cancel_refund_request.php'))) {
+        return;
+    }
+    
     const originalContent = button.innerHTML;
     button.disabled = true;
-    button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
+    button.innerHTML = text;
     
     // Store original content for potential restoration
     button.dataset.originalContent = originalContent;
     
-    // Fallback restoration after 15 seconds
-    setTimeout(() => {
-        if (button.disabled) {
-            button.disabled = false;
-            button.innerHTML = originalContent;
-        }
-    }, 15000);
+    // Only restore if it's not a refund request (which should remain permanent)
+    if (!button.classList.contains('refund-btn')) {
+        // Fallback restoration after 15 seconds for non-refund buttons
+        setTimeout(() => {
+            if (button.disabled) {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        }, 15000);
+    }
 }
 
 function submitReorderForm(button, orderID, gotoCart = false) {

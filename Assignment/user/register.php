@@ -82,7 +82,7 @@ if (is_post()) {
             }
         }
         
-        if (empty($_err) && checkRateLimit($email)) {
+        if (empty($_err) && !checkRateLimit($email)) {
             $_err['email'] = 'Too many OTP requests. Please wait before requesting again.';
             logFailedAttempt($email, 'rate_limit', 'Exceeded OTP rate limit');
         }
@@ -242,13 +242,12 @@ if (is_post()) {
             redirect('login.php');
             
         } else {
-            $_err['general'] = 'Registration failed. Please try again.';
-            logFailedAttempt($email, 'registration_failed', 'Database insert failed');
+                $_err['general'] = 'Registration failed. Please try again.';
+                logFailedAttempt($email, 'registration_failed', 'Database insert failed');
+            }
         }
     }
 }
-}
-
 $page_titles = [
     1 => 'Register - Step 1: Email',
     2 => 'Register - Step 2: Verify OTP', 
@@ -472,7 +471,7 @@ $page_title = $page_titles[$step] ?? 'Register';
         <div id="timer" data-expiry="<?= $_SESSION['registration_otp_expiry']; ?>"></div>
     <?php endif; ?>
 </body>
-        if ($stm->rowCount()) {
+</html>
 
             unset($_SESSION['registration_email'], $_SESSION['registration_otp'], $_SESSION['registration_otp_expiry']);
 

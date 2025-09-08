@@ -1,6 +1,5 @@
 <?php
 require_once '../_base.php';
-include 'cart.php';
 
 $user_id = $_SESSION['user_id'] ?? null;
 checkLogin();
@@ -30,12 +29,24 @@ if (isset($_POST['buy_now']) && isset($_POST['prodID'])) {
     
 }
 // Handle selected items from cart page
-elseif (isset($_POST['selected_items']) && is_array($_POST['selected_items'])) {
-    // Product IDs are strings (e.g., P000100). Keep as strings.
-    $selected_product_ids = array_values(array_filter(array_map('trim', $_POST['selected_items'])));
-    $buyNow = false;
-    $_SESSION['checkout_items'] = $selected_product_ids;
-    $_SESSION['buyNow'] = false;
+elseif (isset($_POST['selected_items'])) {
+    // Handle JSON data from cart page checkboxes
+    if (is_string($_POST['selected_items'])) {
+        $selectedData = json_decode($_POST['selected_items'], true);
+        if ($selectedData && is_array($selectedData)) {
+            $selected_product_ids = array_column($selectedData, 'prodID');
+            $buyNow = false;
+            $_SESSION['checkout_items'] = $selected_product_ids;
+            $_SESSION['checkout_items_data'] = $selectedData; // Store full item data
+            $_SESSION['buyNow'] = false;
+        }
+    } elseif (is_array($_POST['selected_items'])) {
+        // Product IDs are strings (e.g., P000100). Keep as strings.
+        $selected_product_ids = array_values(array_filter(array_map('trim', $_POST['selected_items'])));
+        $buyNow = false;
+        $_SESSION['checkout_items'] = $selected_product_ids;
+        $_SESSION['buyNow'] = false;
+    }
 }
 // Try to get from session if direct access
 elseif (isset($_SESSION['checkout_items']) && is_array($_SESSION['checkout_items'])) {
@@ -119,8 +130,8 @@ if (empty($cart_items)) {
 // Check stock availability
 $stock_errors = [];
 foreach ($cart_items as $item) {
-    if ($item['stock'] < $item['qty']) {
-        $stock_errors[] = htmlspecialchars($item['name']) . " - Only {$item['stock']} available, but {$item['qty']} requested";
+    if (isset($item['stock']) && isset($item['qty']) && $item['stock'] < $item['qty']) {
+        $stock_errors[] = htmlspecialchars($item['name'] ?? 'Unknown Product') . " - Only {$item['stock']} available, but {$item['qty']} requested";
     }
 }
 
@@ -132,26 +143,36 @@ if (!empty($stock_errors)) {
 $subtotal = 0;
 $item_count = 0;
 $checkout_items_js = [];
+$modified_cart_items = [];
 
 foreach ($cart_items as $item) {
-    $item_subtotal = $item['price'] * $item['qty'];
+    $price = (float)($item['price'] ?? 0);
+    $qty = (int)($item['qty'] ?? 1);
+    $item_subtotal = $price * $qty;
     $subtotal += $item_subtotal;
-    $item_count += $item['qty'];
+    $item_count += $qty;
 
+    // Add calculated fields to the item
     $item['subtotal'] = $item_subtotal;
-    $item['image'] = !empty($item['image1']) ? 'data:image/jpeg;base64,' . base64_encode($item['image1']) : '/images/placeholder.jpg';
+    $item['image'] = !empty($item['image1']) ? 'data:image/jpeg;base64,' . base64_encode($item['image1']) : '../images/placeholder.jpg';
+    
+    // Store the modified item
+    $modified_cart_items[] = $item;
 
     // Prepare JS data
     $checkout_items_js[] = [
-        'id' => $item['prodID'],
-        'title' => $item['name'],
-        'price' => (float)$item['price'],
-        'qty' => (int)$item['qty'],
+        'id' => $item['prodID'] ?? '',
+        'title' => $item['name'] ?? 'Unknown Product',
+        'price' => $price,
+        'qty' => $qty,
         'image' => $item['image'],
         'color' => $item['color'] ?? '',
         'subtotal' => $item_subtotal
     ];
 }
+
+// Use the modified cart items for display
+$cart_items = $modified_cart_items;
 
 $shipping_fee = 8.00; 
 $is_buy_now = $buyNow;
@@ -268,7 +289,7 @@ include '../header.php';
                             <img src="<?= htmlspecialchars($item['image']) ?>" 
                                  alt="<?= htmlspecialchars($item['name']) ?>" 
                                  class="item-image" 
-                                 onerror="this.src='/images/placeholder.jpg'">
+                                 onerror="this.src='../images/placeholder.jpg'">
                             <div class="item-details">
                                 <h4><?= htmlspecialchars($item['name']) ?></h4>
                                 <?php if ($item['color']): ?>
@@ -373,9 +394,9 @@ include '../header.php';
 
             <!-- Place Order Button -->
             <div class="checkout-actions">
-                <button type="submit" class="btn-primary btn-large place-order-btn" <?= empty($addresses) ? 'disabled' : '' ?>>
+                <button type="submit" class="btn-primary btn-large place-order-btn" <?= empty($addresses) ? 'disabled' : '' ?> onclick="return handleFormSubmit(event)">
                     <span class="btn-text">Place Order</span>
-                    <span class="btn-loading" style="display: none;">Processing...</span>
+                    <span class="btn-loading" style="display: none;">Processing</span>
                 </button>
                 <a href="<?= $buyNow ? '/userProduct/productList.php' : 'cart_page.php' ?>" class="btn-secondary">Back to <?= $buyNow ? 'Products' : 'Cart' ?></a>
             </div>
@@ -412,30 +433,6 @@ include '../header.php';
             }
         });
 
-        const checkoutForm = document.getElementById('checkout-form');
-        if (checkoutForm) {
-            checkoutForm.addEventListener('submit', function(e) {
-                // For buy now, allow default form submission to ensure selected_items are sent
-                const isBuyNow = <?= $buyNow ? 'true' : 'false' ?>;
-                if (!isBuyNow) {
-                    e.preventDefault(); // Prevent default form submission for cart checkout
-                    placeOrder();
-                } else {
-                    // Disable the button immediately to prevent double submit on normal form path
-                    const placeOrderBtn = document.querySelector('.place-order-btn');
-                    if (placeOrderBtn) {
-                        const btnText = placeOrderBtn.querySelector('.btn-text');
-                        const btnLoading = placeOrderBtn.querySelector('.btn-loading');
-                        if (btnText && btnLoading) {
-                            btnText.style.display = 'none';
-                            btnLoading.style.display = 'inline';
-                        }
-                        placeOrderBtn.disabled = true;
-                    }
-                }
-                // For buy now, let the form submit normally with hidden inputs
-            });
-        }
     });
 
 function showError(message) {
@@ -505,6 +502,71 @@ function confirmAddAddress() {
     if (confirmed) {
         window.location.href = '/user/addresses.php?from=checkout';
     }
+}
+
+function handleFormSubmit(event) {
+    // Validate form first
+    if (!validateCheckoutForm()) {
+        event.preventDefault();
+        return false;
+    }
+    
+    // Disable submit button to prevent double submission
+    const submitBtn = document.querySelector('.place-order-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+        if (btnText && btnLoading) {
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'inline';
+        }
+    }
+    
+    // For buy now, allow default form submission
+    const isBuyNow = <?= $buyNow ? 'true' : 'false' ?>;
+    if (!isBuyNow) {
+        event.preventDefault(); // Prevent default form submission for cart checkout
+        placeOrder();
+        return false;
+    }
+    
+    // For buy now, let the form submit normally
+    return true;
+}
+
+function validateCheckoutForm() {
+    // Check all address radio buttons
+    const addressInputs = document.querySelectorAll('input[name="selected_address"]');
+    
+    let selectedAddress = null;
+    for (let i = 0; i < addressInputs.length; i++) {
+        if (addressInputs[i].checked) {
+            selectedAddress = addressInputs[i];
+            break;
+        }
+    }
+    
+    if (!selectedAddress) {
+        alert('Please select a delivery address');
+        return false;
+    }
+    
+    // Check if shipping method is selected
+    const selectedShipping = document.querySelector('input[name="shipping_method"]:checked');
+    if (!selectedShipping) {
+        alert('Please select a shipping method');
+        return false;
+    }
+    
+    // Check if payment method is selected
+    const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
+    if (!selectedPayment) {
+        alert('Please select a payment method');
+        return false;
+    }
+    
+    return true;
 }
 </script>
 

@@ -12,7 +12,7 @@ $orderID = isset($_GET['id']) ? $_GET['id'] : '';
 
 if (empty($orderID)) {
     $_SESSION['error'] = "Invalid order ID";
-    header('Location: history.php');
+    header('Location: tracking.php');
     exit();
 }
 
@@ -31,7 +31,8 @@ $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
 
 
 if (!$order) {
-    header('Location: history.php');
+    $_SESSION['error'] = "Order not found or access denied.";
+    header('Location: tracking.php');
     exit();
 }
 
@@ -46,23 +47,53 @@ $itemsStmt = $_db->prepare($itemsQuery);
 $itemsStmt->execute([$orderID]);
 $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-
-function getStatusBadge($status) {
-    $badges = [
-        'pending' => 'badge-warning',
-        'confirmed' => 'badge-info', 
-        'processing' => 'badge-primary',
-        'shipped' => 'badge-secondary',
-        'delivered' => 'badge-success',
-        'cancelled' => 'badge-danger'
-    ];
+// Get delivery status history
+$statusHistory = [];
+$tableCheck = $_db->query("SHOW TABLES LIKE 'deliverystatus'");
+if ($tableCheck->rowCount() > 0) {
+    $historyQuery = "SELECT status, courier, notes, current_location, updated_at 
+                     FROM deliverystatus 
+                     WHERE orderID = ? 
+                     ORDER BY updated_at DESC";
     
-    $class = $badges[$status] ?? 'badge-secondary';
-    return "<span class='badge {$class}'>" . ucfirst($status) . "</span>";
+    $historyStmt = $_db->prepare($historyQuery);
+    $historyStmt->execute([$orderID]);
+    $statusHistory = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    // Create sample delivery history if table doesn't exist
+    $statusHistory[] = [
+        'status' => $order['status'],
+        'courier' => 'System',
+        'notes' => 'Order status: ' . $order['status'],
+        'current_location' => 'Processing Center',
+        'updated_at' => $order['orderDate']
+    ];
 }
 
 function formatDate($date) {
-    return date('M d, Y - H:i A', strtotime($date));
+    return date('M d, Y - H:i', strtotime($date));
+}
+
+function getStatusBadge($status) {
+    $statusClasses = [
+        'pending' => 'warning',
+        'confirmed' => 'info',
+        'processing' => 'primary',
+        'shipped' => 'secondary',
+        'delivered' => 'success'
+    ];
+    $class = $statusClasses[strtolower($status)] ?? 'secondary';
+    
+    $statusIcons = [
+        'pending' => 'fas fa-clock',
+        'confirmed' => 'fas fa-check-circle',
+        'processing' => 'fas fa-cog',
+        'shipped' => 'fas fa-shipping-fast',
+        'delivered' => 'fas fa-box-open'
+    ];
+    $icon = $statusIcons[strtolower($status)] ?? 'fas fa-info-circle';
+    
+    return "<span class='badge badge-{$class}'><i class='{$icon}'></i> " . ucfirst($status) . "</span>";
 }
 
 function formatAddress($order) {
@@ -77,31 +108,78 @@ function formatAddress($order) {
     return implode('<br>', $address);
 }
 
-if (isset($_SESSION['success'])) {
-    echo '<script>
-        document.addEventListener("DOMContentLoaded",function(){
-            showSuccess("'.htmlspecialchars($_SESSION['success']).'");
-        });
-        </script>';
-    unset($_SESSION['success']);
-}
-if (isset($_SESSION['error'])) {
-    echo '<script>
-        document.addEventListener("DOMContentLoaded",function(){
-            showError("'.htmlspecialchars($_SESSION['error']).'");
-        });
-        </script>';
-    unset($_SESSION['error']);
+// Store messages for later display
+$successMessage = $_SESSION['success'] ?? null;
+$errorMessage = $_SESSION['error'] ?? null;
+if ($successMessage) unset($_SESSION['success']);
+if ($errorMessage) unset($_SESSION['error']);
+
+// Get user's addresses for change address functionality
+$userAddresses = [];
+if ($order['status'] === 'Pending') {
+    try {
+        $addressQuery = "SELECT ID, recipient_name, address_line_1, address_line_2, city, state, postcode, isDefault 
+                         FROM user_address 
+                         WHERE userID = ? 
+                         ORDER BY isDefault DESC";
+        $addressStmt = $_db->prepare($addressQuery);
+        $addressStmt->execute([$userID]);
+        $userAddresses = $addressStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error fetching user addresses: " . $e->getMessage());
+    }
 }
 
 include '../header.php';
 ?>
 
-<link rel="stylesheet" href="../css/history.css">
+<link rel="stylesheet" href="../css/tracking.css">
 <link rel="stylesheet" href="../css/order_details.css">
 
 <body data-user-id="<?= $userID ?>">
     <div class="modern-container">
+        <!-- Enhanced Status Timeline -->
+        <div class="enhanced-timeline-section">
+            <div class="enhanced-timeline <?= strtolower($order['status']) ?>">
+                <?php
+                // Define timeline steps with their corresponding order statuses
+                $timelineSteps = [
+                    ['status' => 'Pending', 'icon' => 'fa-hourglass-half', 'label' => 'Order Placed'],
+                    ['status' => 'Confirmed', 'icon' => 'fa-check', 'label' => 'Confirmed'],
+                    ['status' => 'Processing', 'icon' => 'fa-cogs', 'label' => 'Processing'],
+                    ['status' => 'Shipped', 'icon' => 'fa-truck', 'label' => 'Shipped'],
+                    ['status' => 'Delivered', 'icon' => 'fa-box', 'label' => 'Delivered']
+                ];
+                
+                // Define status progression order
+                $statusOrder = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered'];
+                $currentStatusIndex = array_search($order['status'], $statusOrder);
+                
+                foreach ($timelineSteps as $index => $step):
+                    $stepStatus = $step['status'];
+                    $stepIndex = array_search($stepStatus, $statusOrder);
+                    
+                    // Determine if this step is completed, active, or pending
+                    if ($stepIndex < $currentStatusIndex) {
+                        $stepClass = 'completed';
+                    } elseif ($stepIndex == $currentStatusIndex) {
+                        $stepClass = 'active';
+                    } else {
+                        $stepClass = 'pending';
+                    }
+                ?>
+                <div class="timeline-step <?= $stepClass ?>">
+                    <div class="timeline-icon-container">
+                        <i class="fas <?= $step['icon'] ?> timeline-icon"></i>
+                    </div>
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-label"><?= $step['label'] ?></div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Order Header Card -->
         <div class="order-header-card">
             <div class="order-header-content">
                 <div class="order-info">
@@ -189,6 +267,11 @@ include '../header.php';
                             <i class="fas fa-shipping-fast"></i>
                             Shipping Address
                         </h3>
+                        <?php if ($order['status'] === 'Pending'): ?>
+                            <a href="change_address_page.php?id=<?= $order['orderID'] ?>" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-edit"></i> Change Address
+                            </a>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body">
                         <div class="address-info">
@@ -243,6 +326,56 @@ include '../header.php';
                     </div>
                 <?php endif; ?>
 
+                <!-- Delivery Status Timeline Card -->
+                <?php if (!empty($statusHistory)): ?>
+                    <div class="modern-card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-truck"></i>
+                                Delivery Status
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="status-timeline">
+                                <?php foreach ($statusHistory as $index => $history): ?>
+                                    <div class="timeline-item <?= $index === 0 ? 'active' : '' ?>">
+                                        <div class="timeline-marker">
+                                            <div class="timeline-dot"></div>
+                                            <?php if ($index < count($statusHistory) - 1): ?>
+                                                <div class="timeline-line"></div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="timeline-content">
+                                            <div class="timeline-status">
+                                                <strong><?= ucfirst($history['status']) ?></strong>
+                                                <span class="timeline-time"><?= formatDate($history['updated_at']) ?></span>
+                                            </div>
+                                            <?php if (!empty($history['courier'])): ?>
+                                                <div class="timeline-detail">
+                                                    <i class="fas fa-truck"></i>
+                                                    <span>Courier: <?= htmlspecialchars($history['courier']) ?></span>
+                                                </div>
+                                            <?php endif; ?>
+                                            <?php if (!empty($history['current_location'])): ?>
+                                                <div class="timeline-detail">
+                                                    <i class="fas fa-map-marker-alt"></i>
+                                                    <span>Location: <?= htmlspecialchars($history['current_location']) ?></span>
+                                                </div>
+                                            <?php endif; ?>
+                                            <?php if (!empty($history['notes'])): ?>
+                                                <div class="timeline-detail">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    <span><?= htmlspecialchars($history['notes']) ?></span>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <!-- Order Actions Card -->
                 <div class="modern-card">
                     <div class="card-header">
@@ -254,6 +387,15 @@ include '../header.php';
                     <div class="card-body">
                         <div class="action-buttons">
                             <?php if ($order['status'] === 'Delivered'): ?>
+                                <form method="POST" action="mark_received.php" class="action-form" onsubmit="return confirm('Are you sure you want to mark this order as received?')">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+                                    <input type="hidden" name="orderID" value="<?= htmlspecialchars($order['orderID']) ?>">
+                                    <input type="hidden" name="redirect" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
+                                    <button type="submit" class="btn btn-success action-btn" id="mark-received-btn">
+                                        <i class="fas fa-check-circle"></i> Mark as Received
+                                    </button>
+                                </form>
+                                
                                 <form method="POST" action="request_refund.php" class="action-form">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
                                     <input type="hidden" name="orderID" value="<?= htmlspecialchars($order['orderID']) ?>">
@@ -316,8 +458,13 @@ include '../header.php';
                                 <i class="fas fa-print"></i> Print Order
                             </button>
                             
-                            <a href="history.php" class="btn btn-outline-primary action-btn">
-                                <i class="fas fa-arrow-left"></i> Back to History
+                            
+                            
+                            
+                            
+                            
+                            <a href="tracking.php" class="btn btn-outline-primary action-btn">
+                                <i class="fas fa-arrow-left"></i> Back to Tracking
                             </a>
                         </div>
                     </div>
@@ -328,7 +475,79 @@ include '../header.php';
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../js/history.js"></script>
-    <script src="../js/userProduct.js"></script>
+    
+    <script>
+    // Enhanced notification functions
+    function showSuccess(message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: message,
+                timer: 3000,
+                showConfirmButton: false
+            });
+        } else {
+            createNotification(message, 'success');
+        }
+    }
+
+    function showError(message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: message,
+                confirmButtonText: 'OK'
+            });
+        } else {
+            createNotification(message, 'error');
+        }
+    }
+
+    function createNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+
+    // Simple message display without form interference
+    document.addEventListener('DOMContentLoaded', function() {
+        // Display session messages after a short delay to ensure functions are loaded
+        <?php if ($successMessage): ?>
+        setTimeout(() => {
+            if (typeof showSuccess === 'function') {
+                showSuccess("<?= htmlspecialchars($successMessage) ?>");
+            } else {
+                alert("<?= htmlspecialchars($successMessage) ?>");
+            }
+        }, 100);
+        <?php endif; ?>
+        
+        <?php if ($errorMessage): ?>
+        setTimeout(() => {
+            if (typeof showError === 'function') {
+                showError("<?= htmlspecialchars($errorMessage) ?>");
+            } else {
+                alert("<?= htmlspecialchars($errorMessage) ?>");
+            }
+        }, 100);
+        <?php endif; ?>
+    });
+    </script>
 </body>
 <?php include '../footer.php'; ?>

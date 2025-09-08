@@ -78,6 +78,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo $image_base_path; ?>css/index.css">
+    
+    <!-- Page-specific CSS -->
+    <?php if (isset($page_css)): ?>
+    <link rel="stylesheet" href="<?php echo $page_css; ?>">
+    <?php endif; ?>
 </head>
 
 <body data-user-id="<?php echo isLoggedIn() ? $_SESSION['user_id'] : ''; ?>">
@@ -85,14 +90,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="header-container">
             <!-- Logo and Company Name -->
             <div class="logo-section">
-                <a href="/index.php" aria-label="AiKUN Furniture Homepage">
+                <a href="<?php echo $image_base_path; ?>index.php" aria-label="AiKUN Furniture Homepage">
                     <img src="<?php echo $image_base_path; ?>images/logo.png" alt="AiKUN Furniture Logo" class="logo">
                     <span class="company-name">AiKUN</span>
                 </a>
             </div>
             
             <!-- Search Bar and Filters -->
-            <div class="search-section" style="margin-top: 15px;">
+            <div class="search-section">
                 <form action="/userProduct/productList.php" method="GET" class="search-filter-form" role="search" id="searchFilterForm">
                     <input type="hidden" name="order" id="search-order" value="<?php echo isset($_GET['order']) ? htmlspecialchars(strtoupper($_GET['order'])) : 'ASC'; ?>">
                     <div class="search-input-container">
@@ -168,17 +173,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                     </div>
                                 </div>
                                 <hr class="dropdown-divider">
-                                <a href="/user/profile.php" class="dropdown-item" role="menuitem">
+                                <a href="<?php echo $image_base_path; ?>user/profile.php" class="dropdown-item" role="menuitem">
                                     <i class="fas fa-user-edit"></i> Edit Profile
                                 </a>
-                                <a href="/user/wishlist.php" class="dropdown-item" role="menuitem">
+                                <a href="<?php echo $image_base_path; ?>user/wishlist.php" class="dropdown-item" role="menuitem">
                                     <i class="fas fa-heart"></i> Wishlist
                                 </a>
-                                <a href="/user/addresses.php" class="dropdown-item" role="menuitem">
+                                <a href="<?php echo $image_base_path; ?>user/addresses.php" class="dropdown-item" role="menuitem">
                                     <i class="fas fa-map-marker-alt"></i> Addresses
                                 </a>
                                 <hr class="dropdown-divider">
-                                <a href="/user/logout.php" class="dropdown-item logout-item" role="menuitem">
+                                <a href="<?php echo $image_base_path; ?>user/logout.php" class="dropdown-item logout-item" role="menuitem">
                                     <i class="fas fa-sign-out-alt"></i> Logout
                                 </a>
                             </div>
@@ -186,7 +191,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php else: ?>
                         <!-- Login/Register for non-logged-in users -->
                         <div class="auth-buttons">
-                            <a href="/user/login.php" class="user-icon" aria-label="Login">
+                            <a href="<?php echo $image_base_path; ?>user/login.php" class="user-icon" aria-label="Login">
                                 <i class="fas fa-user"></i>
                             </a>
                         </div>
@@ -194,14 +199,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     
                     <!-- Cart Icon -->                        
                     <?php if (isLoggedIn()): ?>
-                        <a href="/order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)" id="mini-cart">
+                        <a href="<?php echo $image_base_path; ?>order/cart_page.php" class="cart-icon" aria-label="Shopping cart (<?php echo $cart_count; ?> items)" id="mini-cart">
                             <i class="fas fa-shopping-cart"></i>
                             <span class="cart-count" id="cart-count"><?php echo $cart_count; ?></span>
                         </a>
                     <?php else: ?>
                         <button class="cart-icon" aria-label="Shopping cart - Login required" id="mini-cart" onclick="checkLogin()">
                             <i class="fas fa-shopping-cart"></i>
-                            <span class="cart-count" id="cart-count">0</span>
+                            <span class="cart-count">0</span>
                         </button>
                     <?php endif; ?>
                     
@@ -210,16 +215,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         <button class="shipping-icon" aria-label="Shipping options" aria-expanded="false">
                             <i class="fas fa-truck"></i>
                         </button>
-                        <div class="dropdown-content" role="menu">
-                            <a href="/order/tracking.php" role="menuitem">
+                        <div class="dropdown-content" role="menu" id="shipping-dropdown-content">
+                            <a href="<?php echo $image_base_path; ?>order/tracking.php" role="menuitem">
                                 <i class="fas fa-search"></i> Track Shipping
                             </a>
                             <?php if (isLoggedIn()): ?>
-                                <a href="/order/history.php" role="menuitem">
+                                <a href="<?php echo $image_base_path; ?>order/history.php" role="menuitem">
                                     <i class="fas fa-history"></i> Order History
                                 </a>
                             <?php endif; ?>
-                            <a href="/shipping-info.php" role="menuitem">
+                            <a href="<?php echo $image_base_path; ?>headerInfo/shipping-info.php" role="menuitem">
                                 <i class="fas fa-info-circle"></i> Shipping Info
                             </a>
                         </div>
@@ -237,10 +242,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Main Navigation -->
         <nav class="main-navigation" role="navigation" aria-label="Main navigation">
             <ul>
-                <li><a href="/index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
-                <li><a href="/userProduct/productList.php" class="<?php echo ($current_page === '/userProduct/productList.php' || $current_page === 'list.php') ? 'active' : ''; ?>">All Products</a></li>
-                <li><a href="/headerInfo/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
-                <li><a href="/headerInfo/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
+                <li><a href="<?php echo $image_base_path; ?>index.php" class="<?php echo ($current_page === 'index.php') ? 'active' : ''; ?>">Home</a></li>
+                <li><a href="<?php echo $image_base_path; ?>userProduct/productList.php" class="<?php echo ($current_page === 'productList.php' || $current_page === 'list.php') ? 'active' : ''; ?>">All Products</a></li>
+                <li><a href="<?php echo $image_base_path; ?>headerInfo/about.php" class="<?php echo ($current_page === 'about.php') ? 'active' : ''; ?>">About Us</a></li>
+                <li><a href="<?php echo $image_base_path; ?>headerInfo/contact.php" class="<?php echo ($current_page === 'contact.php') ? 'active' : ''; ?>">Contact</a></li>
             </ul>
             
             <!-- Mobile Menu Toggle -->
@@ -252,8 +257,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Mobile Navigation -->
         <div class="mobile-navigation" id="mobile-nav">
             <ul>
-                <li><a href="/index.php">Home</a></li>
-                <li><a href="/product/productList.php">All Products</a></li>
+                <li><a href="<?php echo $image_base_path; ?>index.php">Home</a></li>
+                <li><a href="<?php echo $image_base_path; ?>userProduct/productList.php">All Products</a></li>
                 <li>
                     <a href="javascript:void(0)" class="mobile-dropdown-toggle">
                         Categories <i class="fas fa-chevron-down"></i>
@@ -280,14 +285,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         <li><a href="room.php?type=outdoor">Outdoor</a></li>
                     </ul>
                 </li>
-                <li><a href="/headerInfo/about.php">About Us</a></li>
-                <li><a href="/headerInfo/contact.php">Contact</a></li>
+                <li><a href="<?php echo $image_base_path; ?>headerInfo/about.php">About Us</a></li>
+                <li><a href="<?php echo $image_base_path; ?>headerInfo/contact.php">Contact</a></li>
                 <?php if (!isLoggedIn()): ?>
                     <li class="mobile-auth">
-                        <a href="/user/login.php">Login</a>
+                        <a href="<?php echo $image_base_path; ?>user/login.php">Login</a>
                     </li>
                     <li class="mobile-auth">
-                        <a href="/user/register.php">Register</a>
+                        <a href="<?php echo $image_base_path; ?>user/register.php">Register</a>
                     </li>
                 <?php endif; ?>
             </ul>
@@ -340,5 +345,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <?php if (!isset($skip_jquery) || !$skip_jquery): ?>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <?php endif; ?>
-    <script src="/js/script.js"></script>
-    <script src="/js/userproduct.js"></script>
+    
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script src="<?php echo $image_base_path; ?>js/script.js"></script>
+    <script src="<?php echo $image_base_path; ?>js/userproduct.js"></script>
+    
+    
+    <!-- Page-specific JavaScript -->
+    <?php if (isset($page_js)): ?>
+    <script src="<?php echo $page_js; ?>" defer></script>
+    <?php endif; ?>

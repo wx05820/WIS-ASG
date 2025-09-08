@@ -1,6 +1,5 @@
 <?php
 require_once '../_base.php';
-include '../header.php';
 
 // Check if user is logged in
 if (!isLoggedIn()) {
@@ -15,7 +14,7 @@ $userID = $_SESSION['user_id'];
 // Handle cart actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    $prodID = intval($_POST['prodID'] ?? 0);
+    $prodID = trim($_POST['prodID'] ?? '');
     $qty = intval($_POST['qty'] ?? 1);
     
     try {
@@ -156,6 +155,8 @@ $shipping_fee = 8.00;
 $total = $subtotal + $shipping_fee;
 ?>
 
+<?php include '../header.php'; ?>
+
 <link rel="stylesheet" href="../css/cart.css">
 <script src="../js/cart.js" defer></script>
 
@@ -196,9 +197,36 @@ $total = $subtotal + $shipping_fee;
             </div>
         <?php else: ?>
             <div class="cart-content">
-                <div class="cart-items">
+                <div class="cart-controls">
+                    <div class="select-all-container">
+                        <input type="checkbox" id="select-all" class="select-all-checkbox">
+                        <label for="select-all" class="select-all-label">
+                            <span class="checkmark"></span>
+                            Select All Items
+                        </label>
+                    </div>
+                    <div class="selected-info">
+                        <span id="selected-count">0</span> item(s) selected
+                    </div>
+                </div>
+                
+                <div class="cart-items-section">
+                    <div class="cart-items">
                     <?php foreach ($cart_items as $item): ?>
                         <div class="cart-item" data-prod-id="<?= $item['prodID'] ?>">
+                            <div class="item-selection">
+                                <input type="checkbox" 
+                                       class="item-checkbox" 
+                                       id="item-<?= $item['prodID'] ?>" 
+                                       data-prod-id="<?= $item['prodID'] ?>"
+                                       data-price="<?= $item['price'] ?? 0 ?>"
+                                       data-qty="<?= $item['qty'] ?? 1 ?>"
+                                       >
+                                <label for="item-<?= $item['prodID'] ?>" class="checkbox-label">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </div>
+                            
                             <div class="item-image">
                                 <?php if (!empty($item['image1'])): ?>
                                     <img src="data:image/jpeg;base64,<?= base64_encode($item['image1']) ?>" 
@@ -229,10 +257,12 @@ $total = $subtotal + $shipping_fee;
                                 
                                 <div class="item-stock">
                                     <?php if ($item['stock'] > 0): ?>
-                                        <span class="stock-status in-stock">
-                                            <i class="fas fa-check-circle"></i>
-                                            In Stock (<?= $item['stock'] ?> available)
-                                        </span>
+                                        <?php if ($item['stock'] < 10): ?>
+                                            <span class="stock-status low-stock">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                Low Stock - Only <?= $item['stock'] ?> available
+                                            </span>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <span class="stock-status out-of-stock">
                                             <i class="fas fa-times-circle"></i>
@@ -279,25 +309,25 @@ $total = $subtotal + $shipping_fee;
                             </div>
                         </div>
                     <?php endforeach; ?>
-                </div>
-                
-                <div class="cart-summary-section">
+                    </div>
+                    
+                    <div class="cart-summary-section">
                     <div class="summary-card">
                         <h3>Order Summary</h3>
                         
                         <div class="summary-row">
-                            <span>Subtotal (<?= $total_items ?> item<?= $total_items != 1 ? 's' : '' ?>)</span>
-                            <span><?= money($subtotal) ?></span>
+                            <span>Subtotal (<span id="summary-item-count">0</span> item<span id="summary-item-plural">s</span>)</span>
+                            <span id="summary-subtotal">RM 0.00</span>
                         </div>
                         
                         <div class="summary-row">
                             <span>Shipping</span>
-                            <span><?= money($shipping_fee) ?></span>
+                            <span id="summary-shipping"><?= money($shipping_fee) ?></span>
                         </div>
                         
                         <div class="summary-row total">
                             <span>Total</span>
-                            <span><?= money($total) ?></span>
+                            <span id="summary-total">RM 0.00</span>
                         </div>
                         
                         <div class="summary-actions">
@@ -311,11 +341,12 @@ $total = $subtotal + $shipping_fee;
                                 Clear Cart
                             </button>
                             
-                            <a href="checkout.php" class="btn btn-primary btn-checkout">
+                            <button type="button" class="btn btn-primary btn-checkout disabled" id="checkout-selected">
                                 <i class="fas fa-credit-card"></i>
-                                Proceed to Checkout
-                            </a>
+                                Proceed to Checkout (<span id="checkout-count">0</span> items)
+                            </button>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -337,6 +368,10 @@ $total = $subtotal + $shipping_fee;
 
 <form id="clear-form" method="POST" style="display: none;">
     <input type="hidden" name="action" value="clear">
+</form>
+
+<form id="checkout-form" method="POST" action="checkout.php" style="display: none;">
+    <input type="hidden" name="selected_items" id="selected-items">
 </form>
 
 <script>

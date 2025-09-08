@@ -23,16 +23,6 @@ try {
     die("Database connection failed: " . $e->getMessage());
 }
 
-try {
-    $_db = new PDO('mysql:host=localhost;dbname=aikun;charset=utf8mb4', 'root', '', [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
-
 $_err = [];
 
 $public_pages = ['login.php', 'register.php', 'forgot-password.php', 'index.php'];
@@ -108,33 +98,33 @@ function loginUser($user) {
 }
 
 function isLoggedIn() {
-    // Debug: Log session state
-    error_log("isLoggedIn() called - Session data: " . print_r($_SESSION, true));
+    // Debug: Log session state (commented out to prevent output issues)
+    // error_log("isLoggedIn() called - Session data: " . print_r($_SESSION, true));
     
     // Check if session is valid and user is logged in
     if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
-        error_log("isLoggedIn() returning false - logged_in not set or false");
+        // error_log("isLoggedIn() returning false - logged_in not set or false");
         return false;
     }
     if (!isset($_SESSION['user_id'])) {
-        error_log("isLoggedIn() returning false - user_id not set");
+        // error_log("isLoggedIn() returning false - user_id not set");
         return false;
     }
     
     // Check for session timeout (2 hours)
     if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time']) > 7200) {
-        error_log("isLoggedIn() returning false - session timeout");
+        // error_log("isLoggedIn() returning false - session timeout");
         logoutUser();
         return false;
     }
     
     // Additional check: if we have a user_id but no logged_in flag, user is not logged in
     if (isset($_SESSION['user_id']) && !isset($_SESSION['logged_in'])) {
-        error_log("isLoggedIn() returning false - user_id exists but logged_in is false");
+        // error_log("isLoggedIn() returning false - user_id exists but logged_in is false");
         return false;
     }
     
-    error_log("isLoggedIn() returning true");
+    // error_log("isLoggedIn() returning true");
     return true;
 }
 
