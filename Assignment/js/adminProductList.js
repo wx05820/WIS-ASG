@@ -18,8 +18,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const productItems = document.querySelectorAll('.product-list-item');
     productItems.forEach(function(item) {
         item.addEventListener('click', function(e) {
-            // Ignore if clicking interactive elements
-            if (e.target.closest('a') || e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+            // Allow product name links and edit links to work normally
+            if (e.target.closest('.product-name a') || e.target.closest('.product-actions a')) {
+                return; // Let the link work normally
+            }
+            
+            // Ignore other interactive elements but not product name links
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+            
             // animate
             item.classList.remove('product-clicked');
             void item.offsetWidth;
@@ -36,6 +42,22 @@ document.addEventListener('DOMContentLoaded', function() {
             if (bulkPanelOpen) { bulkPanelOpen = false; closeBulkPanel(); } else { bulkPanelOpen = true; openBulkPanel(); }
         });
     }
+
+    // Ensure product name links work properly
+    const productNameLinks = document.querySelectorAll('.product-name a');
+    productNameLinks.forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent row selection when clicking product name
+        });
+    });
+
+    // Ensure edit action links work properly  
+    const editLinks = document.querySelectorAll('.product-actions a');
+    editLinks.forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent row selection when clicking edit
+        });
+    });
 });
 
 function toggleOrder() {
@@ -102,9 +124,16 @@ function handleImageChange(event, prodID) {
         .catch(() => alert('Error uploading image.'));
 }
 
-// Selection behavior: clicking row selects (sets true)
+// Selection behavior: clicking row toggles selection
 function toggleProductSelect(item, event) {
-    if (event && (event.target.closest('a') || event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON')) return;
+    // Allow product name links and edit links to work normally
+    if (event && (event.target.closest('.product-name a') || event.target.closest('.product-actions a'))) {
+        return; // Let the link work normally
+    }
+    
+    // Ignore other interactive elements
+    if (event && (event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON')) return;
+    
     const checkbox = item.querySelector('input[type=checkbox]');
     if (!checkbox) return;
     // Toggle selection: unselect if already selected, select if not
@@ -161,3 +190,45 @@ function closeBulkPanel() { const bulkPanel = document.getElementById('bulk-oper
 
 // Auto-hide success message
 setTimeout(function() { const messageDiv = document.getElementById('success-message'); if (messageDiv) { messageDiv.style.opacity = '0'; setTimeout(() => { messageDiv.style.display = 'none'; }, 500); } }, 2000);
+
+// Auto-hide form messages
+function hideFormMessage() {
+    setTimeout(function() {
+        var msg = document.getElementById('form-message');
+        if (msg) { msg.style.display = 'none'; }
+    }, 2000);
+}
+
+// Add product form category handling
+function initializeAddProductForm() {
+    const catSelect = document.getElementById('catID');
+    const newCatDiv = document.getElementById('new-category-div');
+    const newCatInput = document.getElementById('newCategory');
+    const addProductForm = document.querySelector('.addproduct-form');
+
+    if (catSelect && newCatDiv && newCatInput && addProductForm) {
+        catSelect.addEventListener('change', function() {
+            if (this.value === 'new') {
+                newCatDiv.style.display = 'block';
+                newCatInput.setAttribute('required', 'required');
+            } else {
+                newCatDiv.style.display = 'none';
+                newCatInput.removeAttribute('required');
+            }
+        });
+
+        addProductForm.addEventListener('submit', function(e) {
+            if (catSelect.value === 'new' && newCatInput.value.trim() === '') {
+                alert('Please enter a new category name.');
+                newCatInput.focus();
+                e.preventDefault();
+            }
+        });
+    }
+}
+
+// Initialize form features when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeAddProductForm();
+    hideFormMessage();
+});

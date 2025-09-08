@@ -1168,3 +1168,203 @@ body {
     }
 }
 
+/* Product Detail Page Styles */
+.product-detail-main {
+    padding: 2rem 0;
+    background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
+    min-height: 100vh;
+}
+
+.product-detail-container {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.product-images {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.product-images img {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.product-info {
+    padding: 1rem 0;
+}
+
+.product-details-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.product-details-table td {
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+}
+
+.product-details-table td:first-child {
+    width: 30%;
+    color: var(--text-secondary, #666);
+    font-weight: 600;
+}
+
+.product-details-table td:last-child {
+    color: var(--text-primary, #333);
+    padding-left: 2rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.action-buttons .btn {
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.action-buttons .btn-primary {
+    background: var(--gold-accent, #d4af37);
+    color: var(--wood-dark, #2c1810);
+    border: 2px solid var(--gold-accent, #d4af37);
+}
+
+.action-buttons .btn-primary:hover {
+    background: var(--wood-dark, #2c1810);
+    color: var(--gold-accent, #d4af37);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.action-buttons .btn-secondary {
+    background: transparent;
+    color: var(--text-secondary, #666);
+    border: 2px solid #ddd;
+}
+
+.action-buttons .btn-secondary:hover {
+    background: #f5f5f5;
+    border-color: #bbb;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+    .product-detail-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        padding: 1rem;
+    }
+    
+    .product-details-table td:last-child {
+        padding-left: 1rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+
+/* Update Product Form - Image Upload Styling */
+.product-images-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.image-upload-box {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border: 2px dashed #ddd;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+    transition: all 0.3s ease;
+}
+
+.image-upload-box:hover {
+    border-color: var(--gold-accent, #d4af37);
+    background: linear-gradient(145deg, #fefefe 0%, #f5f5f5 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(212, 175, 55, 0.2);
+}
+
+.image-upload-box input[type="file"] {
+    display: none;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.image-preview img:hover {
+    transform: scale(1.05);
+}
+
+.image-upload-placeholder {
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.image-upload-placeholder:hover {
+    color: var(--gold-accent, #d4af37);
+}
+
+.image-upload-placeholder i {
+    font-size: 24px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .product-images-container {
+        gap: 15px;
+    }
+    
+    .image-upload-box {
+        width: 120px;
+        height: 120px;
+    }
+}
+

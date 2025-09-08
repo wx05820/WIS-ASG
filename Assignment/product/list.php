@@ -32,10 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])
             case 'set_category':
                 $new_category = $_POST['new_category'] ?? '';
                 $new_category_name = $_POST['new_category_name'] ?? '';
-                
-                // Debug information (remove in production)
-                
-                
+                                
                 // If creating a new category
                 if ($new_category === 'new_category' && !empty($new_category_name)) {
                     $newCatName = trim($new_category_name);

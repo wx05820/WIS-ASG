@@ -109,10 +109,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get categories for dropdown
-$cat_sql = "SELECT catID, name FROM category ORDER BY name";
-$cat_stmt = $_db->prepare($cat_sql);
-$cat_stmt->execute();
-$categories = $cat_stmt->fetchAll();
+$categories = [];
+try {
+    $cat_sql = "SELECT catID, name FROM category ORDER BY name";
+    $cat_stmt = $_db->prepare($cat_sql);
+    $cat_stmt->execute();
+    $categories = $cat_stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Debug: Check if categories are loaded
+    if (empty($categories)) {
+        error_log("No categories found in database");
+    }
+} catch (PDOException $e) {
+    error_log("Error loading categories: " . $e->getMessage());
+    $errorMsg = "Could not load categories from database.";
+}
+
+// Debug: Add temporary debug output (remove in production)
+if (isset($_GET['debug'])) {
+    echo "<pre>Debug Info:\n";
+    echo "Categories count: " . count($categories) . "\n";
+    echo "Categories data: " . print_r($categories, true) . "\n";
+    echo "</pre>";
+}
 ?>
 
 <!DOCTYPE html>
@@ -144,12 +163,6 @@ $categories = $cat_stmt->fetchAll();
 		<?php endif; ?>
 		<?php if ($message): ?>
 			<div class="message" id="form-message"> <?php echo htmlspecialchars($message); ?> </div>
-			<script>
-				setTimeout(function() {
-					var msg = document.getElementById('form-message');
-					if (msg) { msg.style.display = 'none'; }
-				}, 2000);
-			</script>
 		<?php endif; ?>
 		<form class="addproduct-form" method="POST" enctype="multipart/form-data">
 
@@ -217,38 +230,21 @@ $categories = $cat_stmt->fetchAll();
 			<select name="catID" required style="width: 300px; padding: 0.5rem 0.7rem" id="catID">
 				<option value="">Select Category</option>
 				<option value="new">+ Add New Category</option>
-				<?php foreach ($categories as $cat): ?>
-					<option value="<?php echo $cat['catID']; ?>" <?php echo ($catID == $cat['catID']) ? 'selected' : ''; ?>> <?php echo htmlspecialchars($cat['name']); ?> </option>
-				<?php endforeach; ?>
+				<?php if (!empty($categories)): ?>
+					<?php foreach ($categories as $cat): ?>
+						<option value="<?php echo htmlspecialchars($cat['catID']); ?>" 
+								<?php echo ($catID == $cat['catID']) ? 'selected' : ''; ?>>
+							<?php echo htmlspecialchars($cat['name']); ?>
+						</option>
+					<?php endforeach; ?>
+				<?php else: ?>
+					<option value="" disabled>No categories available</option>
+				<?php endif; ?>
 			</select>
 			<div id="new-category-div" style="display: none; margin-top: 10px;">
 				<label for="newCategory">New Category Name:</label>
 				<input type="text" name="newCategory" id="newCategory" style="width: 300px; padding: 0.5rem 0.7rem">
 			</div>
-			<script>
-				const catSelect = document.getElementById('catID');
-				const newCatDiv = document.getElementById('new-category-div');
-				const newCatInput = document.getElementById('newCategory');
-				const addProductForm = document.querySelector('.addproduct-form');
-
-				catSelect.addEventListener('change', function() {
-					if (this.value === 'new') {
-						newCatDiv.style.display = 'block';
-						newCatInput.setAttribute('required', 'required');
-					} else {
-						newCatDiv.style.display = 'none';
-						newCatInput. Attribute('required');
-					}
-				});
-
-				addProductForm.addEventListener('submit', function(e) {
-					if (catSelect.value === 'new' && newCatInput.value.trim() === '') {
-						alert('Please enter a new category name.');
-						newCatInput.focus();
-						e.preventDefault();
-					}
-				});
-			</script>
 
 			<label>Product Images:</label>
 			<input type="file" name="images[]" style="width: 400px" accept="image/*" multiple>
@@ -262,6 +258,7 @@ $categories = $cat_stmt->fetchAll();
 			</div>
 		</form>
 	</div>
+	<script src="../js/adminproductlist.js"></script>
 </body>
 <?php include '../footer.php'; ?>
 </html>

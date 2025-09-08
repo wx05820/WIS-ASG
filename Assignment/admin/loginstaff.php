@@ -95,7 +95,7 @@ $page_title = 'Staff Login';
 
         <form method="post" class="form" novalidate>
             <div class="form-group">
-                <label for="login_input">Email or Username</label>
+                <label for="login_input">Email</label>
                 <input 
                     type="text" 
                     id="login_input" 

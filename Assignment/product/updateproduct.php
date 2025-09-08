@@ -241,16 +241,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                 </script>
 
                 <label>Product Images:</label>
-                <div class="product-images-container" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div class="product-images-container">
                     <!-- Image 1 -->
-                    <div class="image-upload-box" style="position: relative; width: 150px; height: 150px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;">
-                        <input type="file" id="image1-input" name="image1" accept="image/*" style="display: none;" onchange="previewImage(this, 'preview1')">
-                        <div id="preview1" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                    <div class="image-upload-box">
+                        <input type="file" id="image1-input" name="image1" accept="image/*" onchange="previewImage(this, 'preview1')">
+                        <div id="preview1" class="image-preview">
                             <?php if (!empty($product['image1'])): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" alt="Product Image 1" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="document.getElementById('image1-input').click();">
+                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" alt="Product Image 1" onclick="document.getElementById('image1-input').click();">
                             <?php else: ?>
-                                <div onclick="document.getElementById('image1-input').click();" style="text-align:center;color:#666;">
-                                    <i class="fas fa-plus" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+                                <div onclick="document.getElementById('image1-input').click();" class="image-upload-placeholder">
+                                    <i class="fas fa-plus"></i>
                                     <span>Add Image 1</span>
                                 </div>
                             <?php endif; ?>
@@ -258,14 +258,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                     </div>
 
                     <!-- Image 2 -->
-                    <div class="image-upload-box" style="position: relative; width: 150px; height: 150px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;">
-                        <input type="file" id="image2-input" name="image2" accept="image/*" style="display: none;" onchange="previewImage(this, 'preview2')">
-                        <div id="preview2" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                    <div class="image-upload-box">
+                        <input type="file" id="image2-input" name="image2" accept="image/*" onchange="previewImage(this, 'preview2')">
+                        <div id="preview2" class="image-preview">
                             <?php if (!empty($product['image2'])): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image2']); ?>" alt="Product Image 2" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="document.getElementById('image2-input').click();">
+                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image2']); ?>" alt="Product Image 2" onclick="document.getElementById('image2-input').click();">
                             <?php else: ?>
-                                <div onclick="document.getElementById('image2-input').click();" style="text-align:center;color:#666;">
-                                    <i class="fas fa-plus" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+                                <div onclick="document.getElementById('image2-input').click();" class="image-upload-placeholder">
+                                    <i class="fas fa-plus"></i>
                                     <span>Add Image 2</span>
                                 </div>
                             <?php endif; ?>
@@ -273,14 +273,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                     </div>
 
                     <!-- Image 3 -->
-                    <div class="image-upload-box" style="position: relative; width: 150px; height: 150px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;">
-                        <input type="file" id="image3-input" name="image3" accept="image/*" style="display: none;" onchange="previewImage(this, 'preview3')">
-                        <div id="preview3" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                    <div class="image-upload-box">
+                        <input type="file" id="image3-input" name="image3" accept="image/*" onchange="previewImage(this, 'preview3')">
+                        <div id="preview3" class="image-preview">
                             <?php if (!empty($product['image3'])): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image3']); ?>" alt="Product Image 3" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="document.getElementById('image3-input').click();">
+                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image3']); ?>" alt="Product Image 3" onclick="document.getElementById('image3-input').click();">
                             <?php else: ?>
-                                <div onclick="document.getElementById('image3-input').click();" style="text-align:center;color:#666;">
-                                    <i class="fas fa-plus" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+                                <div onclick="document.getElementById('image3-input').click();" class="image-upload-placeholder">
+                                    <i class="fas fa-plus"></i>
                                     <span>Add Image 3</span>
                                 </div>
                             <?php endif; ?>
@@ -298,7 +298,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                                 const img = document.createElement('img');
                                 img.src = e.target.result;
                                 img.alt = 'Preview';
-                                img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:pointer;';
                                 img.onclick = function() { input.click(); };
                                 previewBox.appendChild(img);
                             };

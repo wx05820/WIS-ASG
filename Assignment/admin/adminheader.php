@@ -61,7 +61,7 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
 							</div>
 							<hr class="dropdown-divider">
 							<a href="/../user/profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
-							<a href="logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
+							<a href="/admin/logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
 						</div>
 					</div>
 				<?php else: ?>
