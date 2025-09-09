@@ -95,6 +95,10 @@ $page_title = 'Admin Dashboard';
                 <i class="fas fa-users"></i>
                 <span>Manage Users</span>
             </a>
+            <a href="shipping.php" class="action-btn">
+            <i class="fas fa-truck"></i>
+            <span>Shipping</span>
+            </a>
             <a href="contact_messages.php" class="action-btn">
                 <i class="fas fa-envelope"></i>
                 <span>Contact Messages</span>
@@ -110,6 +114,10 @@ $page_title = 'Admin Dashboard';
             <a href="usermanage/adduser.php" class="action-btn">
                 <i class="fas fa-user-plus"></i>
                 <span>Add Staff</span>
+            </a>
+            <a href="addvoucher.php" class="action-btn">
+            <i class="fas fa-ticket"></i>
+            <span>Add Voucher</span>
             </a>
         </div>
     </div>
