@@ -1840,3 +1840,91 @@ function sendStaffRemovalEmail($staff_email, $staff_name, $reason = '') {
         return false;
     }
 }
+
+/**
+ * Validate voucher code and return voucher details if valid
+ * @param string $code Voucher code to validate
+ * @param float $order_amount Order amount to check against minimum requirements
+ * @return array|false Returns voucher array if valid, false if invalid
+ */
+function validateVoucher($code, $order_amount = 0) {
+    global $_db;
+    
+    try {
+        $stmt = $_db->prepare("
+            SELECT * FROM voucher 
+            WHERE code = ? 
+            AND is_active = 1 
+            AND start_date <= CURDATE() 
+            AND end_date >= CURDATE()
+            AND (usage_limit IS NULL OR current_usage < usage_limit)
+        ");
+        $stmt->execute([$code]);
+        $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$voucher) {
+            return false;
+        }
+        
+        // Check minimum order amount
+        if ($order_amount < $voucher['minOrderAmount']) {
+            return false;
+        }
+        
+        return $voucher;
+        
+    } catch (PDOException $e) {
+        error_log("Voucher validation error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Calculate discount amount based on voucher
+ * @param array $voucher Voucher details
+ * @param float $order_amount Order amount
+ * @return float Discount amount
+ */
+function calculateVoucherDiscount($voucher, $order_amount) {
+    $discount = 0;
+    
+    switch ($voucher['discount_type']) {
+        case 'Percentage':
+            $discount = ($order_amount * $voucher['value']) / 100;
+            // Apply maximum discount limit if set
+            if ($voucher['maxDiscountAmount'] && $discount > $voucher['maxDiscountAmount']) {
+                $discount = $voucher['maxDiscountAmount'];
+            }
+            break;
+            
+        case 'Fixed':
+            $discount = $voucher['value'];
+            break;
+            
+        case 'Free Shipping':
+            // This would be handled separately in shipping calculation
+            $discount = 0;
+            break;
+    }
+    
+    return $discount;
+}
+
+/**
+ * Apply voucher usage (increment current_usage)
+ * @param int $voucher_id Voucher ID
+ * @return bool Success status
+ */
+function applyVoucherUsage($voucher_id) {
+    global $_db;
+    
+    try {
+        $stmt = $_db->prepare("UPDATE voucher SET current_usage = current_usage + 1 WHERE voucher_id = ?");
+        $stmt->execute([$voucher_id]);
+        return true;
+        
+    } catch (PDOException $e) {
+        error_log("Voucher usage update error: " . $e->getMessage());
+        return false;
+    }
+}

@@ -63,7 +63,7 @@ $error_msg = get_temp('error');
     <link rel="stylesheet" href="../../css/userlist.css">
     <link rel="stylesheet" href="../../css/products.css">
 </head>
-<body class="product-list-main" style="margin-top:0; padding-top:0;">
+<body class="product-list-main">
 
     <?php include '../adminheader.php'; ?>
     <script src="../../js/adminProductList.js"></script>
