@@ -317,9 +317,6 @@ try {
 
     <div class="container">
         <div class="reports-container">
-            <div class="reports-header">
-                <h1><i class="fas fa-chart-bar"></i> Reports & Analytics</h1>
-            </div>
 
             <!-- Date Filter -->
             <div class="date-filter">
