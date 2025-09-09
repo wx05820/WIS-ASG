@@ -60,11 +60,11 @@ try {
             u.name,
             u.email,
             COUNT(o.orderID) as order_count,
-            SUM(o.total_amount) as total_spent,
-            MAX(o.created_at) as last_order
+            SUM(CASE WHEN o.status NOT IN ('Refunded', 'Cancelled') THEN o.total ELSE 0 END) as total_spent,
+            MAX(o.orderDate) as last_order
         FROM user u
-        LEFT JOIN orders o ON u.userID = o.userID 
-            AND o.created_at BETWEEN ? AND ? + INTERVAL 1 DAY
+        LEFT JOIN `order` o ON u.userID = o.userID 
+            AND o.orderDate BETWEEN ? AND ? + INTERVAL 1 DAY
         WHERE u.role = 'Customer'
         GROUP BY u.userID, u.username, u.name, u.email
         HAVING order_count > 0
@@ -114,13 +114,13 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?> - AiKUN Furniture</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/adminheader.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../css/userlist.css">
-    <link rel="stylesheet" href="../css/products.css">
     <style>
         .reports-container {
             padding: 20px;
+            max-width: 1200px;
             margin: 0 auto;
         }
         .reports-header {
@@ -159,52 +159,14 @@ try {
             font-size: 14px;
         }
         .btn {
-            /* use inline-flex to center icon + label and enforce consistent height */
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 30px;
-            height: 42px; /* increased height for a larger appearance */
-            padding: 0 16px; /* horizontal padding only; height is fixed */
+            padding: 8px 20px;
             background: #8B4513;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 4px;
             cursor: pointer;
             text-decoration: none;
-            line-height: normal;
-            font-weight: 600;
-        }
-        /* smaller button modifier used for filter/reset buttons */
-        .btn-lg {
-            /* keep same fixed height for large modifier */
-            height: 42px;
-            padding: 0 16px;
-            font-size: 1.05rem;
-        }
-        /* reset/secondary button style */
-        .btn.btn-reset {
-            background: #6c757d;
-        }
-        .btn.btn-reset:hover {
-            background: #5a6268;
-        }
-        .form-actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            margin-left: auto; /* push actions to the right */
-            margin-top: 0;
-        }
-
-        /* on small screens, stack/center the actions below inputs */
-        @media (max-width: 768px) {
-            .form-actions {
-                width: 100%;
-                margin-left: 0;
-                justify-content: center;
-                margin-top: 8px;
-            }
+            display: inline-block;
         }
         .btn:hover {
             background: #A0522D;
@@ -222,22 +184,6 @@ try {
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             text-align: center;
             border-left: 4px solid #8B4513;
-        }
-        .summary-card:nth-child(1) {
-            background: #e3f2fd;
-            border-left-color: #1976d2;
-        }
-        .summary-card:nth-child(2) {
-            background: #fff3e0;
-            border-left-color: #f57c00;
-        }
-        .summary-card:nth-child(3) {
-            background: #e8f5e9;
-            border-left-color: #388e3c;
-        }
-        .summary-card:nth-child(4) {
-            background: #fce4ec;
-            border-left-color: #c2185b;
         }
         .summary-card h3 {
             margin: 0 0 10px 0;
@@ -312,171 +258,171 @@ try {
     </style>
 </head>
 
-<body class="product-list-main" style="margin-top:0; padding-top:0;">
+<body>
     <?php include 'adminheader.php'; ?>
 
-    <div class="container">
-        <div class="reports-container">
+    <div class="reports-container">
+        <div class="reports-header">
+            <h1><i class="fas fa-chart-bar"></i> Reports & Analytics</h1>
+            <p>Comprehensive business insights and performance metrics</p>
+        </div>
 
-            <!-- Date Filter -->
-            <div class="date-filter">
-                <form method="GET">
-                    <div class="form-group">
-                        <label for="start_date">Start Date:</label>
-                        <input type="date" id="start_date" name="start_date" value="<?php echo $start_date; ?>" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="end_date">End Date:</label>
-                        <input type="date" id="end_date" name="end_date" value="<?php echo $end_date; ?>" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-lg">
-                            <i class="fas fa-filter"></i> Apply Filter
-                        </button>
-                        <a href="report.php" class="btn btn-lg btn-reset">
-                            <i class="fas fa-refresh"></i> Reset
-                        </a>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Summary Cards -->
-            <div class="summary-cards">
-                <div class="summary-card">
-                    <h3>Total Orders</h3>
-                    <p class="number"><?php echo number_format($summary->total_orders); ?></p>
+        <!-- Date Filter -->
+        <div class="date-filter">
+            <form method="GET">
+                <div class="form-group">
+                    <label for="start_date">Start Date:</label>
+                    <input type="date" id="start_date" name="start_date" value="<?php echo $start_date; ?>" required>
                 </div>
-                <div class="summary-card">
-                    <h3>Total Revenue</h3>
-                    <p class="number">RM <?php echo number_format($summary->total_revenue, 2); ?></p>
+                <div class="form-group">
+                    <label for="end_date">End Date:</label>
+                    <input type="date" id="end_date" name="end_date" value="<?php echo $end_date; ?>" required>
                 </div>
-                <div class="summary-card">
-                    <h3>Average Order Value</h3>
-                    <p class="number">RM <?php echo number_format($summary->avg_order_value, 2); ?></p>
-                </div>
-                <div class="summary-card">
-                    <h3>Unique Customers</h3>
-                    <p class="number"><?php echo number_format($summary->unique_customers); ?></p>
-                </div>
-            </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-filter"></i> Apply Filter
+                </button>
+                <a href="report.php" class="btn" style="background: #6c757d;">
+                    <i class="fas fa-refresh"></i> Reset
+                </a>
+            </form>
+        </div>
 
-            <!-- Sales Report -->
-            <div class="report-section">
-                <h3><i class="fas fa-chart-line"></i> Daily Sales Report</h3>
-                <?php if (empty($sales_data)): ?>
-                    <div class="no-data">No sales data found for the selected period.</div>
-                <?php else: ?>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Orders</th>
-                                <th>Total Sales</th>
-                                <th>Average Order Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($sales_data as $day): ?>
-                                <tr>
-                                    <td><?php echo date('M j, Y', strtotime($day['order_date'])); ?></td>
-                                    <td><?php echo number_format($day['order_count']); ?></td>
-                                    <td>RM <?php echo number_format($day['total_sales'], 2); ?></td>
-                                    <td>RM <?php echo number_format($day['avg_order_value'], 2); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card">
+                <h3>Total Orders</h3>
+                <p class="number"><?php echo number_format($summary->total_orders); ?></p>
             </div>
+            <div class="summary-card">
+                <h3>Total Revenue</h3>
+                <p class="number">RM <?php echo number_format($summary->total_revenue, 2); ?></p>
+            </div>
+            <div class="summary-card">
+                <h3>Average Order Value</h3>
+                <p class="number">RM <?php echo number_format($summary->avg_order_value, 2); ?></p>
+            </div>
+            <div class="summary-card">
+                <h3>Unique Customers</h3>
+                <p class="number"><?php echo number_format($summary->unique_customers); ?></p>
+            </div>
+        </div>
 
-            <!-- Product Performance -->
-            <div class="report-section">
-                <h3><i class="fas fa-box"></i> Top Performing Products</h3>
-                <?php if (empty($product_performance)): ?>
-                    <div class="no-data">No product sales data found for the selected period.</div>
-                <?php else: ?>
-                    <table class="table">
-                        <thead>
+        <!-- Sales Report -->
+        <div class="report-section">
+            <h3><i class="fas fa-chart-line"></i> Daily Sales Report</h3>
+            <?php if (empty($sales_data)): ?>
+                <div class="no-data">No sales data found for the selected period.</div>
+            <?php else: ?>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Orders</th>
+                            <th>Total Sales</th>
+                            <th>Average Order Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($sales_data as $day): ?>
                             <tr>
-                                <th>Product Name</th>
-                                <th>Price</th>
-                                <th>Units Sold</th>
-                                <th>Revenue</th>
-                                <th>Current Stock</th>
+                                <td><?php echo date('M j, Y', strtotime($day['order_date'])); ?></td>
+                                <td><?php echo number_format($day['order_count']); ?></td>
+                                <td>RM <?php echo number_format($day['total_sales'], 2); ?></td>
+                                <td>RM <?php echo number_format($day['avg_order_value'], 2); ?></td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($product_performance as $product): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($product['prodName']); ?></td>
-                                    <td>RM <?php echo number_format($product['price'], 2); ?></td>
-                                    <td><?php echo number_format($product['total_sold']); ?></td>
-                                    <td>RM <?php echo number_format($product['total_revenue'], 2); ?></td>
-                                    <td><?php echo number_format($product['current_stock']); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
-            </div>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
 
-            <!-- Customer Analysis -->
-            <div class="report-section">
-                <h3><i class="fas fa-users"></i> Top Customers</h3>
-                <?php if (empty($customer_analysis)): ?>
-                    <div class="no-data">No customer data found for the selected period.</div>
-                <?php else: ?>
-                    <table class="table">
-                        <thead>
+        <!-- Product Performance -->
+        <div class="report-section">
+            <h3><i class="fas fa-box"></i> Top Performing Products</h3>
+            <?php if (empty($product_performance)): ?>
+                <div class="no-data">No product sales data found for the selected period.</div>
+            <?php else: ?>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Price</th>
+                            <th>Units Sold</th>
+                            <th>Revenue</th>
+                            <th>Current Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($product_performance as $product): ?>
                             <tr>
-                                <th>Customer</th>
-                                <th>Email</th>
-                                <th>Orders</th>
-                                <th>Total Spent</th>
-                                <th>Last Order</th>
+                                <td><?php echo htmlspecialchars($product['prodName']); ?></td>
+                                <td>RM <?php echo number_format($product['price'], 2); ?></td>
+                                <td><?php echo number_format($product['total_sold']); ?></td>
+                                <td>RM <?php echo number_format($product['total_revenue'], 2); ?></td>
+                                <td><?php echo number_format($product['current_stock']); ?></td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($customer_analysis as $customer): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($customer['name'] ?: $customer['username']); ?></td>
-                                    <td><?php echo htmlspecialchars($customer['email']); ?></td>
-                                    <td><?php echo number_format($customer['order_count']); ?></td>
-                                    <td>RM <?php echo number_format($customer['total_spent'], 2); ?></td>
-                                    <td><?php echo date('M j, Y', strtotime($customer['last_order'])); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
-            </div>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
 
-            <!-- Contact Messages Report -->
-            <div class="report-section">
-                <h3><i class="fas fa-envelope"></i> Contact Messages Summary</h3>
-                <?php if (empty($contact_report)): ?>
-                    <div class="no-data">No contact messages found for the selected period.</div>
-                <?php else: ?>
-                    <table class="table">
-                        <thead>
+        <!-- Customer Analysis -->
+        <div class="report-section">
+            <h3><i class="fas fa-users"></i> Top Customers</h3>
+            <?php if (empty($customer_analysis)): ?>
+                <div class="no-data">No customer data found for the selected period.</div>
+            <?php else: ?>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Orders</th>
+                            <th>Total Spent</th>
+                            <th>Last Order</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($customer_analysis as $customer): ?>
                             <tr>
-                                <th>Priority</th>
-                                <th>Status</th>
-                                <th>Count</th>
+                                <td><?php echo htmlspecialchars($customer['name'] ?: $customer['username']); ?></td>
+                                <td><?php echo htmlspecialchars($customer['email']); ?></td>
+                                <td><?php echo number_format($customer['order_count']); ?></td>
+                                <td>RM <?php echo number_format($customer['total_spent'], 2); ?></td>
+                                <td><?php echo date('M j, Y', strtotime($customer['last_order'])); ?></td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($contact_report as $report): ?>
-                                <tr>
-                                    <td><span class="priority-<?php echo strtolower($report['priority']); ?>"><?php echo ucfirst($report['priority']); ?></span></td>
-                                    <td><span class="status-<?php echo strtolower($report['status']); ?>"><?php echo ucfirst($report['status']); ?></span></td>
-                                    <td><?php echo number_format($report['count']); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
-            </div>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+
+        <!-- Contact Messages Report -->
+        <div class="report-section">
+            <h3><i class="fas fa-envelope"></i> Contact Messages Summary</h3>
+            <?php if (empty($contact_report)): ?>
+                <div class="no-data">No contact messages found for the selected period.</div>
+            <?php else: ?>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($contact_report as $report): ?>
+                            <tr>
+                                <td><span class="priority-<?php echo strtolower($report['priority']); ?>"><?php echo ucfirst($report['priority']); ?></span></td>
+                                <td><span class="status-<?php echo strtolower($report['status']); ?>"><?php echo ucfirst($report['status']); ?></span></td>
+                                <td><?php echo number_format($report['count']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
     </div>
 

@@ -638,8 +638,18 @@ function sendContactReplyEmail($message_id, $reply_message) {
         $mail->addAddress($message->email, $message->customer_name ?: $message->name);
         $mail->Subject = 'Re: ' . $message->subject . ' - AiKUN Furniture';
         
+        // Add company logo as embedded image
+        $logo_path = __DIR__ . '/images/logo.png';
+        if (file_exists($logo_path)) {
+            $mail->addEmbeddedImage($logo_path, 'company_logo', 'logo.png');
+        }
+        
         $mail->Body = "
-            <h2>Reply from AiKUN Furniture</h2>
+            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+                <div style='text-align: center; margin-bottom: 30px;'>
+                    <img src='cid:company_logo' alt='AiKUN Furniture' style='max-width: 150px; height: auto; margin-bottom: 15px;'>
+                </div>
+                <h2>Reply from AiKUN Furniture</h2>
             <p>Dear " . htmlspecialchars($message->name) . ",</p>
             
             <p>Thank you for contacting us. Here is our reply to your message:</p>
@@ -666,6 +676,7 @@ function sendContactReplyEmail($message_id, $reply_message) {
                 This is an automated reply. Please do not reply to this email directly.
                 If you need to contact us, please use our contact form or call us directly.
             </p>
+            </div>
         ";
         
         $mail->isHTML(true);
@@ -1286,6 +1297,33 @@ function checkLogin(){
     }
 }
 
+function checkUserStatus(){
+    global $_db;
+    
+    if (!isset($_SESSION['user_id'])) {
+        return; // Let checkLogin() handle this
+    }
+    
+    try {
+        $stmt = $_db->prepare('SELECT status FROM user WHERE userID = ?');
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch();
+        
+        if ($user && $user->status === 'Banned') {
+            // Clear session data
+            session_destroy();
+            session_start();
+            
+            $_SESSION['error'] = "Your account has been suspended due to a violation of our terms of service. Please contact our support team for assistance.";
+            header('Location: /user/login.php');
+            exit;
+        }
+    } catch (PDOException $e) {
+        error_log("User status check error: " . $e->getMessage());
+        // Don't block user if there's a database error
+    }
+}
+
 function getCartCount($user_id) {
     global $_db;
     
@@ -1647,4 +1685,158 @@ function runStockMonitoring($threshold = 5) {
         'threshold' => $threshold,
         'products' => $stockData
     ];
+}
+
+function sendBanNotificationEmail($user_email, $user_name, $reason = '') {
+    try {
+        $mail = get_mail();
+        $mail->addAddress($user_email, $user_name);
+        $mail->Subject = 'Account Suspension Notice - AiKUN Furniture';
+        
+        // Add company logo as embedded image
+        $logo_path = __DIR__ . '/images/logo.png';
+        if (file_exists($logo_path)) {
+            $mail->addEmbeddedImage($logo_path, 'company_logo', 'logo.png');
+        }
+        
+        $mail->Body = "
+            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+                <div style='text-align: center; margin-bottom: 30px;'>
+                    <img src='cid:company_logo' alt='AiKUN Furniture' style='max-width: 150px; height: auto; margin-bottom: 15px;'>
+                    <h1 style='color: #dc3545; margin: 0;'>⚠️ Account Suspended</h1>
+                    <p style='color: #666; margin: 10px 0;'>AiKUN Furniture</p>
+                </div>
+                
+                <div style='background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;'>
+                    <h2 style='color: #333; margin-top: 0;'>Dear " . htmlspecialchars($user_name) . ",</h2>
+                    
+                    <p>We regret to inform you that your account has been suspended due to a violation of our terms of service.</p>
+                    
+                    " . (!empty($reason) ? "
+                    <div style='background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 15px 0;'>
+                        <strong>Reason for suspension:</strong><br>
+                        " . htmlspecialchars($reason) . "
+                    </div>
+                    " : "") . "
+                    
+                    <p><strong>What this means:</strong></p>
+                    <ul>
+                        <li>You will no longer be able to access your account</li>
+                        <li>All pending orders have been cancelled</li>
+                        <li>Your account data will be retained for security purposes</li>
+                    </ul>
+                    
+                    <p>If you believe this suspension is in error, please contact our support team immediately.</p>
+                </div>
+                
+                <div style='background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
+                    <h3 style='color: #007bff; margin-top: 0;'>Contact Support</h3>
+                    <p>Email: support@aikunfurniture.com<br>
+                    Phone: +60 12-345-6789<br>
+                    Hours: Monday - Friday, 9:00 AM - 6:00 PM</p>
+                </div>
+                
+                <div style='text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;'>
+                    <p style='color: #666; font-size: 12px; margin: 0;'>
+                        This is an automated notification. Please do not reply to this email directly.
+                    </p>
+                    <p style='color: #666; font-size: 12px; margin: 5px 0 0 0;'>
+                        © " . date('Y') . " AiKUN Furniture. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        ";
+        
+        $mail->isHTML(true);
+        $result = $mail->send();
+        
+        if ($result) {
+            error_log("Ban notification email sent successfully to: " . $user_email);
+        } else {
+            error_log("Failed to send ban notification email: " . $mail->ErrorInfo);
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log("Ban notification email error: " . $e->getMessage());
+        return false;
+    }
+}
+
+function sendStaffRemovalEmail($staff_email, $staff_name, $reason = '') {
+    try {
+        $mail = get_mail();
+        $mail->addAddress($staff_email, $staff_name);
+        $mail->Subject = 'Staff Account Removal Notice - AiKUN Furniture';
+        
+        // Add company logo as embedded image
+        $logo_path = __DIR__ . '/images/logo.png';
+        if (file_exists($logo_path)) {
+            $mail->addEmbeddedImage($logo_path, 'company_logo', 'logo.png');
+        }
+        
+        $mail->Body = "
+            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
+                <div style='text-align: center; margin-bottom: 30px;'>
+                    <img src='cid:company_logo' alt='AiKUN Furniture' style='max-width: 150px; height: auto; margin-bottom: 15px;'>
+                    <h1 style='color: #dc3545; margin: 0;'>👋 Staff Account Removed</h1>
+                    <p style='color: #666; margin: 10px 0;'>AiKUN Furniture</p>
+                </div>
+                
+                <div style='background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;'>
+                    <h2 style='color: #333; margin-top: 0;'>Dear " . htmlspecialchars($staff_name) . ",</h2>
+                    
+                    <p>We are writing to inform you that your staff account has been removed from our system.</p>
+                    
+                    " . (!empty($reason) ? "
+                    <div style='background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 15px 0;'>
+                        <strong>Reason for removal:</strong><br>
+                        " . htmlspecialchars($reason) . "
+                    </div>
+                    " : "") . "
+                    
+                    <p><strong>What this means:</strong></p>
+                    <ul>
+                        <li>You no longer have access to the staff portal</li>
+                        <li>All administrative privileges have been revoked</li>
+                        <li>Your staff account data has been removed from our system</li>
+                    </ul>
+                    
+                    <p>If you have any questions about this decision, please contact the system administrator.</p>
+                </div>
+                
+                <div style='background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
+                    <h3 style='color: #007bff; margin-top: 0;'>Contact Administrator</h3>
+                    <p>Email: admin@aikunfurniture.com<br>
+                    Phone: +60 12-345-6789<br>
+                    Hours: Monday - Friday, 9:00 AM - 6:00 PM</p>
+                </div>
+                
+                <div style='text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;'>
+                    <p style='color: #666; font-size: 12px; margin: 0;'>
+                        This is an automated notification. Please do not reply to this email directly.
+                    </p>
+                    <p style='color: #666; font-size: 12px; margin: 5px 0 0 0;'>
+                        © " . date('Y') . " AiKUN Furniture. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        ";
+        
+        $mail->isHTML(true);
+        $result = $mail->send();
+        
+        if ($result) {
+            error_log("Staff removal email sent successfully to: " . $staff_email);
+        } else {
+            error_log("Failed to send staff removal email: " . $mail->ErrorInfo);
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log("Staff removal email error: " . $e->getMessage());
+        return false;
+    }
 }

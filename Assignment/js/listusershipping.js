@@ -168,9 +168,16 @@ const ListUserShipping = {
         const dateFilter = document.getElementById('dateFilter').value;
         const orderCards = document.querySelectorAll('.order-card');
         
+        console.log('filterOrders called with:', {
+            searchTerm,
+            statusFilter,
+            dateFilter,
+            orderCardsCount: orderCards.length
+        });
+        
         let visibleCount = 0;
         
-        orderCards.forEach(card => {
+        orderCards.forEach((card, index) => {
             const orderid = card.dataset.orderid.toLowerCase();
             const userid = card.dataset.userid.toLowerCase();
             const status = card.dataset.status;
@@ -209,6 +216,20 @@ const ListUserShipping = {
                 }
             }
             
+            // Debug first few cards
+            if (index < 3) {
+                console.log(`Card ${index}:`, {
+                    orderid,
+                    userid,
+                    status,
+                    date,
+                    matchesSearch,
+                    matchesStatus,
+                    matchesDate,
+                    willShow: matchesSearch && matchesStatus && matchesDate
+                });
+            }
+            
             // Show/hide card based on all filters
             if (matchesSearch && matchesStatus && matchesDate) {
                 card.style.display = 'flex';
@@ -221,6 +242,13 @@ const ListUserShipping = {
         // Show/hide no results message
         const noOrdersDiv = document.getElementById('noDataMessage');
         const ordersContainer = document.querySelector('.orders-table-container');
+        
+        console.log('Filter results:', {
+            visibleCount,
+            totalCards: orderCards.length,
+            noOrdersDiv: !!noOrdersDiv,
+            ordersContainer: !!ordersContainer
+        });
         
         if (visibleCount === 0) {
             if (noOrdersDiv) noOrdersDiv.style.display = 'block';
@@ -353,5 +381,24 @@ window.navigateToUserDetail = function(userID) {
 document.addEventListener('DOMContentLoaded', function() {
     // Determine page type based on URL or specific elements
     const pageType = window.location.pathname.includes('shipping.php') ? 'shipping' : 'users';
+    console.log('Initializing ListUserShipping with pageType:', pageType);
+    console.log('Current URL:', window.location.pathname);
+    
+    // Check if required elements exist
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const orderCards = document.querySelectorAll('.order-card');
+    
+    console.log('Elements found:');
+    console.log('- searchInput:', searchInput);
+    console.log('- statusFilter:', statusFilter);
+    console.log('- orderCards count:', orderCards.length);
+    
     ListUserShipping.init(pageType);
+    
+    // Force initial filter after a short delay
+    setTimeout(() => {
+        console.log('Running initial filter...');
+        ListUserShipping.filterItems();
+    }, 100);
 });

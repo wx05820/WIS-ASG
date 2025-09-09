@@ -11,6 +11,9 @@ if (!isLoggedIn()) {
 
 $userID = $_SESSION['user_id'];
 
+// Check if user is banned
+checkUserStatus();
+
 // Handle cart actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';

@@ -90,6 +90,9 @@ if (!isLoggedIn()) {
     }
 }
 
+// Check if user is banned
+checkUserStatus();
+
 // Validate request method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     if ($isAjax) {

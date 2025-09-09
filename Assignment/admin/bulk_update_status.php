@@ -3,7 +3,7 @@ require_once '../_base.php';
 
 
 if (!isStaffAdmin()) {
-    redirect('../loginstaff.php');
+    redirect('loginstaff.php');
     exit;
 }
 
@@ -28,8 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // Validate status value
-    $valid_statuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Refunded'];
+    // Validate status value - only shipping-related statuses
+    $valid_statuses = ['Pending', 'Processing', 'Shipped', 'Delivered'];
     if (!in_array($bulk_status, $valid_statuses)) {
         temp('error', 'Invalid status value');
         redirect('shipping.php');
