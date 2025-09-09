@@ -221,7 +221,7 @@ $error_msg = get_temp('error');
                         <!-- Action Button -->
                         <div class="user-actions" onclick="event.stopPropagation();">
                             <?php if ($user->status === 'Active'): ?>
-                                <?php if ($user->role === 'Admin' || $user->role === 'Supervisor'): ?>
+                                <?php if ($user->role === 'Admin' || $user->role === 'Supervisor' ||$user->role === 'SuperAdmin'): ?>
                                     <form method="post" style="display: inline;">
                                         <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
                                         <input type="hidden" name="action" value="delete">

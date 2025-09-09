@@ -4,7 +4,7 @@ include '../lib/SimplePager.php';
 
 // Check if user is admin
 if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
-    redirect('loginstaff.php');
+    redirect('/admin/loginstaff.php');
 }
 
 // Determine ID sort order
@@ -116,11 +116,14 @@ $chart_data = [];
 $chart_colors = [];
 
 $status_color_map = [
-    'Pending' => '#FF6384',    // Red
+    'Pending' => '#FF6384',    // Red/Pink
     'Processing' => '#36A2EB', // Blue  
     'Shipped' => '#FFCE56',    // Yellow
     'Delivered' => '#4BC0C0',  // Teal
-    'Refunded' => '#FF9F40'    // Orange (changed from pink to avoid confusion)
+    'Refunded' => '#FF9F40',   // Orange
+    'Received' => '#8B5A2B',   // Brown (wood color)
+    'Cancelled' => '#6C757D',  // Gray
+    'Completed' => '#28A745'   // Green
 ];
 
 foreach ($status_stats as $stat) {
@@ -168,7 +171,10 @@ include 'adminheader.php';
                         'Processing' => ['color' => '#36A2EB', 'bg' => '#cce5ff', 'border' => '#74c0fc'],
                         'Shipped' => ['color' => '#FFCE56', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
                         'Delivered' => ['color' => '#4BC0C0', 'bg' => '#d4edda', 'border' => '#c3e6cb'],
-                        'Refunded' => ['color' => '#FF9F40', 'bg' => '#fff3cd', 'border' => '#ffeaa7']
+                        'Refunded' => ['color' => '#FF9F40', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
+                        'Received' => ['color' => '#8B5A2B', 'bg' => '#f5f5dc', 'border' => '#deb887'],
+                        'Cancelled' => ['color' => '#6C757D', 'bg' => '#f8f9fa', 'border' => '#dee2e6'],
+                        'Completed' => ['color' => '#28A745', 'bg' => '#d4edda', 'border' => '#c3e6cb']
                     ];
                     
                     // Show legend items in the same order as the chart data
@@ -328,7 +334,6 @@ include 'adminheader.php';
                                     <option value="Processing" <?php echo $order->status === 'Processing' ? 'selected' : ''; ?>>Processing</option>
                                     <option value="Shipped" <?php echo $order->status === 'Shipped' ? 'selected' : ''; ?>>Shipped</option>
                                     <option value="Delivered" <?php echo $order->status === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
-                                    <option value="Refunded" <?php echo $order->status === 'Refunded' ? 'selected' : ''; ?>>Refunded</option>
                                 </select>
                             </form>
                             <div class="order-shipping-method">
