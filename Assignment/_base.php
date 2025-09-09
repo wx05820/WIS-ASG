@@ -1319,3 +1319,332 @@ function refreshCartCount($user_id) {
     // Clear any cached cart data if you have any
     return getCartCount($user_id);
 }
+
+// ========================================
+// STOCK TRACKING FUNCTIONS
+// ========================================
+
+/**
+ * Check for low stock products and send email alerts to admins
+ * @param int $threshold - Stock level threshold (default: 10)
+ * @return array - Array of low stock products
+ */
+function checkLowStockProducts($threshold = 5) {
+    global $_db;
+    
+    try {
+        // Simple approach - just get basic info that we know works
+        // Get products with stock below threshold (but not zero)
+        $stmt = $_db->prepare("
+            SELECT prodID, name, qty
+            FROM product 
+            WHERE qty <= ? AND qty > 0 AND (status != 'removed' OR status IS NULL OR status = '')
+            ORDER BY qty ASC
+        ");
+        $stmt->execute([$threshold]);
+        $lowStockProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Get out of stock products (qty = 0)
+        $stmt = $_db->prepare("
+            SELECT prodID, name, qty
+            FROM product 
+            WHERE qty = 0 AND (status != 'removed' OR status IS NULL OR status = '')
+            ORDER BY name ASC
+        ");
+        $stmt->execute();
+        $outOfStockProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Add default values for missing columns
+        foreach ($lowStockProducts as &$product) {
+            if (!isset($product['price'])) $product['price'] = 0;
+            if (!isset($product['category'])) $product['category'] = 'Unknown';
+        }
+        
+        foreach ($outOfStockProducts as &$product) {
+            if (!isset($product['price'])) $product['price'] = 0;
+            if (!isset($product['category'])) $product['category'] = 'Unknown';
+        }
+        
+        // Debug logging
+        error_log("checkLowStockProducts - Threshold: $threshold, Low stock found: " . count($lowStockProducts) . ", Out of stock found: " . count($outOfStockProducts));
+        
+        return [
+            'low_stock' => $lowStockProducts,
+            'out_of_stock' => $outOfStockProducts,
+            'threshold' => $threshold
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("Stock check PDO error: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        return ['low_stock' => [], 'out_of_stock' => [], 'threshold' => $threshold, 'error' => $e->getMessage()];
+    } catch (Exception $e) {
+        error_log("Stock check general error: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        return ['low_stock' => [], 'out_of_stock' => [], 'threshold' => $threshold, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Send low stock alert email to all admin users
+ * @param array $stockData - Data from checkLowStockProducts()
+ * @return bool - Success status
+ */
+function sendLowStockAlert($stockData) {
+    global $_db;
+    
+    try {
+        // Get all admin email addresses
+        $stmt = $_db->prepare("
+            SELECT email, username 
+            FROM user 
+            WHERE role IN ('Admin', 'SuperAdmin') AND email IS NOT NULL AND email != ''
+        ");
+        $stmt->execute();
+        $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($admins)) {
+            error_log("No admin emails found for stock alert");
+            return false;
+        }
+        
+        $lowStockProducts = $stockData['low_stock'];
+        $outOfStockProducts = $stockData['out_of_stock'];
+        $threshold = $stockData['threshold'];
+        
+        // Don't send email if no low stock products
+        if (empty($lowStockProducts) && empty($outOfStockProducts)) {
+            return true;
+        }
+        
+        // Prepare email content
+        $subject = "🚨 Low Stock Alert - AiKUN Furniture";
+        $emailBody = generateStockAlertEmail($lowStockProducts, $outOfStockProducts, $threshold);
+        
+        // Send email to each admin
+        $successCount = 0;
+        foreach ($admins as $admin) {
+            if (sendStockAlertEmail($admin['email'], $admin['username'], $subject, $emailBody)) {
+                $successCount++;
+            }
+        }
+        
+        // Log stock alert activity
+        logStockAlert($lowStockProducts, $outOfStockProducts, $successCount);
+        
+        return $successCount > 0;
+        
+    } catch (Exception $e) {
+        error_log("Stock alert error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Generate HTML email content for stock alert
+ */
+function generateStockAlertEmail($lowStockProducts, $outOfStockProducts, $threshold) {
+    $html = '
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            .header { background: #8B4513; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+            .content { padding: 20px; }
+            .alert-section { margin-bottom: 25px; }
+            .alert-title { color: #DC3545; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+            .warning-title { color: #FFC107; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+            .product-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .product-table th, .product-table td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+            .product-table th { background-color: #f8f9fa; font-weight: bold; }
+            .stock-critical { color: #DC3545; font-weight: bold; }
+            .stock-warning { color: #FFC107; font-weight: bold; }
+            .footer { background: #f8f9fa; padding: 15px; border-radius: 0 0 8px 8px; text-align: center; color: #666; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🚨 Stock Alert - AiKUN Furniture</h1>
+                <p>Immediate attention required for inventory management</p>
+            </div>
+            <div class="content">
+                <p>Dear Admin,</p>
+                <p>This is an automated alert regarding low stock levels in your inventory. Please review the following products that require immediate attention:</p>';
+    
+    // Out of stock products
+    if (!empty($outOfStockProducts)) {
+        $html .= '
+                <div class="alert-section">
+                    <div class="alert-title">🔴 OUT OF STOCK (0 items)</div>
+                    <table class="product-table">
+                        <thead>
+                            <tr>
+                                <th>Product ID</th>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>Price (RM)</th>
+                                <th>Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+        
+        foreach ($outOfStockProducts as $product) {
+            $html .= '
+                            <tr>
+                                <td>' . htmlspecialchars($product['prodID']) . '</td>
+                                <td>' . htmlspecialchars($product['name']) . '</td>
+                                <td>' . htmlspecialchars($product['category']) . '</td>
+                                <td>' . number_format($product['price'], 2) . '</td>
+                                <td class="stock-critical">0</td>
+                            </tr>';
+        }
+        
+        $html .= '
+                        </tbody>
+                    </table>
+                </div>';
+    }
+    
+    // Low stock products
+    if (!empty($lowStockProducts)) {
+        $html .= '
+                <div class="alert-section">
+                    <div class="warning-title">⚠️ LOW STOCK (≤ ' . $threshold . ' items)</div>
+                    <table class="product-table">
+                        <thead>
+                            <tr>
+                                <th>Product ID</th>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>Price (RM)</th>
+                                <th>Current Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+        
+        foreach ($lowStockProducts as $product) {
+            $html .= '
+                            <tr>
+                                <td>' . htmlspecialchars($product['prodID']) . '</td>
+                                <td>' . htmlspecialchars($product['name']) . '</td>
+                                <td>' . htmlspecialchars($product['category']) . '</td>
+                                <td>' . number_format($product['price'], 2) . '</td>
+                                <td class="stock-warning">' . $product['qty'] . '</td>
+                            </tr>';
+        }
+        
+        $html .= '
+                        </tbody>
+                    </table>
+                </div>';
+    }
+    
+    $html .= '
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 20px;">
+                    <strong>📋 Recommended Actions:</strong>
+                    <ul>
+                        <li>Review and replenish out-of-stock items immediately</li>
+                        <li>Consider reordering low-stock products</li>
+                        <li>Update product availability on your website</li>
+                        <li>Notify sales team about inventory limitations</li>
+                    </ul>
+                </div>
+                
+                <p style="margin-top: 20px;">
+                    Best regards,<br>
+                    <strong>AiKUN Furniture Inventory System</strong>
+                </p>
+            </div>
+            <div class="footer">
+                This is an automated message sent on ' . date('F j, Y \a\t g:i A') . ' (Malaysia Time)<br>
+                Please do not reply to this email. Contact your system administrator for assistance.
+            </div>
+        </div>
+    </body>
+    </html>';
+    
+    return $html;
+}
+
+/**
+ * Send individual stock alert email using PHPMailer
+ */
+function sendStockAlertEmail($toEmail, $toName, $subject, $htmlBody) {
+    require_once __DIR__ . '/lib/PHPMailer.php';
+    require_once __DIR__ . '/lib/SMTP.php';
+    
+    try {
+        $mail = new PHPMailer(true);
+        
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'aikun.furniture@gmail.com'; // Your Gmail address
+        $mail->Password = 'your-app-password'; // Your Gmail app password
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+        
+        // Recipients
+        $mail->setFrom('aikun.furniture@gmail.com', 'AiKUN Furniture System');
+        $mail->addAddress($toEmail, $toName);
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body = $htmlBody;
+        
+        // Alternative plain text version
+        $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $htmlBody));
+        
+        $mail->send();
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("Stock alert email error for {$toEmail}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Log stock alert activity
+ */
+function logStockAlert($lowStockProducts, $outOfStockProducts, $emailsSent) {
+    $logMessage = sprintf(
+        "[STOCK ALERT] %s - Low Stock: %d products, Out of Stock: %d products, Emails sent: %d",
+        date('Y-m-d H:i:s'),
+        count($lowStockProducts),
+        count($outOfStockProducts),
+        $emailsSent
+    );
+    error_log($logMessage);
+}
+
+/**
+ * Main function to run stock monitoring (can be called via cron or manually)
+ * @param int $threshold - Stock threshold level
+ * @return array - Report of the stock check
+ */
+function runStockMonitoring($threshold = 5) {
+    $stockData = checkLowStockProducts($threshold);
+    $emailSent = false;
+    
+    // Only send email if there are low stock or out of stock products
+    // TEMPORARILY DISABLED for testing - enable after email configuration
+    if (false && (!empty($stockData['low_stock']) || !empty($stockData['out_of_stock']))) {
+        $emailSent = sendLowStockAlert($stockData);
+    }
+    
+    return [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'low_stock_count' => count($stockData['low_stock']),
+        'out_of_stock_count' => count($stockData['out_of_stock']),
+        'email_sent' => $emailSent,
+        'threshold' => $threshold,
+        'products' => $stockData
+    ];
+}
