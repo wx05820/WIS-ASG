@@ -80,6 +80,7 @@ $image_base_path = $is_in_subdirectory ? '/../' : '';
             <li><a href="../../admin/usermanage/list.php">User Manage</a></li>
 			<li><a href="/admin/shipping.php">Shipping</a></li>
             <li><a href="/admin/order_history.php">Order History</a></li>
+			<li><a href="../../admin/stock_monitor.php">Stock Monitor</a></li>
             <li><a href="../../admin/addvoucher.php">Voucher Manage</a></li>
             <li><a href="../../admin/contact_messages.php">Contact Messages</a></li>
             <li><a href="../../admin/report.php">Reports</a></li>

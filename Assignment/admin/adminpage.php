@@ -27,9 +27,10 @@ $page_title = 'Admin Dashboard';
             text-align: center;
             margin-bottom: 40px;
             padding: 40px 20px;
-            background: linear-gradient(135deg, #8B4513, #A0522D);
-            color: white;
+            background: linear-gradient(135deg, #D2B48C, #DEB887, #F5DEB3);
+            color: #654321;
             border-radius: 10px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
         .dashboard-header h1 {
             margin: 0 0 10px 0;
@@ -49,20 +50,21 @@ $page_title = 'Admin Dashboard';
         .action-btn {
             display: block;
             padding: 20px;
-            background: white;
+            background: linear-gradient(135deg, #FAF0E6, #FDF5E6);
             color: #8B4513;
             text-decoration: none;
-            border-radius: 10px;
+            border-radius: 12px;
             text-align: center;
             transition: all 0.3s;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            border: 2px solid #8B4513;
+            border: 2px solid #D2B48C;
         }
         .action-btn:hover {
-            background: #8B4513;
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            background: linear-gradient(135deg, #DEB887, #D2B48C);
+            color: #654321;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(210, 180, 140, 0.4);
+            border-color: #CD853F;
         }
         .action-btn i {
             display: block;

@@ -3,6 +3,8 @@
 body {
     margin: 0;
     padding: 0;
+    background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
+    min-height: 100vh;
 }
 
 html {
@@ -209,7 +211,7 @@ html {
     color: var(--text-light);
     text-decoration: none;
     font-size: 16px;
-    padding: 15px 25px;
+    padding: 10px 15px;
     display: block;
     transition: all 0.3s ease;
     font-weight: 500;
