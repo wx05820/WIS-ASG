@@ -88,7 +88,6 @@ if (is_post()) {
         $_err['phoneNo'] = 'Phone number too long';
     }
     
-    // Auto-generate phone number if not provided
     if (!$phoneNo) {
         $phoneNo = generateUniquePhoneNumber($_db);
     }
@@ -182,14 +181,14 @@ if (is_post()) {
             </div>
 
             <div class="form-group">
-                <label for="phoneNo">Phone Number (Optional - Auto-generated if empty)</label>
+                <label for="phoneNo">Phone Number (Optional)</label>
                 <input 
                     type="tel" 
                     id="phoneNo" 
                     name="phoneNo" 
                     class="form-input <?php echo isset($_err['phoneNo']) ? 'error' : ''; ?>" 
                     maxlength="20"
-                    placeholder="Enter your phone number (or leave empty for auto-generation)"
+                    placeholder="Enter your phone number"
                     value="<?php echo htmlspecialchars(req('phoneNo')); ?>"
                 >
                 <?php if (isset($_err['phoneNo'])): ?>
