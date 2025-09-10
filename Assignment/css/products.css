@@ -663,6 +663,135 @@ body {
     font-weight: 500;
 }
 
+/* Enhanced Product Rating Styles */
+.product-rating {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 15px 0;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #fff8e1 0%, #f3e5ab 100%);
+    border-radius: 16px;
+    border: 2px solid #ffb300;
+    box-shadow: 0 4px 15px rgba(255, 179, 0, 0.25);
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.product-rating::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.6s ease;
+}
+
+.product-rating:hover::before {
+    left: 100%;
+}
+
+.product-rating:hover {
+    background: linear-gradient(135deg, #fff3c4 0%, #f9e79f 100%);
+    border-color: #ff8f00;
+    box-shadow: 0 8px 25px rgba(255, 179, 0, 0.4);
+    transform: translateY(-3px) scale(1.02);
+}
+
+.stars {
+    display: flex;
+    gap: 6px;
+    position: relative;
+    z-index: 2;
+}
+
+.star {
+    font-size: 1.6rem;
+    color: #e0e0e0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+
+.star.filled {
+    color: #ffb300;
+    text-shadow: 0 3px 6px rgba(255, 179, 0, 0.5);
+    transform: scale(1.15);
+    filter: drop-shadow(0 2px 4px rgba(255, 179, 0, 0.3));
+}
+
+.star:hover {
+    transform: scale(1.2);
+}
+
+.rating-text {
+    font-size: 1.2rem;
+    color: #e65100;
+    font-weight: 800;
+    margin-left: 10px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', sans-serif;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 2;
+}
+
+.rating-count {
+    font-size: 0.9rem;
+    color: #bf360c;
+    font-weight: 600;
+    margin-left: 5px;
+    opacity: 0.8;
+}
+
+/* Enhanced hover effects for rating */
+.product-card:hover .product-rating {
+    background: linear-gradient(135deg, #fff3c4 0%, #f9e79f 100%);
+    border-color: #ff8f00;
+    box-shadow: 0 8px 25px rgba(255, 179, 0, 0.4);
+    transform: translateY(-3px) scale(1.02);
+}
+
+.product-card:hover .star.filled {
+    color: #ff8f00;
+    transform: scale(1.2);
+    text-shadow: 0 4px 8px rgba(255, 143, 0, 0.6);
+}
+
+.product-card:hover .rating-text {
+    color: #d84315;
+    transform: scale(1.05);
+}
+
+/* No rating state */
+.product-rating.no-rating {
+    background: linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%);
+    border-color: #bdbdbd;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: default;
+}
+
+.product-rating.no-rating:hover {
+    background: linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%);
+    border-color: #bdbdbd;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.product-rating.no-rating .star {
+    color: #d0d0d0;
+}
+
+.product-rating.no-rating .no-rating-text {
+    color: #757575;
+    font-style: italic;
+    font-weight: 500;
+}
+
 .stock {
     padding: 0.3rem 0.8rem;
     border-radius: 15px;
@@ -714,31 +843,196 @@ body {
     transform: translateY(-2px);
 }
 
-/* Wishlist button styling on product cards */
-.btn-wishlist {
-    background: #fff;
-    border: 1px solid var(--wood-light);
+/* Enhanced Quantity Controls */
+.qty-selector {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+    padding: 8px 0;
+}
+
+.qty-selector label {
+    font-weight: 600;
     color: var(--wood-dark);
-    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    min-width: 50px;
+    text-align: center;
+}
+
+.qty-control {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.qty-control:hover {
+    border-color: var(--gold-accent);
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+    transform: translateY(-1px);
+}
+
+.qty-btn {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--wood-primary);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    min-width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.qty-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+    transition: left 0.5s ease;
+}
+
+.qty-btn:hover::before {
+    left: 100%;
+}
+
+.qty-btn:hover {
+    background: linear-gradient(135deg, var(--gold-accent) 0%, #f4d03f 100%);
+    color: var(--wood-dark);
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+}
+
+.qty-btn:active {
+    transform: scale(0.95);
+}
+
+.qty-btn:disabled {
+    background: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.qty-btn:disabled:hover {
+    background: #e9ecef;
+    color: #6c757d;
+    transform: none;
+}
+
+.qty-input {
+    width: 70px;
+    padding: 8px 4px;
+    border: none;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--wood-dark);
+    background: transparent;
+    outline: none;
+    border-left: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6;
+}
+
+.qty-input:focus {
+    background: rgba(212, 175, 55, 0.1);
+}
+
+/* Enhanced Wishlist Button Styling - Light Wood Theme */
+.btn-wishlist {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 2px solid var(--wood-light, #D2B48C);
+    color: var(--wood-primary, #8B5A2B);
+    padding: 10px 16px;
     border-radius: 25px;
     cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s ease;
+    font-weight: 700;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.85rem;
+    box-shadow: 0 3px 10px rgba(139, 90, 43, 0.2);
 }
+
+.btn-wishlist::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.6s ease;
+}
+
+.btn-wishlist:hover::before {
+    left: 100%;
+}
+
 .btn-wishlist:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    transform: translateY(-2px);
+    background: linear-gradient(135deg, var(--wood-light, #D2B48C) 0%, var(--wood-secondary, #A67C52) 100%);
+    color: var(--wood-dark, #5D4037);
+    border-color: var(--wood-secondary, #A67C52);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(139, 90, 43, 0.4);
 }
-.btn-wishlist i { color: #B22222; }
+
+.btn-wishlist i {
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    color: var(--wood-primary, #8B5A2B);
+}
+
+.btn-wishlist:hover i {
+    transform: scale(1.2);
+    animation: heartbeat 1.5s ease-in-out infinite;
+    color: var(--wood-dark, #5D4037);
+}
+
+@keyframes heartbeat {
+    0%, 100% { transform: scale(1.2); }
+    50% { transform: scale(1.4); }
+}
+
 .btn-wishlist.added {
-    background: linear-gradient(135deg, #D2691E, #8B4513);
-    color: #fff;
-    border-color: #8B4513;
+    background: linear-gradient(135deg, var(--wood-primary, #8B5A2B) 0%, var(--wood-dark, #5D4037) 100%);
+    color: #ffffff;
+    border-color: var(--wood-dark, #5D4037);
+    box-shadow: 0 4px 15px rgba(139, 90, 43, 0.3);
 }
-.btn-wishlist.added i { color: #fff; }
+
+.btn-wishlist.added i {
+    color: #ffffff;
+    animation: heartbeat 2s ease-in-out infinite;
+}
+
+.wishlist-text {
+    transition: all 0.3s ease;
+}
+
+.btn-wishlist:hover .wishlist-text {
+    transform: translateX(2px);
+}
 
 .add-to-cart-btn.disabled {
     background: #6c757d;
@@ -1165,6 +1459,21 @@ body {
     
     .quick-actions {
         opacity: 1;
+    }
+    
+    .product-rating {
+        justify-content: center;
+        margin: 10px 0;
+        padding: 10px 14px;
+    }
+    
+    .star {
+        font-size: 1.3rem;
+    }
+    
+    .rating-text {
+        font-size: 1rem;
+        font-weight: 600;
     }
 }
 

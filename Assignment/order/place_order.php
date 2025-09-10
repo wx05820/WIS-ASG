@@ -4,201 +4,110 @@ require_once '../_base.php';
 $user_id = $_SESSION['user_id'] ?? null;
 checkLogin();
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    $_SESSION['error'] = "Invalid request method";
-    redirect('checkout.php');
-}
-
-$orderData = $_POST;
-
-//
-
-// Idempotency guard using a per-checkout token stored in session
-$idem_key = $_POST['idem_key'] ?? null;
-if (!isset($_SESSION['order_idem_tokens']) || !is_array($_SESSION['order_idem_tokens'])) {
-    $_SESSION['order_idem_tokens'] = [];
-}
-
-if (!$idem_key || !array_key_exists($idem_key, $_SESSION['order_idem_tokens'])) {
-    // Invalid or missing token -> prevent processing and send user back
-    $_SESSION['error'] = "Your session expired. Please try checkout again.";
-    redirect('checkout.php');
-}
-
-if ($_SESSION['order_idem_tokens'][$idem_key] === 'used') {
-    // Duplicate submission detected, redirect to the most recent order (if any)
-    $stmt = $_db->prepare("SELECT orderID FROM `order` WHERE userID = ? ORDER BY orderDate DESC, orderID DESC LIMIT 1");
-    $stmt->execute([$user_id]);
-    $existing_order_id = $stmt->fetchColumn();
-    if ($existing_order_id) {
-        redirect("/order/success.php?order_id=" . $existing_order_id);
-    }
-    $_SESSION['error'] = "This order was already processed.";
-    redirect('checkout.php');
-}
-
-$selected_items = [];
-if (isset($orderData['selected_items']) && is_array($orderData['selected_items'])) {
-    $selected_items = $orderData['selected_items'];
-} 
-elseif (isset($orderData['selected_items']) && is_string($orderData['selected_items'])) {
-    $selected_items = explode(',', $orderData['selected_items']);
-} 
-elseif (isset($_SESSION['checkout_items'])) {
-    $selected_items = $_SESSION['checkout_items'];
-}
-
-// Get selected items from form (prodID are strings like P000123)
-// Keep as strings and trim; optionally validate allowed format
-$selected_items = array_values(array_filter(array_map('trim', $selected_items), function($id) {
-    return $id !== '' && preg_match('/^[A-Za-z0-9_-]+$/', $id);
-}));
-
-if (empty($selected_items)) {
-    $_SESSION['error'] = "Please select items to checkout";
-    redirect('cart_page.php');
-}
-
-// Store selected items in session for checkout page
-$_SESSION['checkout_items'] = $selected_items;
-
-$address_id = $_POST['address_id'] ?? ($_POST['selected_address'] ?? null);
-$shipping_method = $_POST['shipping_method'] ?? null;
-$pay_method = $_POST['payment_method'] ?? null;
-
-
-//Check if user has addresses and validate address selection
-$stmt = $_db->prepare("SELECT COUNT(*) FROM user_address WHERE userID = ?");
-$stmt->execute([$user_id]);
-$has_addresses = $stmt->fetchColumn() > 0;
-
-if ($has_addresses && (empty($address_id))) {
-    // Fallback to user's default address (or first address) if none posted
-    $stmt = $_db->prepare("SELECT ID FROM user_address WHERE userID = ? ORDER BY isDefault DESC LIMIT 1");
-    $stmt->execute([$user_id]);
-    $address_id = $stmt->fetchColumn();
-    if (!$address_id) {
-        $_SESSION['error'] = "Please select a delivery address";
-        redirect('checkout.php');
-    }
-}
-
-// If user has addresses, validate the selected address belongs to them
-if ($has_addresses) {
-    $stmt = $_db->prepare("SELECT ID FROM user_address WHERE userID = ? AND ID = ?");
-    $stmt->execute([$user_id, $address_id]);
-    $valid_address = $stmt->fetchColumn();
-    
-    if (!$valid_address) {
-        $_SESSION['error'] = "Invalid delivery address selected";
-        redirect('checkout.php');
-    }
-}
-
-if (!$shipping_method || !$pay_method) {
-    $_SESSION['error'] = "Please select shipping method and payment method";
-    redirect('checkout.php');
-}
+// Check if this is an AJAX request
+$is_ajax = isset($_POST['ajax']) && $_POST['ajax'] === '1';
 
 try {
-    // Debug: Log the start of order processing
-    error_log("Starting order processing for user: " . $user_id);
-    $_db->beginTransaction();
+    // Validate form data
+    if (empty($_POST['selected_address']) || empty($_POST['shipping_method']) || empty($_POST['payment_method'])) {
+        throw new Exception('Please fill in all required fields');
+    }
 
-    // Determine if this is a Buy Now flow
-    $is_buy_now = (!empty($orderData['buy_now'])) || (!empty($_SESSION['buyNow']));
+    // Check idempotency token to prevent double submission
+    $idem_key = $_POST['idem_key'] ?? '';
+    if (empty($idem_key) || !isset($_SESSION['order_idem_tokens'][$idem_key]) || $_SESSION['order_idem_tokens'][$idem_key] !== 'new') {
+        throw new Exception('Invalid or expired order token. Please refresh and try again.');
+    }
 
+    // Mark token as used
+    $_SESSION['order_idem_tokens'][$idem_key] = 'used';
+
+    // Get form data
+    $address_id = $_POST['selected_address'];
+    $shipping_method = $_POST['shipping_method'];
+    $payment_method = $_POST['payment_method'];
+    $voucher_id = $_POST['voucher_id'] ?? null;
+    $voucher_code = $_POST['voucher_code'] ?? null;
+    $discount_amount = (float)($_POST['discount_amount'] ?? 0);
+
+    // Determine if this is buy now or cart checkout
+    $is_buy_now = isset($_POST['buy_now']) && $_POST['buy_now'] === '1';
+
+    // Get items to order
+    $order_items = [];
     if ($is_buy_now) {
-        // Build cart_items from the product table directly (not from cart)
-        $buy_now_prod_id = $orderData['prodID'] ?? ($selected_items[0] ?? null);
-        $buy_now_qty = isset($orderData['qty']) ? (int)$orderData['qty'] : (int)($_SESSION['buyNow_qty'] ?? 1);
-
-        if (!$buy_now_prod_id) {
-            $_SESSION['error'] = "Invalid Buy Now request (missing product)";
-            redirect('checkout.php');
+        // Buy now checkout
+        $prod_id = $_POST['prodID'];
+        $qty = (int)$_POST['qty'];
+        
+        // Get product details
+        $stmt = $_db->prepare("SELECT prodID, name, price, qty as stock FROM product WHERE prodID = ?");
+        $stmt->execute([$prod_id]);
+        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$product || $product['stock'] < $qty) {
+            throw new Exception('Product not available or insufficient stock');
         }
-
-        $stmt = $_db->prepare("SELECT prodID, name, price, color, qty FROM product WHERE prodID = ?");
-        $stmt->execute([$buy_now_prod_id]);
-        $product_row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$product_row) {
-            $_SESSION['error'] = "Selected product not found";
-            redirect('checkout.php');
-        }
-
-        $cart_items = [[
-            'prodID' => $product_row['prodID'],
-            'qty' => max(1, $buy_now_qty),
-            'name' => $product_row['name'],
-            'price' => (float)$product_row['price'],
-            'color' => $product_row['color'] ?? ''
-        ]];
+        
+        $order_items[] = [
+            'prodID' => $prod_id,
+            'qty' => $qty,
+            'price' => $product['price'],
+            'name' => $product['name']
+        ];
     } else {
-        // Convert array to comma-separated string for SQL IN clause
+        // Cart checkout
+        $selected_items = $_POST['selected_items'] ?? [];
+        if (empty($selected_items)) {
+            throw new Exception('No items selected for checkout');
+        }
+
+        // Get cart items
         $placeholders = str_repeat('?,', count($selected_items) - 1) . '?';
-
-        $sql = "SELECT ci.prodID, ci.qty, p.name, p.price, p.color 
-                FROM cart_items ci
-                JOIN cart c ON ci.cartID = c.cartID
-                JOIN product p ON ci.prodID = p.prodID
-                WHERE c.userID = ? AND ci.prodID IN ($placeholders)";
-
+        $stmt = $_db->prepare("
+            SELECT ci.prodID, ci.qty, p.name, p.price, p.qty as stock
+            FROM cart_items ci
+            JOIN cart c ON ci.cartID = c.cartID
+            JOIN product p ON ci.prodID = p.prodID
+            WHERE c.userID = ? AND ci.prodID IN ($placeholders)
+        ");
         $params = array_merge([$user_id], $selected_items);
-        $stmt = $_db->prepare($sql);
         $stmt->execute($params);
         $cart_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        if (empty($cart_items)) {
-            $_SESSION['error'] = "Your cart is empty";
-            redirect('checkout.php');
-        }
-    }
-
-    // Verify stock availability for selected items
-    foreach ($cart_items as $item) {
-        $stmt = $_db->prepare("SELECT qty FROM product WHERE prodID = ?");
-        $stmt->execute([$item['prodID']]);
-        $available_stock = $stmt->fetchColumn();
-        
-        if ($available_stock < $item['qty']) {
-            $_SESSION['error'] = "Insufficient stock for " . htmlspecialchars($item['name']) . ". Available: " . $available_stock;
-            redirect('checkout.php');
+        // Validate stock
+        foreach ($cart_items as $item) {
+            if ($item['stock'] < $item['qty']) {
+                throw new Exception("Insufficient stock for {$item['name']}");
+            }
+            $order_items[] = $item;
         }
     }
 
     // Calculate totals
     $subtotal = 0;
-    foreach ($cart_items as $item) {
+    foreach ($order_items as $item) {
         $subtotal += $item['price'] * $item['qty'];
     }
 
-    $shipping_fee = (float)($orderData['shipping_fee'] ?? ($shipping_method === 'express' ? 15.00 : 8.00));
-    $discount = (float)($orderData['discount'] ?? 0);
-    $total = $subtotal + $shipping_fee - $discount;
+    $shipping_fee = ($shipping_method === 'express') ? 15.00 : 8.00;
+    $total = $subtotal + $shipping_fee - $discount_amount;
 
-    // Map payment method values to database enum values
-    $payment_method_map = [
-        'cod' => 'COD',
-        'card' => 'Credit/Debit Card',
-        'online_banking' => 'DuitNow',
-        'ewallet' => 'TNG'
-    ];
+    // Start database transaction
+    $_db->beginTransaction();
+
+    // Get address details
+    $stmt = $_db->prepare("
+        SELECT recipient_name, phoneNo, unitNo, address_line_1, address_line_2, city, postcode, state
+        FROM user_address 
+        WHERE ID = ? AND userID = ?
+    ");
+    $stmt->execute([$address_id, $user_id]);
+    $address_details = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    $db_pay_method = $payment_method_map[$pay_method] ?? 'COD';
-    
-    // Set order status based on payment method
-    $status = ($pay_method === 'cod') ? 'Pending' : 'Pending'; // All orders start as pending for now
-    
-    // Set payment status based on payment method
-    $pay_status_map = [
-        'cod' => 'Pending',
-        'card' => 'Success', // Assuming card payments are successful for demo
-        'online_banking' => 'Success',
-        'ewallet' => 'Success'
-    ];
-    
-    $payStatus = $pay_status_map[$pay_method] ?? 'Pending';
+    if (!$address_details) {
+        throw new Exception('Invalid shipping address selected');
+    }
 
     // Generate payment ID
     $payID = 'P' . date('Ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
@@ -207,118 +116,112 @@ try {
     $stmt = $_db->prepare("INSERT INTO payment (payID, payMethod, payStatus, payDate, amount) VALUES (?, ?, ?, NOW(), ?)");
     $stmt->execute([
         $payID,
-        $db_pay_method,
-        $payStatus,
+        $payment_method,
+        'Success', // Assuming successful for demo
         $total
     ]);
 
-    // Get shipping address details for the order
-    $address_details = null;
-    if ($has_addresses && $address_id) {
-        $stmt = $_db->prepare("
-            SELECT recipient_name, phoneNo, unitNo, address_line_1, address_line_2, city, postcode, state
-            FROM user_address 
-            WHERE ID = ? AND userID = ?
-        ");
-        $stmt->execute([$address_id, $user_id]);
-        $address_details = $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-
-    if (!$address_details) {
-        $_SESSION['error'] = "Invalid shipping address selected";
-        redirect('checkout.php');
-    }
-
-    // Ensure phone number fits in char(12) field
-    $phone_no = substr($address_details['phoneNo'], 0, 12);
-
-    // Insert order record with individual address fields
-    $stmt = $_db->prepare("INSERT INTO `order` 
-        (orderDate, userID, status, shipping_method, subtotal, shipping_fee, discount, total, payID, addressID, 
-         recipient_name, phoneNo, unitNo, address_line_1, address_line_2, city, postcode, state)
-        VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
-        $user_id,
-        $status,
-        $shipping_method,
-        $subtotal,
-        $shipping_fee,
-        $discount,
-        $total,
-        $payID,
-        (int)$address_id,
-        $address_details['recipient_name'],
-        $phone_no,
-        $address_details['unitNo'],
-        $address_details['address_line_1'],
-        $address_details['address_line_2'],
-        $address_details['city'],
-        $address_details['postcode'],
-        $address_details['state']
-    ]);
+    // Create order
+    $order_id = 'ORD' . date('Ymd') . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
     
-    // Get the generated order ID (since it's generated by trigger)
-    $stmt = $_db->prepare("SELECT orderID FROM `order` WHERE userID = ? ORDER BY orderDate DESC, orderID DESC LIMIT 1");
-    $stmt->execute([$user_id]);
-    $order_id = $stmt->fetchColumn();
+    $stmt = $_db->prepare("
+        INSERT INTO `order` (orderID, orderDate, userID, status, shipping_method, subtotal, shipping_fee, discount, total, payID, addressID, 
+                           recipient_name, phoneNo, unitNo, address_line_1, address_line_2, city, postcode, state)
+        VALUES (?, NOW(), ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    
+    $stmt->execute([
+        $order_id, $user_id, $shipping_method, $subtotal, $shipping_fee, 
+        $discount_amount, $total, $payID, $address_id,
+        $address_details['recipient_name'], $address_details['phoneNo'], $address_details['unitNo'],
+        $address_details['address_line_1'], $address_details['address_line_2'], 
+        $address_details['city'], $address_details['postcode'], $address_details['state']
+    ]);
 
-    // Insert order items with product details
-    $stmt = $_db->prepare("INSERT INTO order_items (orderID, prodID, qty, price, product_name, product_color) VALUES (?, ?, ?, ?, ?, ?)");
-    foreach ($cart_items as $item) {
+    // Add order items
+    $stmt = $_db->prepare("
+        INSERT INTO order_items (orderID, prodID, qty, price, product_name, product_color) 
+        VALUES (?, ?, ?, ?, ?, ?)
+    ");
+    
+    foreach ($order_items as $item) {
         $stmt->execute([
-            $order_id,
-            $item['prodID'],
-            $item['qty'],
-            $item['price'],
-            $item['name'],
-            $item['color'] ?? ''
+            $order_id, $item['prodID'], $item['qty'], 
+            $item['price'], $item['name'], $item['color'] ?? ''
         ]);
-
-        // Update product stock
-        $stmt_stock = $_db->prepare("UPDATE product SET qty = qty - ? WHERE prodID = ?");
-        $stmt_stock->execute([$item['qty'], $item['prodID']]);
     }
 
-    // Remove only the selected items from cart (skip if Buy Now)
+    // Update product stock
+    $stmt = $_db->prepare("UPDATE product SET qty = qty - ? WHERE prodID = ?");
+    foreach ($order_items as $item) {
+        $stmt->execute([$item['qty'], $item['prodID']]);
+    }
+
+    // Remove items from cart if cart checkout
     if (!$is_buy_now) {
         $placeholders = str_repeat('?,', count($selected_items) - 1) . '?';
-        $sql = "DELETE FROM cart_items WHERE cartID = (SELECT cartID FROM cart WHERE userID = ?) AND prodID IN ($placeholders)";
+        $stmt = $_db->prepare("
+            DELETE ci FROM cart_items ci 
+            JOIN cart c ON ci.cartID = c.cartID 
+            WHERE c.userID = ? AND ci.prodID IN ($placeholders)
+        ");
         $params = array_merge([$user_id], $selected_items);
-        $stmt = $_db->prepare($sql);
         $stmt->execute($params);
     }
 
-    // Clear checkout items from session
+    // Mark voucher as used if applicable
+    if ($voucher_id) {
+        $stmt = $_db->prepare("
+            INSERT INTO voucher_usage (voucher_id, user_id, order_id, used_at) 
+            VALUES (?, ?, ?, NOW())
+        ");
+        $stmt->execute([$voucher_id, $user_id, $order_id]);
+    }
+
+    // Commit transaction
+    $_db->commit();
+
+    // Clear session data
     unset($_SESSION['checkout_items']);
     unset($_SESSION['buyNow']);
     unset($_SESSION['buyNow_qty']);
 
-    // Create initial delivery status record
-    $stmt = $_db->prepare("INSERT INTO deliverystatus (orderID, status, courier, notes, current_location, updated_at) VALUES (?, 'Order Picked Up', 'System', 'Order has been placed and is being prepared for shipment', 'Warehouse', NOW())");
-    $stmt->execute([$order_id]);
-
-    $_db->commit();
-
-    // Debug: Log successful order creation
-    error_log("Order created successfully with ID: " . $order_id);
-    
-    // Mark idempotency token as used to block repeat submissions
-    $_SESSION['order_idem_tokens'][$idem_key] = 'used';
-
-    $_SESSION['success'] = "Order placed successfully! Order ID: #" . $order_id;
-    error_log("Redirecting to success page with order ID: " . $order_id);
-    redirect("/order/success.php?order_id=" . $order_id);
+    // Handle response based on request type
+    if ($is_ajax) {
+        // AJAX response
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'message' => 'Order placed successfully!',
+            'order_id' => $order_id,
+            'redirect_url' => "success.php?order_id=" . urlencode($order_id)
+        ]);
+        exit;
+    } else {
+        // Normal form submission - redirect
+        $_SESSION['success'] = 'Order placed successfully!';
+        header("Location: success.php?order_id=" . urlencode($order_id));
+        exit;
+    }
 
 } catch (Exception $e) {
-    if ($_db->inTransaction()) $_db->rollBack();
-    error_log("Order processing error: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    $_SESSION['error'] = "Failed to place order: " . $e->getMessage();
-    redirect('checkout.php');
-}
+    // Rollback transaction if it was started
+    if ($_db->inTransaction()) {
+        $_db->rollback();
+    }
 
-// Send order confirmation email
-function sendOrderConfirmationEmail($user_id, $order_id) {
-    
+    // Handle error response
+    if ($is_ajax) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage()
+        ]);
+        exit;
+    } else {
+        $_SESSION['error'] = $e->getMessage();
+        header("Location: checkout.php");
+        exit;
+    }
 }
 ?>

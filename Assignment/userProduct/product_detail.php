@@ -21,10 +21,14 @@ if ($id === '') {
     exit;
 }
 
-$sql = "SELECT p.*, c.name AS category_name 
+$sql = "SELECT p.*, c.name AS category_name,
+        COALESCE(AVG(pr.rating), 0) as avg_rating,
+        COUNT(DISTINCT pr.review_id) as review_count
         FROM product p 
         JOIN category c ON p.catID = c.catID 
-        WHERE p.prodID = ?";
+        LEFT JOIN product_reviews pr ON p.prodID = pr.product_id AND pr.user_id > 0 AND pr.product_id > 0
+        WHERE p.prodID = ?
+        GROUP BY p.prodID, c.name";
 $stmt = $_db->prepare($sql);
 $stmt->execute([$id]);
 $product = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -54,7 +58,6 @@ if ($product) {
 
 <link rel="stylesheet" href="../css/index.css">
 <link rel="stylesheet" href="../css/product_details.css">
-<script src="../js/cart.js" defer></script>
 <script src="../js/userProduct.js" defer></script>
 
 <main class="product-detail">
@@ -64,13 +67,17 @@ if ($product) {
         </div>
     <?php else: ?>
         <div class="product-page">
+            <!-- Product Image Section at Top -->
             <div class="gallery-section">
-                <div class="main-img">
+                <div class="main-img" id="mainImageContainer">
                     <img id="mainProductImg" 
                         src="<?= htmlspecialchars($product['images'][0]); ?>" 
                         alt="<?= htmlspecialchars($product['name']); ?>">
+                    <div class="zoom-overlay" id="zoomOverlay">
+                        <div class="zoom-lens" id="zoomLens"></div>
+                    </div>
                 </div>
-                <div class="zoom-window">
+                <div class="zoom-window" id="zoomWindow">
                     <img id="zoomImg" src="<?= htmlspecialchars($product['images'][0]); ?>" alt="Zoomed view">
                 </div>
                 <?php if (count($product['images']) > 1): ?>
@@ -78,80 +85,107 @@ if ($product) {
                     <?php foreach ($product['images'] as $idx => $img): ?>
                         <img class="thumb-img" src="<?= htmlspecialchars($img); ?>"
                             alt="Thumbnail <?= $idx+1 ?>"
-                            onclick="document.getElementById('mainProductImg').src=this.src;
-                                     document.getElementById('zoomImg').src=this.src;">
+                            onclick="changeMainImage('<?= htmlspecialchars($img); ?>')">
                     <?php endforeach; ?>
                 </div>
                 <?php endif; ?>
             </div>
 
+            <!-- Product Information Section -->
             <div class="product-info">
                 <h2><?= htmlspecialchars($product['name']); ?></h2>
                 <p class="category">Category: <?= htmlspecialchars($product['category_name']); ?></p>
                 <p class="price"><?= money($product['price']); ?></p>
+                
+                <!-- Rating Display -->
+                <div class="product-rating <?= $product['review_count'] == 0 ? 'no-rating' : ''; ?>" 
+                     onclick="showRatingPopup('<?= $product['prodID']; ?>', <?= round($product['avg_rating'], 1); ?>, <?= (int)$product['review_count']; ?>)">
+                    <?php 
+                    $avgRating = round($product['avg_rating'], 1);
+                    $reviewCount = (int)$product['review_count'];
+                    $fullStars = floor($avgRating);
+                    ?>
+                    <div class="stars">
+                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                            <span class="star <?= $i <= $fullStars ? 'filled' : ''; ?>">★</span>
+                        <?php endfor; ?>
+                    </div>
+                    <span class="rating-text">
+                        <?php if ($avgRating > 0): ?>
+                            <?= $avgRating; ?><?= $reviewCount > 0 ? " ({$reviewCount})" : ''; ?>
+                        <?php else: ?>
+                            <span class="no-rating-text">No rating yet</span>
+                        <?php endif; ?>
+                    </span>
+                </div>
+                
                 <p class="stock <?= ($product['qty'] > 0 ? 'in-stock' : 'out-stock'); ?>">
                     <?= $product['qty'] > 0 ? "In Stock: {$product['qty']}" : "❌ Out of Stock"; ?>
                 </p>
+                
                 <?php if (!empty($product['description'])): ?>
                     <div class="description">
                         <h3>Description</h3>
                         <p class="desc"><?= nl2br(htmlspecialchars($product['description'])); ?></p>
-                    </div>           <!-- convert new lines to <br> for HTML -->
+                    </div>
                 <?php endif; ?>
 
-                <div class="actions">
-                    <?php if ($product['qty'] > 0): ?>
-                        <?php if ($user_id): ?>
-                            <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                                <label for="detail-qty-loggedin" style="min-width:60px;">Qty</label>
-                                <div class="qty-control" style="display:flex;align-items:center;gap:6px;">
-                                    <button type="button" class="qty-btn" data-target="#detail-qty-loggedin" aria-label="Decrease quantity" style="padding:6px 10px;">−</button>
-                                    <input id="detail-qty-loggedin" name="qty" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;">
-                                    <button type="button" class="qty-btn" data-target="#detail-qty-loggedin" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">+</button>
-                                </div>
+                <!-- Quantity Selection at Bottom -->
+                <?php if ($product['qty'] > 0): ?>
+                    <div class="qty-section">
+                        <div class="qty-selector">
+                            <label for="detail-qty-loggedin">Quantity</label>
+                            <div class="qty-control">
+                                <button type="button" class="qty-btn" data-target="#detail-qty-loggedin" aria-label="Decrease quantity">◀</button>
+                                <input id="detail-qty-loggedin" name="visible_qty" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>">
+                                <button type="button" class="qty-btn" data-target="#detail-qty-loggedin" data-op="plus" aria-label="Increase quantity">▶</button>
                             </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
 
-                            <!-- Add to Cart Form -->
-                            <form action="../order/cart_add.php" method="POST" class="action-form cart-form" id="detail-cart-form">
-                                <input type="hidden" name="action" value="add">
-                                <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
-                                <input type="hidden" name="qty" value="1">
-                                <input type="hidden" name="redirect" value="<?= $_SERVER['REQUEST_URI']; ?>">
-                                <button type="submit" class="btn-add" id="detail-add-btn">Add to Cart</button>
-                            </form>
-                            
-                            <!-- Buy Now Form -->
-                            <form action="../order/checkout.php" method="POST" class="action-form" id="detail-buy-now-form" onsubmit="return setQtyForBuyNow(this)">
-                                <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
-                                <input type="hidden" name="buy_now" value="1">
-                                <input type="hidden" name="qty" value="1">
-                                <button type="submit" class="btn-checkout" id="detail-buy-btn">Buy Now</button>
-                            </form>
+            <!-- Action Buttons Row -->
+            <div class="action-buttons-row">
+                <?php if ($product['qty'] > 0): ?>
+                    <?php if ($user_id): ?>
+                        <!-- Add to Cart Form -->
+                        <form action="../order/cart_add.php" method="POST" class="action-form cart-form" id="detail-cart-form" onsubmit="return setQtyForAddToCart(this)">
+                            <input type="hidden" name="action" value="add">
+                            <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
+                            <input type="hidden" name="qty" value="1">
+                            <input type="hidden" name="redirect" value="<?= $_SERVER['REQUEST_URI']; ?>">
+                            <button type="submit" class="btn-add" id="detail-add-btn">Add to Cart</button>
+                        </form>
+                        
+                        <!-- Buy Now Form -->
+                        <form action="../order/checkout.php" method="POST" class="action-form" id="detail-buy-now-form" onsubmit="return setQtyForBuyNow(this)">
+                            <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
+                            <input type="hidden" name="buy_now" value="1">
+                            <input type="hidden" name="qty" value="1">
+                            <button type="submit" class="btn-checkout" id="detail-buy-btn">Buy Now</button>
+                        </form>
 
-                            <!-- Add to Wishlist -->
-                            <form action="../user/wishlist.php" method="POST" class="action-form" id="detail-wishlist-form" style="margin-top:8px;">
-                                <input type="hidden" name="action" value="<?= $inWishlist ? 'remove' : 'add'; ?>">
-                                <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
-                                <button type="submit" class="btn-secondary btn-wishlist <?= $inWishlist ? 'in-wishlist' : ''; ?>" id="detail-wishlist-btn">
-                                    <i class="fas fa-heart" style="<?= $inWishlist ? 'color: #e74c3c;' : ''; ?>"></i> 
-                                    <span class="wishlist-text"><?= $inWishlist ? 'In Wishlist' : 'Add to Wishlist'; ?></span>
-                                </button>
-                            </form>
-                        <?php else: ?>
-                            <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                                <label for="detail-qty-guest" style="min-width:60px;">Qty</label>
-                                <input id="detail-qty-guest" type="number" value="1" min="1" max="<?= (int)$product['qty']; ?>" style="width:90px;padding:6px;" disabled>
-                            </div>
-                            <button type="button" class="btn-add" onclick="showLoginPrompt()">Add to Cart</button>
-                            <button type="button" class="btn-checkout" onclick="showLoginPrompt()">Buy Now</button>
-                            <button type="button" class="btn-secondary btn-wishlist" onclick="showLoginPrompt()" style="margin-top:8px;">
-                                <i class="fas fa-heart"></i> Add to Wishlist
+                        <!-- Add to Wishlist -->
+                        <form action="../user/wishlist.php" method="POST" class="action-form wishlist-form" id="detail-wishlist-form">
+                            <input type="hidden" name="action" value="<?= $inWishlist ? 'remove' : 'add'; ?>">
+                            <input type="hidden" name="prodID" value="<?= $product['prodID']; ?>">
+                            <button type="submit" class="btn-wishlist <?= $inWishlist ? 'in-wishlist' : ''; ?>" id="detail-wishlist-btn">
+                                <i class="fas fa-heart"></i> 
+                                <span class="wishlist-text"><?= $inWishlist ? 'In Wishlist' : 'Add to Wishlist'; ?></span>
                             </button>
-                        <?php endif; ?>
+                        </form>
                     <?php else: ?>
-                        <button class="btn-disabled" disabled>Out of Stock</button>
+                        <button type="button" class="btn-add" onclick="showLoginPrompt()">Add to Cart</button>
+                        <button type="button" class="btn-checkout" onclick="showLoginPrompt()">Buy Now</button>
+                        <button type="button" class="btn-wishlist" onclick="showLoginPrompt()">
+                            <i class="fas fa-heart"></i> 
+                            <span class="wishlist-text">Add to Wishlist</span>
+                        </button>
                     <?php endif; ?>
-                </div>
+                <?php else: ?>
+                    <button class="btn-disabled" disabled>Out of Stock</button>
+                <?php endif; ?>
             </div>
         </div>
     <?php endif; ?>
@@ -339,21 +373,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Enhanced Zoom Functionality
 const mainImg = document.getElementById("mainProductImg");
-const zoomWindow = document.querySelector(".zoom-window");
+const mainImgContainer = document.getElementById("mainImageContainer");
+const zoomWindow = document.getElementById("zoomWindow");
 const zoomImg = document.getElementById("zoomImg");
+const zoomLens = document.getElementById("zoomLens");
 
-mainImg.addEventListener("mouseenter", () => {
+// Image change function
+function changeMainImage(newSrc) {
+    mainImg.src = newSrc;
+    zoomImg.src = newSrc;
+}
+
+// Zoom functionality
+mainImgContainer.addEventListener("mouseenter", () => {
     zoomWindow.style.display = "block";
+    zoomLens.style.display = "block";
 });
-mainImg.addEventListener("mouseleave", () => {
-    zoomWindow.style.display = "none";
-});
-mainImg.addEventListener("mousemove", function(e) {
-    const rect = this.getBoundingClientRect();
-    const x = e.clientX - rect.left; // mouse x inside image
-    const y = e.clientY - rect.top;  // mouse y inside image
 
+mainImgContainer.addEventListener("mouseleave", () => {
+    zoomWindow.style.display = "none";
+    zoomLens.style.display = "none";
+});
+
+mainImgContainer.addEventListener("mousemove", function(e) {
+    const rect = this.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Position the lens
+    const lensSize = 100;
+    const lensX = Math.max(0, Math.min(x - lensSize/2, rect.width - lensSize));
+    const lensY = Math.max(0, Math.min(y - lensSize/2, rect.height - lensSize));
+    
+    zoomLens.style.left = lensX + "px";
+    zoomLens.style.top = lensY + "px";
+
+    // Calculate zoom
     const percentX = x / rect.width;
     const percentY = y / rect.height;
 
@@ -365,6 +422,155 @@ mainImg.addEventListener("mousemove", function(e) {
 
     zoomImg.style.transform = `translate(${moveX}px, ${moveY}px)`;
 });
+
+// Rating popup functionality
+function showRatingPopup(productId, avgRating, reviewCount) {
+    if (reviewCount === 0) {
+        alert('No reviews available for this product yet.');
+        return;
+    }
+    
+    // Show loading state
+    const modal = document.createElement('div');
+    modal.className = 'rating-modal-overlay';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease-out;
+    `;
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.className = 'rating-modal-content';
+    modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        text-align: center;
+        max-width: 700px;
+        width: 95%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease-out;
+        border: 3px solid #8B4513;
+    `;
+    
+    const fullStars = Math.floor(avgRating);
+    const hasHalfStar = avgRating % 1 >= 0.5;
+    
+    modalContent.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #8B4513; margin-bottom: 15px; font-size: 1.5rem;">Product Reviews</h3>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 5px; margin-bottom: 10px;">
+                ${Array.from({length: 5}, (_, i) => 
+                    `<span style="font-size: 2rem; color: ${i < fullStars ? '#FFD700' : (i === fullStars && hasHalfStar ? '#FFD700' : '#ddd')};">★</span>`
+                ).join('')}
+            </div>
+            <p style="font-size: 1.2rem; color: #8B4513; font-weight: bold; margin: 0;">
+                ${avgRating.toFixed(1)} out of 5 stars
+            </p>
+            <p style="color: #666; margin: 5px 0 0 0;">
+                Based on ${reviewCount} review${reviewCount !== 1 ? 's' : ''}
+            </p>
+        </div>
+        <div id="reviews-container" style="text-align: left; margin: 20px 0;">
+            <div style="text-align: center; color: #666;">Loading reviews...</div>
+        </div>
+        <div style="margin-top: 20px;">
+            <button onclick="closeRatingModal()" 
+                    style="background: #8B4513; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem;">
+                Close
+            </button>
+        </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Fetch detailed reviews
+    fetchReviews(productId, modalContent);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeRatingModal();
+        }
+    });
+}
+
+// Fetch detailed reviews
+function fetchReviews(productId, modalContent) {
+    fetch(`../order/get_reviews.php?product_id=${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            const reviewsContainer = modalContent.querySelector('#reviews-container');
+            if (data.success && data.reviews.length > 0) {
+                // Update the review count in the header to match actual reviews
+                const reviewCountElement = modalContent.querySelector('p:last-of-type');
+                if (reviewCountElement) {
+                    reviewCountElement.innerHTML = `Based on ${data.reviews.length} review${data.reviews.length !== 1 ? 's' : ''}`;
+                }
+                
+                reviewsContainer.innerHTML = data.reviews.map(review => `
+                    <div style="border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 15px; background: #fafafa;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <strong style="color: #8B4513; font-size: 1.1rem;">${review.username}</strong>
+                                <div style="display: flex; gap: 2px;">
+                                    ${Array.from({length: 5}, (_, i) => 
+                                        `<span style="color: ${i < review.rating ? '#FFD700' : '#ddd'}; font-size: 1rem;">★</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                            <span style="color: #666; font-size: 0.9rem;">${review.date}</span>
+                        </div>
+                        ${review.title ? `<h4 style="color: #5D4037; margin: 5px 0; font-size: 1rem;">${review.title}</h4>` : ''}
+                        <p style="color: #333; line-height: 1.5; margin: 0;">${review.content}</p>
+                    </div>
+                `).join('');
+            } else {
+                reviewsContainer.innerHTML = '<div style="text-align: center; color: #666;">No detailed reviews available.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching reviews:', error);
+            const reviewsContainer = modalContent.querySelector('#reviews-container');
+            reviewsContainer.innerHTML = '<div style="text-align: center; color: #e74c3c;">Error loading reviews. Please try again.</div>';
+        });
+}
+
+function closeRatingModal() {
+    const modal = document.querySelector('.rating-modal-overlay');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Add CSS animations if not already present
+if (!document.querySelector('#rating-modal-styles')) {
+    const style = document.createElement('style');
+    style.id = 'rating-modal-styles';
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+}
 </script>
 
 <?php include '../footer.php'; ?>

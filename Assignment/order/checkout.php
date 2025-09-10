@@ -1,5 +1,6 @@
 <?php
 require_once '../_base.php';
+include 'voucher.php';
 
 $user_id = $_SESSION['user_id'] ?? null;
 checkLogin();
@@ -183,6 +184,7 @@ if (empty($_SESSION['order_idem_tokens']) || !is_array($_SESSION['order_idem_tok
 }
 $idem_key = bin2hex(random_bytes(16));
 $_SESSION['order_idem_tokens'][$idem_key] = 'new';
+$available_vouchers = getAvailableVouchers($user_id, $subtotal);
 
 include '../header.php'; 
 ?>
@@ -268,16 +270,45 @@ include '../header.php';
                 <h2 class="section-title">🎟️ Vouchers & Discounts</h2>
                 <div class="voucher-section">
                     <div class="selection-box voucher-selection" onclick="showVoucherModal()">
-                        <div class="selection-content">
-                            <div class="selection-icon">🏷️</div>
-                            <div class="selection-text">
-                                <h3>Select Voucher</h3>
-                                <p id="voucher-text">Click here to select available vouchers</p>
-                            </div>
-                            <div class="selection-arrow">›</div>
+                        <span>Select a voucher</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="voucherModal" class="voucher-modal">
+                <div class="voucher-modal-content">
+                    <span class="close" onclick="closeVoucherModal()">&times;</span>
+                    <h2>🎟️ Select Your Voucher</h2>
+                    
+                    <!-- Voucher List -->
+                    <div class="voucher-list-container">
+                        <!-- Loading State -->
+                        <div id="vouchersLoading" class="vouchers-loading" style="display: none;">
+                            <div class="loading-spinner"></div>
+                            <p>Loading vouchers...</p>
+                        </div>
+                        
+                        <!-- Voucher List -->
+                        <div id="voucherList" class="voucher-list">
+                            <!-- Vouchers will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <!-- Modal Footer -->
+                    <div class="modal-footer voucher-modal-footer">
+                        <div class="selected-voucher-info">
+                            <span id="selectedVoucherText">No voucher selected</span>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeVoucherModal()">Cancel</button>
+                            <button type="button" id="applyVoucherBtn" class="btn btn-primary" onclick="applySelectedVoucher()" disabled>Apply Voucher</button>
                         </div>
                     </div>
                 </div>
+
+                <input type="hidden" name="voucher_id" id="voucherIdInput">
+                <input type="hidden" name="voucher_code" id="voucherCodeInput">
+                <input type="hidden" name="discount_amount" id="voucherDiscountInput">
             </div>
 
             <!-- Order Items Section -->
@@ -416,6 +447,8 @@ include '../header.php';
         isBuyNow: <?= $is_buy_now ? 'true' : 'false' ?>
     };
 
+    window.availableVouchers = <?= json_encode($available_vouchers) ?>;
+
     // Expose idempotency key to JS for AJAX submission path
     window.orderIdemKey = '<?= htmlspecialchars($idem_key) ?>';
 
@@ -425,6 +458,11 @@ include '../header.php';
     document.addEventListener('DOMContentLoaded', function() {
         displayCheckoutItems();
         updateOrderSummary();
+
+        // Initialize voucher system properly
+        if (typeof iinitializeVoucherSystem === 'function') {
+            iinitializeVoucherSystem();
+        }
         
         // Listen for address selection changes
         document.addEventListener('change', function(e) {
