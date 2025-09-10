@@ -214,25 +214,8 @@ try {
     <link rel="stylesheet" href="../css/products.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Reset for proper header positioning */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
-            font-family: Arial, sans-serif;
-        }
-        
-        .container { max-width: 980px; margin: 0 auto; padding: 20px; }
+        /* Order Record specific styles */
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
         .orders-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .orders-table th, .orders-table td { padding: 12px 15px; border-bottom: 1px solid #e6e6e6; text-align: left; }
         .orders-table th { background: #f8f9fa; font-weight: 600; color: #333; }
@@ -302,7 +285,7 @@ try {
         }
     </style>
 </head>
-<body class="product-list-main">
+<body class="product-list-main" style="margin-top:0; padding-top:0;">
     <?php include 'adminheader.php'; ?>
 
     <div class="container">

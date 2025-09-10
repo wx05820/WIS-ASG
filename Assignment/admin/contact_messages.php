@@ -118,65 +118,68 @@ $stmt = $_db->prepare("SELECT userID, username FROM user WHERE role = 'Admin' OR
 $stmt->execute();
 $staff_users = $stmt->fetchAll();
 
-require_once 'adminheader.php';
+
 ?>
 
-<link rel="stylesheet" href="../style.css">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-<link rel="stylesheet" href="../css/userlist.css">
-<link rel="stylesheet" href="../css/products.css">
-<link rel="stylesheet" href="../css/contact_messages.css">
-<style>
-/* Fallback styles in case CSS doesn't load */
-.admin-container {
-    font-family: Arial, sans-serif;
-}
-.admin-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-.message-card {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-.message-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 15px;
-}
-.btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-}
-.btn-primary {
-    background: #8B4513;
-    color: white;
-}
-.btn-secondary {
-    background: #6c757d;
-    color: white;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Messages - AiKUN Furniture</title>
+    <link rel="stylesheet" href="../style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/userlist.css">
+    <link rel="stylesheet" href="../css/products.css">
+    <link rel="stylesheet" href="../css/contact_messages.css">
+    <style>
+        /* Fallback styles in case CSS doesn't load */
+        .admin-container {
+            font-family: Arial, sans-serif;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .message-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .message-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #8B4513;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
 </style>
-
-<script>
-document.body.className = 'product-list-main';
-document.body.style.marginTop = '0';
-document.body.style.paddingTop = '0';
-</script>
+</head>
+<body class="product-list-main" style="margin-top:0; padding-top:0;">
+    <?php include 'adminheader.php'; ?>
 
 <div class="container">
 <div class="admin-container">
@@ -390,8 +393,10 @@ document.body.style.paddingTop = '0';
 
     <script src="../js/contact.js"></script>
 
+    <?php require_once '../footer.php'; ?>
 
-<?php require_once '../footer.php'; ?>
+</body>
+</html>
 
 
 

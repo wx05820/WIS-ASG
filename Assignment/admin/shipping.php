@@ -128,7 +128,6 @@ foreach ($status_stats as $stat) {
 }
 
 $page_title = 'Shipping Management';
-include 'adminheader.php';
 ?>
 
 <!DOCTYPE html>
@@ -139,11 +138,20 @@ include 'adminheader.php';
     <title>Shipping Management - AiKUN Furniture</title>
     <link rel="stylesheet" href="../style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../css/shipping.css">
+    <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="../css/products.css">
+    <link rel="stylesheet" href="../css/shipping.css">
+    <style>
+        /* Shipping page specific styles to match stock monitor */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+    </style>
 </head>
 <body class="product-list-main" style="margin-top:0; padding-top:0;">
-
+    <?php include 'adminheader.php'; ?>
 
 <div class="container">
 
