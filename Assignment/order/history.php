@@ -147,7 +147,7 @@ include '../header.php';
                         <!-- Status Filter -->
                         <div class="filter-group">
                             <label for="status" style="margin-right: 0.5rem; color: #495057; font-weight: 500; min-width: 80px;">Status:</label>
-                            <select id="status" name="status" onchange="autoApplyFilters()" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white; min-width: 150px;">
+                            <select id="status" name="status" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white; min-width: 150px;">
                                 <option value="">All Statuses</option>
                                 <option value="Received" <?= $statusFilter === 'Received' ? 'selected' : '' ?>>Received</option>
                                 <option value="Cancelled" <?= $statusFilter === 'Cancelled' ? 'selected' : '' ?>>Cancelled</option>
@@ -158,20 +158,23 @@ include '../header.php';
                         <!-- Date Range Filter -->
                         <div class="filter-group">
                             <label for="date_from" style="margin-right: 0.5rem; color: #495057; font-weight: 500; min-width: 80px;">From Date:</label>
-                            <input type="date" id="date_from" name="date_from" value="<?= htmlspecialchars($dateFrom) ?>" onchange="autoApplyFilters()" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white;">
+                            <input type="date" id="date_from" name="date_from" value="<?= htmlspecialchars($dateFrom) ?>" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white;">
                         </div>
                         
                         <div class="filter-group">
                             <label for="date_to" style="margin-right: 0.5rem; color: #495057; font-weight: 500; min-width: 80px;">To Date:</label>
-                            <input type="date" id="date_to" name="date_to" value="<?= htmlspecialchars($dateTo) ?>" onchange="autoApplyFilters()" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white;">
+                            <input type="date" id="date_to" name="date_to" value="<?= htmlspecialchars($dateTo) ?>" style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white;">
                         </div>
                         
                         <!-- Hidden sort parameters (using defaults) -->
                         <input type="hidden" name="sort" value="<?= htmlspecialchars($sortBy) ?>">
                         <input type="hidden" name="order" value="<?= htmlspecialchars($sortOrder) ?>">
                         
-                        <!-- Clear Filters Button -->
-                        <div class="filter-group" style="margin-left: auto;">
+                        <!-- Filter Buttons -->
+                        <div class="filter-group" style="margin-left: auto; display: flex; gap: 0.5rem;">
+                            <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.5rem 1rem; background: #007bff; color: white; border: none; border-radius: 4px; text-decoration: none; font-weight: 500;">
+                                <i class="fas fa-filter"></i> Apply Filters
+                            </button>
                             <button type="button" onclick="clearFilters()" class="btn btn-outline-secondary btn-sm" style="padding: 0.5rem 1rem; border: 1px solid #6c757d; color: #6c757d; background: white; border-radius: 4px; text-decoration: none; font-weight: 500;">
                                 <i class="fas fa-times"></i> Clear Filters
                             </button>
@@ -319,13 +322,16 @@ include '../header.php';
     }
 
     function clearFilters() {
-        // Clear all form fields
-        document.getElementById('status').value = '';
-        document.getElementById('date_from').value = '';
-        document.getElementById('date_to').value = '';
-        
-        // Submit the form to reset all filters
-        document.getElementById('filterForm').submit();
+        // Ask for confirmation before clearing filters
+        if (confirm('Are you sure you want to clear all filters?')) {
+            // Clear all form fields
+            document.getElementById('status').value = '';
+            document.getElementById('date_from').value = '';
+            document.getElementById('date_to').value = '';
+            
+            // Submit the form to reset all filters
+            document.getElementById('filterForm').submit();
+        }
     }
 </script>
 

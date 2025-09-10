@@ -19,9 +19,15 @@ const ListUserShipping = {
         const clearSearchBtn = document.getElementById('clearSearchBtn');
         const clearFiltersBtn = document.getElementById('clearFiltersBtn');
         
-        // Search input events
+        // Search input events - real-time filtering
         if (searchInput) {
             searchInput.addEventListener('input', () => this.filterItems());
+            searchInput.addEventListener('keyup', (e) => {
+                // Also filter on keyup for better responsiveness
+                if (e.key !== 'Enter') {
+                    this.filterItems();
+                }
+            });
         }
         
         // Clear search button
@@ -47,9 +53,44 @@ const ListUserShipping = {
         const roleFilter = document.getElementById('roleFilter');
         const dateFilter = document.getElementById('dateFilter');
         
-        if (statusFilter) statusFilter.addEventListener('change', () => this.filterItems());
-        if (roleFilter) roleFilter.addEventListener('change', () => this.filterItems());
-        if (dateFilter) dateFilter.addEventListener('change', () => this.filterItems());
+        console.log('Setting up filter event listeners:', {
+            statusFilter: !!statusFilter,
+            roleFilter: !!roleFilter,
+            dateFilter: !!dateFilter,
+            pageType: this.pageType
+        });
+        
+        if (statusFilter) {
+            statusFilter.addEventListener('change', () => {
+                console.log('Status filter changed to:', statusFilter.value);
+                this.filterItems();
+            });
+            // Also listen for input events for immediate response
+            statusFilter.addEventListener('input', () => {
+                console.log('Status filter input changed to:', statusFilter.value);
+                this.filterItems();
+            });
+        }
+        if (roleFilter) {
+            roleFilter.addEventListener('change', () => {
+                console.log('Role filter changed to:', roleFilter.value);
+                this.filterItems();
+            });
+            roleFilter.addEventListener('input', () => {
+                this.filterItems();
+            });
+        }
+        if (dateFilter) {
+            dateFilter.addEventListener('change', () => {
+                console.log('Date filter changed to:', dateFilter.value);
+                this.filterItems();
+            });
+            // Also listen for input events for immediate response
+            dateFilter.addEventListener('input', () => {
+                console.log('Date filter input changed to:', dateFilter.value);
+                this.filterItems();
+            });
+        }
     },
     
     // Initialize filters from URL parameters
@@ -163,16 +204,34 @@ const ListUserShipping = {
     
     // Filter orders (from shipping.php)
     filterOrders: function() {
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-        const statusFilter = document.getElementById('statusFilter').value;
-        const dateFilter = document.getElementById('dateFilter').value;
+        const searchInput = document.getElementById('searchInput');
+        const statusFilterEl = document.getElementById('statusFilter');
+        const dateFilterEl = document.getElementById('dateFilter');
+        
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const statusFilter = statusFilterEl ? statusFilterEl.value : 'all';
+        const dateFilter = dateFilterEl ? dateFilterEl.value : 'all';
         const orderCards = document.querySelectorAll('.order-card');
         
         console.log('filterOrders called with:', {
             searchTerm,
             statusFilter,
             dateFilter,
-            orderCardsCount: orderCards.length
+            orderCardsCount: orderCards.length,
+            statusFilterElement: statusFilterEl,
+            statusFilterOptions: statusFilterEl ? Array.from(statusFilterEl.options).map(opt => opt.value) : []
+        });
+        
+        // Debug: Log all order statuses
+        console.log('All order statuses in DOM:');
+        orderCards.forEach((card, index) => {
+            if (index < 5) { // Only log first 5 for debugging
+                console.log(`Card ${index}:`, {
+                    orderid: card.dataset.orderid,
+                    status: card.dataset.status,
+                    userid: card.dataset.userid
+                });
+            }
         });
         
         let visibleCount = 0;
@@ -194,6 +253,13 @@ const ListUserShipping = {
             let matchesStatus = true;
             if (statusFilter !== 'all') {
                 matchesStatus = status === statusFilter;
+                console.log(`Status check for card ${index}:`, {
+                    cardStatus: status,
+                    filterStatus: statusFilter,
+                    matches: matchesStatus
+                });
+            } else {
+                console.log(`Status filter is 'all' - showing all statuses for card ${index}`);
             }
             
             // Check date filter
@@ -231,7 +297,21 @@ const ListUserShipping = {
             }
             
             // Show/hide card based on all filters
-            if (matchesSearch && matchesStatus && matchesDate) {
+            const shouldShow = matchesSearch && matchesStatus && matchesDate;
+            
+            if (index < 3) { // Debug first 3 cards
+                console.log(`Card ${index} filtering result:`, {
+                    orderid,
+                    status,
+                    matchesSearch,
+                    matchesStatus,
+                    matchesDate,
+                    shouldShow,
+                    currentDisplay: card.style.display
+                });
+            }
+            
+            if (shouldShow) {
                 card.style.display = 'flex';
                 visibleCount++;
             } else {
@@ -311,6 +391,7 @@ const ListUserShipping = {
         
         this.filterItems();
     },
+    
     
     // Handle sort toggle (URL-based for server-side sorting)
     handleSortToggle: function(newSortOrder) {
@@ -402,3 +483,43 @@ document.addEventListener('DOMContentLoaded', function() {
         ListUserShipping.filterItems();
     }, 100);
 });
+
+// Global function for testing (accessible from browser console)
+window.testShippingFilter = function() {
+    if (typeof ListUserShipping !== 'undefined') {
+        ListUserShipping.testStatusFilter();
+    } else {
+        console.log('ListUserShipping not available');
+    }
+};
+
+// Test function to debug status filter
+window.testStatusFilter = function() {
+    const statusFilter = document.getElementById('statusFilter');
+    const orderCards = document.querySelectorAll('.order-card');
+    
+    console.log('=== STATUS FILTER TEST ===');
+    console.log('Status filter element:', statusFilter);
+    console.log('Status filter value:', statusFilter ? statusFilter.value : 'NOT FOUND');
+    console.log('Total order cards:', orderCards.length);
+    
+    if (orderCards.length > 0) {
+        console.log('All order statuses:');
+        orderCards.forEach((card, index) => {
+            console.log(`Card ${index}:`, {
+                orderid: card.dataset.orderid,
+                status: card.dataset.status,
+                display: card.style.display
+            });
+        });
+    }
+    
+    // Test filtering with 'all' status
+    console.log('Testing with status = "all"');
+    if (statusFilter) {
+        statusFilter.value = 'all';
+        if (typeof ListUserShipping !== 'undefined') {
+            ListUserShipping.filterOrders();
+        }
+    }
+};

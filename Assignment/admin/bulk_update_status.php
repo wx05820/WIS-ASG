@@ -1,12 +1,10 @@
 <?php
 require_once '../_base.php';
 
-
-if (!isStaffAdmin()) {
+if (!isStaffAdmin() && !isStaffSuperAdmin()) {
     redirect('loginstaff.php');
     exit;
 }
-
 
 $pdo = $_db;
 

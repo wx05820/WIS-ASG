@@ -206,7 +206,7 @@ include '../header.php';
                                             <?php endif; ?>
                                             
                                             <div class="review-actions" style="margin-top: 0.5rem;">
-                                                <button onclick="editReview(<?= $item['prodID'] ?>)" class="btn btn-sm btn-outline-primary">
+                                                <button type="button" class="btn btn-sm btn-outline-primary edit-review-btn" data-product-id="<?= htmlspecialchars($item['prodID']) ?>" style="background: #007bff; color: white; border: 1px solid #007bff; padding: 0.375rem 0.75rem; border-radius: 0.25rem; cursor: pointer; z-index: 10; position: relative;">
                                                     <i class="fas fa-edit"></i> Edit Review
                                                 </button>
                                             </div>
@@ -490,6 +490,25 @@ include '../header.php';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../js/history.js"></script>
     <script src="../js/userProduct.js"></script>
+    
+    <style>
+    .edit-review-btn {
+        pointer-events: auto !important;
+        z-index: 1000 !important;
+        position: relative !important;
+        cursor: pointer !important;
+    }
+    
+    .edit-review-btn:hover {
+        background: #0056b3 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .edit-review-btn:active {
+        transform: translateY(0);
+    }
+    </style>
     
     <script>
     // Enhanced star rating functionality

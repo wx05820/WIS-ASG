@@ -14,20 +14,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'add') {
             $stm = $_db->prepare('SELECT COUNT(*) FROM wishlist WHERE userID=? AND prodID=?');
             $stm->execute([$user_id, $prodID]);
-            if (!$stm->fetchColumn()) {
+            $count = $stm->fetchColumn();
+            
+            // Debug logging
+            error_log("Wishlist add check - User: $user_id, Product: $prodID, Count: $count");
+            
+            if (!$count) {
                 $ins = $_db->prepare('INSERT INTO wishlist(userID, prodID, created_at) VALUES(?, ?, NOW())');
                 $ins->execute([$user_id, $prodID]);
                 $_SESSION['success'] = 'Added to wishlist';
-                $response = ['ok' => true, 'message' => 'Added to wishlist'];
+                $response = ['ok' => true, 'message' => 'Added to wishlist', 'action' => 'add'];
             } else {
-                $_SESSION['error'] = 'Item already in wishlist';
-                $response = ['ok' => false, 'message' => 'Item already in wishlist'];
+                // Item already exists, automatically switch to remove mode
+                $del = $_db->prepare('DELETE FROM wishlist WHERE userID=? AND prodID=?');
+                $del->execute([$user_id, $prodID]);
+                $_SESSION['success'] = 'Removed from wishlist';
+                $response = ['ok' => true, 'message' => 'Removed from wishlist (was already added)', 'action' => 'remove', 'auto_switched' => true];
             }
         } elseif ($action === 'remove') {
             $del = $_db->prepare('DELETE FROM wishlist WHERE userID=? AND prodID=?');
             $del->execute([$user_id, $prodID]);
             $_SESSION['success'] = 'Removed from wishlist';
-            $response = ['ok' => true, 'message' => 'Removed from wishlist'];
+            $response = ['ok' => true, 'message' => 'Removed from wishlist', 'action' => 'remove'];
+        } elseif ($action === 'check_status') {
+            $productIds = json_decode($_POST['product_ids'] ?? '[]', true);
+            error_log("Wishlist check_status - User: $user_id, Product IDs: " . json_encode($productIds));
+            
+            if (is_array($productIds) && !empty($productIds)) {
+                $placeholders = str_repeat('?,', count($productIds) - 1) . '?';
+                $stm = $_db->prepare("SELECT prodID FROM wishlist WHERE userID = ? AND prodID IN ($placeholders)");
+                $stm->execute(array_merge([$user_id], $productIds));
+                $wishlistItems = array_column($stm->fetchAll(PDO::FETCH_ASSOC), 'prodID');
+                error_log("Wishlist check_status - Found items: " . json_encode($wishlistItems));
+                $response = ['ok' => true, 'wishlist_items' => $wishlistItems];
+            } else {
+                error_log("Wishlist check_status - No product IDs provided");
+                $response = ['ok' => true, 'wishlist_items' => []];
+            }
         }
     }
     if (strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest') {
