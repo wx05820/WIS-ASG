@@ -6,6 +6,21 @@ if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
 }
 
 $page_title = 'Admin Dashboard';
+
+// Auto stock monitoring check (only once per session to avoid spam)
+if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== date('Y-m-d')) {
+    try {
+        $stockData = checkLowStockProducts(5);
+        if (!empty($stockData['low_stock']) || !empty($stockData['out_of_stock'])) {
+            $lowCount = count($stockData['low_stock']);
+            $outCount = count($stockData['out_of_stock']);
+            temp('warning', "Stock Alert: $lowCount products are low in stock, $outCount products are out of stock. Check the Stock Monitor for details.");
+        }
+        $_SESSION['stock_check_done'] = date('Y-m-d'); // Mark as checked for today
+    } catch (Exception $e) {
+        error_log("Dashboard stock check failed: " . $e->getMessage());
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -82,9 +97,65 @@ $page_title = 'Admin Dashboard';
     <?php include 'adminheader.php'; ?>
 
     <div class="admin-dashboard">
+        <!-- Notification Messages -->
+        <?php if ($success_msg = get_temp('success')): ?>
+            <div class="alert alert-success" style="margin-bottom: 20px; padding: 15px; background: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px;">
+                <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_msg); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if ($info_msg = get_temp('info')): ?>
+            <div class="alert alert-info" style="margin-bottom: 20px; padding: 15px; background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; border-radius: 8px;">
+                <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($info_msg); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if ($warning_msg = get_temp('warning')): ?>
+            <div class="alert alert-warning" style="margin-bottom: 20px; padding: 15px; background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; border-radius: 8px;">
+                <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($warning_msg); ?>
+            </div>
+        <?php endif; ?>
+        
         <div class="dashboard-header">
             <h1><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h1>
             <p>Welcome to AiKUN Furniture Admin Panel</p>
+        </div>
+
+        <!-- Stock Status Summary -->
+        <?php
+        try {
+            $quickStockData = checkLowStockProducts(5);
+            $lowStockCount = count($quickStockData['low_stock']);
+            $outOfStockCount = count($quickStockData['out_of_stock']);
+        } catch (Exception $e) {
+            $lowStockCount = 0;
+            $outOfStockCount = 0;
+        }
+        ?>
+        <div class="stock-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+            <div class="stock-card" style="background: linear-gradient(135deg, #e8f5e8, #d4edda); padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #c3e6cb;">
+                <i class="fas fa-check-circle" style="font-size: 2em; color: #28a745; margin-bottom: 10px;"></i>
+                <h3 style="margin: 0; color: #155724;">Stock Status</h3>
+                <p style="margin: 5px 0; color: #155724;">System Active</p>
+            </div>
+            
+            <?php if ($lowStockCount > 0): ?>
+            <div class="stock-card" style="background: linear-gradient(135deg, #fff3cd, #ffeaa7); padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #ffeaa7;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2em; color: #856404; margin-bottom: 10px;"></i>
+                <h3 style="margin: 0; color: #856404;">Low Stock</h3>
+                <p style="margin: 5px 0; color: #856404;"><?php echo $lowStockCount; ?> Products</p>
+                <a href="stock_monitor.php" style="color: #856404; text-decoration: underline; font-size: 0.9em;">View Details</a>
+            </div>
+            <?php endif; ?>
+            
+            <?php if ($outOfStockCount > 0): ?>
+            <div class="stock-card" style="background: linear-gradient(135deg, #f8d7da, #f5c6cb); padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #f5c6cb;">
+                <i class="fas fa-times-circle" style="font-size: 2em; color: #721c24; margin-bottom: 10px;"></i>
+                <h3 style="margin: 0; color: #721c24;">Out of Stock</h3>
+                <p style="margin: 5px 0; color: #721c24;"><?php echo $outOfStockCount; ?> Products</p>
+                <a href="stock_monitor.php" style="color: #721c24; text-decoration: underline; font-size: 0.9em;">Restock Now</a>
+            </div>
+            <?php endif; ?>
         </div>
 
         <!-- Quick Actions -->

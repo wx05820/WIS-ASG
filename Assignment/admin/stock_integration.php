@@ -1,9 +1,4 @@
 <?php
-/**
- * Stock Check Integration
- * This script can be included in product management pages to automatically
- * trigger stock checks when inventory levels change
- */
 
 require_once __DIR__ . '/../_base.php';
 

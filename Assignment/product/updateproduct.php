@@ -1,6 +1,56 @@
 <?php
 include '../config.php';
 
+// Helper function to handle image display (filename or binary data)
+function getImageSrc($imageData) {
+    if (empty($imageData)) {
+        return '';
+    }
+    
+    // Check if image data is a filename or binary data
+    $isFilename = false;
+    if (strlen($imageData) < 500) {
+        // Check for common image file extensions
+        $imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.bmp'];
+        foreach ($imageExtensions as $ext) {
+            if (strpos($imageData, $ext) !== false) {
+                $isFilename = true;
+                break;
+            }
+        }
+        
+        // Additional check: if it looks like a filename and file exists
+        if (!$isFilename && preg_match('/^[a-zA-Z0-9._\-\s]+\.[a-zA-Z]{2,4}$/', $imageData)) {
+            if (file_exists('../bin/' . $imageData)) {
+                $isFilename = true;
+            }
+        }
+    }
+    
+    if ($isFilename) {
+        // Image data contains a filename, load from file system
+        $imagePath = '../bin/' . $imageData;
+        if (file_exists($imagePath)) {
+            $imageContent = file_get_contents($imagePath);
+            // Determine MIME type based on file extension
+            $extension = strtolower(pathinfo($imageData, PATHINFO_EXTENSION));
+            $mimeType = 'image/jpeg'; // default
+            switch ($extension) {
+                case 'png': $mimeType = 'image/png'; break;
+                case 'gif': $mimeType = 'image/gif'; break;
+                case 'webp': $mimeType = 'image/webp'; break;
+                case 'avif': $mimeType = 'image/avif'; break;
+            }
+            return 'data:' . $mimeType . ';base64,' . base64_encode($imageContent);
+        } else {
+            return '';
+        }
+    } else {
+        // Image data contains binary data
+        return 'data:image/jpeg;base64,' . base64_encode($imageData);
+    }
+}
+
 $prodID = $_GET['prodID'] ?? '';
 $message = '';
 $errorMsg = '';
@@ -71,27 +121,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
         // Handle image1
         if (isset($_FILES['image1']) && $_FILES['image1']['error'] === UPLOAD_ERR_OK) {
             $fileName = basename($_FILES['image1']['name']);
-            $targetFile = $targetDir . $fileName;
-            if (move_uploaded_file($_FILES['image1']['tmp_name'], $targetFile)) {
-                $image1 = $fileName;
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            
+            // Only allow JPG/JPEG files
+            if ($fileExtension !== 'jpg' && $fileExtension !== 'jpeg') {
+                $errorMsg = "Only JPG/JPEG image files are allowed for Image 1.";
+            } else {
+                $targetFile = $targetDir . $fileName;
+                if (move_uploaded_file($_FILES['image1']['tmp_name'], $targetFile)) {
+                    $image1 = $fileName;
+                }
             }
         }
         
         // Handle image2
-        if (isset($_FILES['image2']) && $_FILES['image2']['error'] === UPLOAD_ERR_OK) {
+        if (isset($_FILES['image2']) && $_FILES['image2']['error'] === UPLOAD_ERR_OK && $errorMsg === '') {
             $fileName = basename($_FILES['image2']['name']);
-            $targetFile = $targetDir . $fileName;
-            if (move_uploaded_file($_FILES['image2']['tmp_name'], $targetFile)) {
-                $image2 = $fileName;
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            
+            // Only allow JPG/JPEG files
+            if ($fileExtension !== 'jpg' && $fileExtension !== 'jpeg') {
+                $errorMsg = "Only JPG/JPEG image files are allowed for Image 2.";
+            } else {
+                $targetFile = $targetDir . $fileName;
+                if (move_uploaded_file($_FILES['image2']['tmp_name'], $targetFile)) {
+                    $image2 = $fileName;
+                }
             }
         }
         
         // Handle image3
-        if (isset($_FILES['image3']) && $_FILES['image3']['error'] === UPLOAD_ERR_OK) {
+        if (isset($_FILES['image3']) && $_FILES['image3']['error'] === UPLOAD_ERR_OK && $errorMsg === '') {
             $fileName = basename($_FILES['image3']['name']);
-            $targetFile = $targetDir . $fileName;
-            if (move_uploaded_file($_FILES['image3']['tmp_name'], $targetFile)) {
-                $image3 = $fileName;
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            
+            // Only allow JPG/JPEG files
+            if ($fileExtension !== 'jpg' && $fileExtension !== 'jpeg') {
+                $errorMsg = "Only JPG/JPEG image files are allowed for Image 3.";
+            } else {
+                $targetFile = $targetDir . $fileName;
+                if (move_uploaded_file($_FILES['image3']['tmp_name'], $targetFile)) {
+                    $image3 = $fileName;
+                }
             }
         }
 
@@ -240,14 +311,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
                     });
                 </script>
 
-                <label>Product Images:</label>
+                <label>Product Images (JPG/JPEG only):</label>
                 <div class="product-images-container">
                     <!-- Image 1 -->
                     <div class="image-upload-box">
-                        <input type="file" id="image1-input" name="image1" accept="image/*" onchange="previewImage(this, 'preview1')">
+                        <input type="file" id="image1-input" name="image1" accept=".jpg,.jpeg" onchange="previewImage(this, 'preview1')">
                         <div id="preview1" class="image-preview">
                             <?php if (!empty($product['image1'])): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" alt="Product Image 1" onclick="document.getElementById('image1-input').click();">
+                                <?php $imageSrc = getImageSrc($product['image1']); ?>
+                                <?php if (!empty($imageSrc)): ?>
+                                    <img src="<?php echo $imageSrc; ?>" alt="Product Image 1" onclick="document.getElementById('image1-input').click();">
+                                <?php else: ?>
+                                    <div onclick="document.getElementById('image1-input').click();" class="image-upload-placeholder">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <span>Image 1 not found</span>
+                                    </div>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <div onclick="document.getElementById('image1-input').click();" class="image-upload-placeholder">
                                     <i class="fas fa-plus"></i>
@@ -259,10 +338,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
 
                     <!-- Image 2 -->
                     <div class="image-upload-box">
-                        <input type="file" id="image2-input" name="image2" accept="image/*" onchange="previewImage(this, 'preview2')">
+                        <input type="file" id="image2-input" name="image2" accept=".jpg,.jpeg" onchange="previewImage(this, 'preview2')">
                         <div id="preview2" class="image-preview">
                             <?php if (!empty($product['image2'])): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image2']); ?>" alt="Product Image 2" onclick="document.getElementById('image2-input').click();">
+                                <?php $imageSrc = getImageSrc($product['image2']); ?>
+                                <?php if (!empty($imageSrc)): ?>
+                                    <img src="<?php echo $imageSrc; ?>" alt="Product Image 2" onclick="document.getElementById('image2-input').click();">
+                                <?php else: ?>
+                                    <div onclick="document.getElementById('image2-input').click();" class="image-upload-placeholder">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <span>Image 2 not found</span>
+                                    </div>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <div onclick="document.getElementById('image2-input').click();" class="image-upload-placeholder">
                                     <i class="fas fa-plus"></i>
@@ -274,10 +361,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errorMsg) {
 
                     <!-- Image 3 -->
                     <div class="image-upload-box">
-                        <input type="file" id="image3-input" name="image3" accept="image/*" onchange="previewImage(this, 'preview3')">
+                        <input type="file" id="image3-input" name="image3" accept=".jpg,.jpeg" onchange="previewImage(this, 'preview3')">
                         <div id="preview3" class="image-preview">
                             <?php if (!empty($product['image3'])): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image3']); ?>" alt="Product Image 3" onclick="document.getElementById('image3-input').click();">
+                                <?php $imageSrc = getImageSrc($product['image3']); ?>
+                                <?php if (!empty($imageSrc)): ?>
+                                    <img src="<?php echo $imageSrc; ?>" alt="Product Image 3" onclick="document.getElementById('image3-input').click();">
+                                <?php else: ?>
+                                    <div onclick="document.getElementById('image3-input').click();" class="image-upload-placeholder">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <span>Image 3 not found</span>
+                                    </div>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <div onclick="document.getElementById('image3-input').click();" class="image-upload-placeholder">
                                     <i class="fas fa-plus"></i>

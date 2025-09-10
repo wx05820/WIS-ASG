@@ -1,6 +1,56 @@
 <?php
 include '../config.php';
 
+// Helper function to handle image display (filename or binary data)
+function getImageSrc($imageData) {
+    if (empty($imageData)) {
+        return '';
+    }
+    
+    // Check if image data is a filename or binary data
+    $isFilename = false;
+    if (strlen($imageData) < 500) {
+        // Check for common image file extensions
+        $imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.bmp'];
+        foreach ($imageExtensions as $ext) {
+            if (strpos($imageData, $ext) !== false) {
+                $isFilename = true;
+                break;
+            }
+        }
+        
+        // Additional check: if it looks like a filename and file exists
+        if (!$isFilename && preg_match('/^[a-zA-Z0-9._\-\s]+\.[a-zA-Z]{2,4}$/', $imageData)) {
+            if (file_exists('../bin/' . $imageData)) {
+                $isFilename = true;
+            }
+        }
+    }
+    
+    if ($isFilename) {
+        // Image data contains a filename, load from file system
+        $imagePath = '../bin/' . $imageData;
+        if (file_exists($imagePath)) {
+            $imageContent = file_get_contents($imagePath);
+            // Determine MIME type based on file extension
+            $extension = strtolower(pathinfo($imageData, PATHINFO_EXTENSION));
+            $mimeType = 'image/jpeg'; // default
+            switch ($extension) {
+                case 'png': $mimeType = 'image/png'; break;
+                case 'gif': $mimeType = 'image/gif'; break;
+                case 'webp': $mimeType = 'image/webp'; break;
+                case 'avif': $mimeType = 'image/avif'; break;
+            }
+            return 'data:' . $mimeType . ';base64,' . base64_encode($imageContent);
+        } else {
+            return '';
+        }
+    } else {
+        // Image data contains binary data
+        return 'data:image/jpeg;base64,' . base64_encode($imageData);
+    }
+}
+
 // Restore logic
 $message = '';
 if (isset($_GET['restore']) && !empty($_GET['restore'])) {
@@ -23,6 +73,19 @@ if (isset($_POST['restore_selected']) && !empty($_POST['restore_ids'])) {
         $message = count($ids) . " products restored successfully.";
     } else {
         $message = "Failed to restore selected products.";
+    }
+}
+
+// Delete forever multiple products
+if (isset($_POST['delete_forever']) && !empty($_POST['restore_ids'])) {
+    $ids = $_POST['restore_ids'];
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = "DELETE FROM product WHERE prodID IN ($placeholders) AND status = 'removed'";
+    $stmt = $_db->prepare($sql);
+    if ($stmt->execute($ids)) {
+        $message = count($ids) . " products permanently deleted.";
+    } else {
+        $message = "Failed to permanently delete selected products.";
     }
 }
 
@@ -129,15 +192,22 @@ $page_title = "Restore Removed Products";
                 <div class="products-list">
                     <?php foreach ($products as $product): ?>
                         <div class="product-list-item" style="align-items: flex-start; cursor:pointer;" onclick="toggleCheckbox(this)">
-                            <input type="checkbox" name="restore_ids[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" style="margin-right:12px; margin-top:8px; width: 20px; height: 20px; transform: scale(1.2); cursor: pointer;" onclick="event.stopPropagation();">
+                            <input type="checkbox" name="restore_ids[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" style="margin-right:15px; margin-top:8px; width: 24px; height: 24px; transform: scale(1.3); cursor: pointer;" onclick="event.stopPropagation();">
                             
                             <div class="product-image">
                                 <a>
                                     <?php if (!empty($product['image1'])): ?>
-                                        <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
-                                            alt="<?php echo htmlspecialchars($product['name']); ?>"
-                                            loading="lazy"
-                                            style="object-fit: cover; border-radius: 8px;">
+                                        <?php $imageSrc = getImageSrc($product['image1']); ?>
+                                        <?php if (!empty($imageSrc)): ?>
+                                            <img src="<?php echo $imageSrc; ?>" 
+                                                alt="<?php echo htmlspecialchars($product['name']); ?>"
+                                                loading="lazy"
+                                                style="object-fit: cover; border-radius: 8px;">
+                                        <?php else: ?>
+                                            <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </div>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
                                             <i class="fas fa-image"></i>
@@ -159,8 +229,13 @@ $page_title = "Restore Removed Products";
                     <?php endforeach; ?>
                 </div>
                 <div id="restore-button-container" style="display:none; margin-top:1.5rem;">
-                    <button type="submit" name="restore_selected" class="btn btn-primary" style="background: #28a745; color: white; border-radius: 20px; padding: 0.9rem 1.5rem; font-weight: 600; font-size: 0.9rem; border-radius: 15px;">
+                    <button type="submit" name="restore_selected" class="btn btn-primary" style="background: #28a745; color: white; border-radius: 15px; padding: 0.9rem 1.5rem; font-weight: 600; font-size: 0.9rem; margin-right: 10px;">
                         <i class="fas fa-undo"></i> Restore Selected (<span id="selected-count">0</span>)
+                    </button>
+                    <button type="submit" name="delete_forever" class="btn btn-danger" 
+                            style="background: #dc3545; color: white; border-radius: 15px; padding: 0.9rem 1.5rem; font-weight: 600; font-size: 0.9rem;"
+                            onclick="return confirm('Are you sure you want to permanently delete the selected products? This action cannot be undone!');">
+                        <i class="fas fa-trash-alt"></i> Delete Forever (<span id="selected-count-delete">0</span>)
                     </button>
                 </div>
             </form>

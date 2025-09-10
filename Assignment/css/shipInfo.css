@@ -1,0 +1,172 @@
+/* === Shipping Info Page Styles === */
+.shipping-info-container {
+    max-width: 1000px;
+    margin: 30px auto;
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
+    border-radius: 1%;
+}
+
+/* Header */
+.shipping-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.shipping-header h2 {
+    font-size: 2rem;
+    color: #222;
+    margin-bottom: 10px;
+}
+
+.shipping-header i {
+    color: #007bff;
+    margin-right: 8px;
+}
+
+.shipping-subtitle {
+    font-size: 1rem;
+    color: #666;
+}
+
+/* Sections */
+.shipping-section {
+    margin-bottom: 40px;
+}
+
+.shipping-section h3 {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    color: #444;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.shipping-section h3 i {
+    color: #007bff;
+}
+
+/* Delivery Options */
+.delivery-options {
+    display: grid;
+    gap: 20px;
+}
+
+.delivery-option {
+    display: flex;
+    align-items: flex-start;
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.delivery-option:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.delivery-icon {
+    font-size: 2rem;
+    color: #007bff;
+    margin-right: 20px;
+}
+
+.delivery-details h4 {
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+    color: #222;
+}
+
+.delivery-details p {
+    margin: 2px 0;
+    color: #555;
+    font-size: 0.95rem;
+}
+
+/* Tracking Form */
+.tracking-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-group {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+}
+
+.input-group button {
+    background: #007bff;
+    color: #fff;
+    padding: 0 20px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.input-group button:hover {
+    background: #0056b3;
+}
+
+/* Contact Section */
+.contact-info {
+    display: grid;
+    gap: 20px;
+}
+
+.contact-method {
+    display: flex;
+    align-items: flex-start;
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.contact-icon {
+    font-size: 2rem;
+    color: #28a745;
+    margin-right: 20px;
+}
+
+.contact-details h4 {
+    margin-bottom: 5px;
+    color: #222;
+    font-size: 1.1rem;
+}
+
+.contact-details p {
+    margin: 2px 0;
+    font-size: 0.95rem;
+    color: #555;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .delivery-option, 
+    .contact-method {
+        flex-direction: column;
+        text-align: center;
+    }
+    .delivery-icon, 
+    .contact-icon {
+        margin-bottom: 10px;
+        margin-right: 0;
+    }
+}

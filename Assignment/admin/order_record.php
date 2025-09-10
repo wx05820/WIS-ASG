@@ -56,11 +56,11 @@ try {
     // Use the singular `order` table as confirmed
     $usedTable = "`order`";
     
-    // Get order status statistics for pie chart (delivered, cancelled, shipped)
+    // Get order status statistics for pie chart - only show refunded, received, cancelled
     $status_stats_sql = "
         SELECT status, COUNT(*) as count 
         FROM `order` 
-        WHERE status IN ('delivered', 'cancelled', 'shipped', 'Delivered', 'Cancelled', 'Shipped')
+        WHERE status IN ('Received', 'Cancelled', 'Refunded')
         GROUP BY status 
         ORDER BY count DESC
     ";
@@ -74,18 +74,27 @@ try {
     $chart_colors = [];
 
     $status_color_map = [
-        'delivered' => '#28A745',  // Green
-        'cancelled' => '#DC3545',  // Red
-        'shipped' => '#FFC107',    // Yellow/Orange
-        'Delivered' => '#28A745',  // Green
+        'delivered' => '#28A745',  // Green (legacy)
+        'cancelled' => '#DC3545',  // Red (legacy)
+        'shipped' => '#FFC107',    // Yellow/Orange (legacy)
+        'Delivered' => '#28A745',  // Green (legacy)
         'Cancelled' => '#DC3545',  // Red
-        'Shipped' => '#FFC107'     // Yellow/Orange
+        'Shipped' => '#FFC107',    // Yellow/Orange (legacy)
+        'received' => '#28A745',   // Green
+        'Received' => '#28A745',   // Green - delivered orders
+        'pending' => '#17A2B8',    // Blue
+        'Pending' => '#17A2B8',    // Blue - pending orders
+        'processing' => '#FFC107', // Orange
+        'Processing' => '#FFC107', // Orange - shipped/processing orders
+        'refunded' => '#6C757D',   // Gray
+        'Refunded' => '#6C757D'    // Gray - refunded orders
     ];
 
     foreach ($status_stats as $stat) {
         $chart_labels[] = ucfirst(strtolower($stat['status']));
         $chart_data[] = (int)$stat['count'];
-        $chart_colors[] = $status_color_map[$stat['status']];
+        // Use predefined color or default gray for unknown statuses
+        $chart_colors[] = $status_color_map[$stat['status']] ?? '#6C757D';
     }
     
     // Handle filter parameters
@@ -98,7 +107,8 @@ try {
     $filter_price_max = isset($_GET['price_max']) ? $_GET['price_max'] : '';
     
     // Build WHERE clause with filters
-    $where_conditions = ["status IN ('shipped', 'delivered', 'cancelled')"];
+    // Build WHERE clause with filters - only show refunded, received, cancelled orders
+    $where_conditions = ["status IN ('Received', 'Cancelled', 'Refunded')"]; // Only show completed/final statuses
     $params = [];
     
     if (!empty($filter_orderID)) {
@@ -204,6 +214,24 @@ try {
     <link rel="stylesheet" href="../css/products.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Reset for proper header positioning */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
+            font-family: Arial, sans-serif;
+        }
+        
         .container { max-width: 980px; margin: 0 auto; padding: 20px; }
         .orders-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .orders-table th, .orders-table td { padding: 12px 15px; border-bottom: 1px solid #e6e6e6; text-align: left; }
@@ -213,9 +241,13 @@ try {
         .orders-actions a { margin-right: 8px; }
         
         /* Status Color Coding */
-        .status-shipped { color: #007BFF !important; font-weight: 600; }
-        .status-delivered { color: #28A745 !important; font-weight: 600; }
+        .status-shipped { color: #007BFF !important; font-weight: 600; } /* Legacy */
+        .status-delivered { color: #28A745 !important; font-weight: 600; } /* Legacy */
         .status-cancelled { color: #DC3545 !important; font-weight: 600; }
+        .status-processing { color: #FFC107 !important; font-weight: 600; } /* Shipped orders */
+        .status-received { color: #28A745 !important; font-weight: 600; } /* Delivered orders */
+        .status-pending { color: #17A2B8 !important; font-weight: 600; } /* Pending orders */
+        .status-refunded { color: #6C757D !important; font-weight: 600; } /* Refunded orders */
         .order-detail { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 20px; }
         .order-detail h2 { color: #333; }
         .order-detail h3 { color: #333; }
@@ -270,7 +302,7 @@ try {
         }
     </style>
 </head>
-<body class="product-list-main" style="margin-top:0; padding-top:0;">
+<body class="product-list-main">
     <?php include 'adminheader.php'; ?>
 
     <div class="container">
@@ -325,9 +357,9 @@ try {
                         <label for="status">Status</label>
                         <select id="status" name="status">
                             <option value="">All Status</option>
-                            <option value="shipped" <?php echo $filter_status === 'shipped' ? 'selected' : ''; ?>>Shipped</option>
-                            <option value="delivered" <?php echo $filter_status === 'delivered' ? 'selected' : ''; ?>>Delivered</option>
-                            <option value="cancelled" <?php echo $filter_status === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                            <option value="Received" <?php echo $filter_status === 'Received' ? 'selected' : ''; ?>>Received (Delivered)</option>
+                            <option value="Cancelled" <?php echo $filter_status === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                            <option value="Refunded" <?php echo $filter_status === 'Refunded' ? 'selected' : ''; ?>>Refunded</option>
                         </select>
                     </div>
                 </div>
@@ -422,17 +454,7 @@ try {
                         <?php echo $pagerHtml; ?>
                     </div>
                 <?php endif; ?>
-                
-                <!-- Pagination -->
-                <?php if (!empty($pagerHtml)): ?>
-                    <div style="background: #5D4037; padding: 15px; border-radius: 4px; margin-top: 15px; text-align: center;">
-                        <span style="color: #F5F5F5; font-size: 0.9rem; margin-right: 15px;">
-                            <i class="fas fa-list" style="color: #D4AF37;"></i> 
-                            Page Navigation:
-                        </span>
-                        <?php echo $pagerHtml; ?>
-                    </div>
-                <?php endif; ?>
+            
             <?php endif; ?>
         </div>
 

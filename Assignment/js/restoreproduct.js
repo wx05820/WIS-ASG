@@ -11,10 +11,14 @@ function updateRestoreButton() {
     const count = checkboxes.length; 
     const buttonContainer = document.getElementById('restore-button-container'); 
     const countSpan = document.getElementById('selected-count'); 
+    const countSpanDelete = document.getElementById('selected-count-delete');
     
     if (count > 0) { 
         buttonContainer.style.display = 'block'; 
         countSpan.textContent = count; 
+        if (countSpanDelete) {
+            countSpanDelete.textContent = count;
+        }
     } else { 
         buttonContainer.style.display = 'none'; 
     } 

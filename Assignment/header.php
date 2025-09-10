@@ -115,7 +115,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         </button>
                     </div>
                     <div class="filter-options">
-                        <select name="category" class="filter-select" aria-label="Filter by category" onchange="(function(){document.getElementById('search-order').value = (new URLSearchParams(window.location.search).get('order') || document.getElementById('search-order').value); document.getElementById('searchFilterForm').submit()})()">
+                        <select name="category" class="filter-select" aria-label="Filter by category">
                             <option value="">All Categories</option>
                             <option value="Sofa" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Sofa') ? 'selected' : ''; ?>>Sofa</option>
                             <option value="Desk" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Desk') ? 'selected' : ''; ?>>Desk</option>
@@ -126,7 +126,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <option value="TV Cabinet" <?php echo (isset($_GET['category']) && $_GET['category'] === 'TV Cabinet') ? 'selected' : ''; ?>>TV Cabinet</option>
                             <option value="Children's small furniture" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Children\'s small furniture') ? 'selected' : ''; ?>>Children's Furniture</option>
                         </select>
-                        <select name="room" class="filter-select" aria-label="Filter by room" onchange="(function(){document.getElementById('search-order').value = (new URLSearchParams(window.location.search).get('order') || document.getElementById('search-order').value); document.getElementById('searchFilterForm').submit()})()">
+                        <select name="room" class="filter-select" aria-label="Filter by room">
                             <option value="">All Rooms</option>
                             <option value="living-room" <?php echo (isset($_GET['room']) && $_GET['room'] === 'living-room') ? 'selected' : ''; ?>>Living Room</option>
                             <option value="bedroom" <?php echo (isset($_GET['room']) && $_GET['room'] === 'bedroom') ? 'selected' : ''; ?>>Bedroom</option>

@@ -2,6 +2,56 @@
 include '../config.php';
 include '../_base.php';
 
+// Helper function to handle image display (filename or binary data)
+function getImageSrc($imageData) {
+    if (empty($imageData)) {
+        return '';
+    }
+    
+    // Check if image data is a filename or binary data
+    $isFilename = false;
+    if (strlen($imageData) < 500) {
+        // Check for common image file extensions
+        $imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.bmp'];
+        foreach ($imageExtensions as $ext) {
+            if (strpos($imageData, $ext) !== false) {
+                $isFilename = true;
+                break;
+            }
+        }
+        
+        // Additional check: if it looks like a filename and file exists
+        if (!$isFilename && preg_match('/^[a-zA-Z0-9._\-\s]+\.[a-zA-Z]{2,4}$/', $imageData)) {
+            if (file_exists('../bin/' . $imageData)) {
+                $isFilename = true;
+            }
+        }
+    }
+    
+    if ($isFilename) {
+        // Image data contains a filename, load from file system
+        $imagePath = '../bin/' . $imageData;
+        if (file_exists($imagePath)) {
+            $imageContent = file_get_contents($imagePath);
+            // Determine MIME type based on file extension
+            $extension = strtolower(pathinfo($imageData, PATHINFO_EXTENSION));
+            $mimeType = 'image/jpeg'; // default
+            switch ($extension) {
+                case 'png': $mimeType = 'image/png'; break;
+                case 'gif': $mimeType = 'image/gif'; break;
+                case 'webp': $mimeType = 'image/webp'; break;
+                case 'avif': $mimeType = 'image/avif'; break;
+            }
+            return 'data:' . $mimeType . ';base64,' . base64_encode($imageContent);
+        } else {
+            return '';
+        }
+    } else {
+        // Image data contains binary data
+        return 'data:image/jpeg;base64,' . base64_encode($imageData);
+    }
+}
+
 // Check if user is admin
 if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
     redirect('../admin/loginstaff.php');
@@ -54,9 +104,17 @@ try {
         <div class="product-detail-container">
             <div class="product-images">
                 <?php if (!empty($product['image1'])): ?>
-                    <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
-                         alt="<?php echo htmlspecialchars($product['name']); ?>"
-                         style="max-width: 400px; border-radius: 8px;">
+                    <?php $imageSrc = getImageSrc($product['image1']); ?>
+                    <?php if (!empty($imageSrc)): ?>
+                        <img src="<?php echo $imageSrc; ?>" 
+                             alt="<?php echo htmlspecialchars($product['name']); ?>"
+                             style="max-width: 400px; border-radius: 8px;">
+                    <?php else: ?>
+                        <div class="no-image" style="width:400px; height:300px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa; flex-direction:column;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <span>Image not found</span>
+                        </div>
+                    <?php endif; ?>
                 <?php else: ?>
                     <div class="no-image" style="width:400px; height:300px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
                         <i class="fas fa-image" style="font-size: 4rem;"></i>

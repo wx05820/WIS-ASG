@@ -344,32 +344,86 @@ $page_title = "Products";
             <form method="post" action="" id="bulk-operations-form">
                 <div class="products-list">
                     <?php foreach ($products as $product): ?>
-                        <div class="product-list-item" style="align-items: flex-start;">
+                        <div class="product-list-item" style="align-items: flex-start; cursor: pointer;" 
+                             onclick="window.location.href='detail.php?id=<?php echo urlencode($product['prodID']); ?>'">
                             <input type="checkbox" name="selected_products[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" 
-                                   style="margin-right:12px; margin-top:8px; width: 18px; height: 18px; transform: scale(1.1); cursor: pointer;" 
+                                   style="margin-right:10px; margin-top:8px; width: 24px; height: 24px; transform: scale(1.3); cursor: pointer;" 
                                    onclick="event.stopPropagation();">
                             
                             <div class="product-image" style="margin-right: 15px;">
-                                <a href="#" onclick="event.stopPropagation(); event.preventDefault();">
+                                <div style="pointer-events: none;">
                                     <?php if (!empty($product['image1'])): ?>
-                                        <img src="data:image/jpeg;base64,<?php echo base64_encode($product['image1']); ?>" 
-                                             alt="<?php echo htmlspecialchars($product['name']); ?>"
-                                             loading="lazy"
-                                             style="object-fit: cover; border-radius: 8px;">
+                                        <?php
+                                        // Check if image1 is a filename or binary data
+                                        $imageData = $product['image1'];
+                                        
+                                        // More robust filename detection
+                                        $isFilename = false;
+                                        if (strlen($imageData) < 500) {
+                                            // Check for common image file extensions
+                                            $imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.bmp'];
+                                            foreach ($imageExtensions as $ext) {
+                                                if (strpos($imageData, $ext) !== false) {
+                                                    $isFilename = true;
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            // Additional check: if it looks like a filename and file exists
+                                            if (!$isFilename && preg_match('/^[a-zA-Z0-9._\-\s]+\.[a-zA-Z]{2,4}$/', $imageData)) {
+                                                if (file_exists('../bin/' . $imageData)) {
+                                                    $isFilename = true;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if ($isFilename) {
+                                            // Image1 contains a filename, load from file system
+                                            $imagePath = '../bin/' . $imageData;
+                                            if (file_exists($imagePath)) {
+                                                $imageContent = file_get_contents($imagePath);
+                                                // Determine MIME type based on file extension
+                                                $extension = strtolower(pathinfo($imageData, PATHINFO_EXTENSION));
+                                                $mimeType = 'image/jpeg'; // default
+                                                switch ($extension) {
+                                                    case 'png': $mimeType = 'image/png'; break;
+                                                    case 'gif': $mimeType = 'image/gif'; break;
+                                                    case 'webp': $mimeType = 'image/webp'; break;
+                                                    case 'avif': $mimeType = 'image/avif'; break;
+                                                }
+                                                $imageSrc = 'data:' . $mimeType . ';base64,' . base64_encode($imageContent);
+                                            } else {
+                                                $imageSrc = '';
+                                            }
+                                        } else {
+                                            // Image1 contains binary data
+                                            $imageSrc = 'data:image/jpeg;base64,' . base64_encode($imageData);
+                                        }
+                                        ?>
+                                        <?php if (!empty($imageSrc)): ?>
+                                            <img src="<?php echo $imageSrc; ?>" 
+                                                 alt="<?php echo htmlspecialchars($product['name']); ?>"
+                                                 loading="lazy"
+                                                 style="object-fit: cover; border-radius: 8px;">
+                                        <?php else: ?>
+                                            <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
+                                                <i class="fas fa-image"></i>
+                                            </div>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <div class="no-image" style="width:80px; height:80px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#aaa;">
                                             <i class="fas fa-image"></i>
                                         </div>
                                     <?php endif; ?>
-                                </a>
+                                </div>
                             </div>
 
                         <div class="product-details">
                             <div class="product-main-info">
-                                <h3 class="product-name" style="margin:0 0 8px 0; font-size:1.2em;">
-                                    <a href="detail.php?id=<?php echo urlencode($product['prodID']); ?>" style="text-decoration:none; color:#c33;">
+                                <h3 class="product-name" style="margin:0 0 8px 0; font-size:1.2em; pointer-events: none;">
+                                    <span style="text-decoration:none; color:#c33;">
                                         <?php echo htmlspecialchars($product['name']); ?>
-                                    </a>
+                                    </span>
                                 </h3>
                                 <p class="product-id" style="margin:0; color:#666; font-size:0.9em;">
                                     Product ID: <?php echo htmlspecialchars($product['prodID']); ?>
@@ -410,7 +464,8 @@ $page_title = "Products";
                                 <div class="product-actions">
                                     <a href="updateproduct.php?prodID=<?php echo urlencode($product['prodID']); ?>" 
                                        title="Edit Product" 
-                                       style="color: #666; font-size: 1.3em; text-decoration:none; padding:8px;">
+                                       style="color: #666; font-size: 1.3em; text-decoration:none; padding:8px;"
+                                       onclick="event.stopPropagation();">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 </div>

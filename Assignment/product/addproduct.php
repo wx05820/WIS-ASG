@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		$exist_sql = "SELECT prodID FROM product WHERE name = ? AND catID = ? ORDER BY prodID ASC LIMIT 1";
 		$exist_stmt = $_db->prepare($exist_sql);
 		$exist_stmt->execute([$name, $catID]);
-		$existProd = $exist_stmt->fetch();
+		$existProd = $exist_stmt->fetch(PDO::FETCH_ASSOC);
 
 		if ($existProd && isset($existProd['prodID'])) {
 			// Use existing base prodID
@@ -63,6 +63,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			for ($i = 0; $i < min(3, count($_FILES['images']['name'])); $i++) {
 				if ($_FILES['images']['error'][$i] === UPLOAD_ERR_OK) {
 					$fileName = basename($_FILES['images']['name'][$i]);
+					$fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+					
+					// Only allow JPG/JPEG files
+					if ($fileExtension !== 'jpg' && $fileExtension !== 'jpeg') {
+						$errorMsg = "Only JPG/JPEG image files are allowed.";
+						break;
+					}
+					
 					$targetFile = $targetDir . $fileName;
 					if (move_uploaded_file($_FILES['images']['tmp_name'][$i], $targetFile)) {
 						if ($i === 0) $image1 = $fileName;
@@ -93,15 +101,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$catID = $nextCatID;
 		}
 
-		// Insert product with prodID
-		$sql = "INSERT INTO product (prodID, name, price, qty, description, color, measurement, material, image1, image2, image3, catID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-		$stmt = $_db->prepare($sql);
-		if ($stmt->execute([$prodID, $name, $price, $qty, $description, $color, $measurement, $material, $image1, $image2, $image3, $catID])) {
-			$message = 'Product added successfully!';
-			// Clear form values after success
-			$name = $price = $qty = $description = $color = $measurement = $material = $catID = '';
-		} else {
-			$message = 'Failed to add product.';
+		// Insert product with prodID - only if no image validation errors
+		if (empty($errorMsg)) {
+			$sql = "INSERT INTO product (prodID, name, price, qty, description, color, measurement, material, image1, image2, image3, catID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+			$stmt = $_db->prepare($sql);
+			if ($stmt->execute([$prodID, $name, $price, $qty, $description, $color, $measurement, $material, $image1, $image2, $image3, $catID])) {
+				$message = 'Product added successfully!';
+				// Clear form values after success
+				$name = $price = $qty = $description = $color = $measurement = $material = $catID = '';
+			} else {
+				$message = 'Failed to add product.';
+			}
 		}
 	} else {
 		$message = '';
@@ -246,8 +256,8 @@ if (isset($_GET['debug'])) {
 				<input type="text" name="newCategory" id="newCategory" style="width: 300px; padding: 0.5rem 0.7rem">
 			</div>
 
-			<label>Product Images:</label>
-			<input type="file" name="images[]" style="width: 400px" accept="image/*" multiple>
+			<label>Product Images (JPG/JPEG only):</label>
+			<input type="file" name="images[]" style="width: 400px" accept=".jpg,.jpeg" multiple>
 
 			<?php if (!empty($errorMsg)): ?>
 				<textarea readonly style="color: red; background: #fff; border: none; width: 100%;">Error: <?php echo htmlspecialchars($errorMsg); ?></textarea>

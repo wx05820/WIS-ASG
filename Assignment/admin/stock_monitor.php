@@ -1,3 +1,4 @@
+
 <?php
 require_once '../_base.php';
 
@@ -16,8 +17,54 @@ if ($isWebRequest) {
 $threshold = isset($_GET['threshold']) ? (int)$_GET['threshold'] : 5;
 $threshold = max(1, min(100, $threshold)); // Ensure reasonable range
 
-// Check if email should be sent (force send when accessing from header)
-$forceEmail = isset($_GET['send_email']) || !isset($_GET['threshold']);
+// Check if email should be sent (only when explicitly requested)
+$forceEmail = isset($_GET['send_email']) && $_GET['send_email'] == '1';
+
+// Check if simple email should be sent to logged-in user
+$sendSimpleEmail = isset($_GET['send_simple_email']) && $_GET['send_simple_email'] == '1';
+$simpleEmailResult = null;
+
+if ($sendSimpleEmail) {
+    // Get current user info (works for both regular users and admin/staff)
+    $currentUserName = 'User';
+    $currentUserRole = 'User';
+    
+    if (isset($_SESSION['user']['username'])) {
+        $currentUserName = $_SESSION['user']['username'];
+        $currentUserRole = $_SESSION['user']['role'] ?? 'User';
+    } elseif (isset($_SESSION['staff_id'])) {
+        try {
+            $stmt = $_db->prepare('SELECT username, role FROM user WHERE userID = ?');
+            $stmt->execute([$_SESSION['staff_id']]);
+            $staff_user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($staff_user) {
+                $currentUserName = $staff_user['username'];
+                $currentUserRole = $staff_user['role'];
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching staff user info: " . $e->getMessage());
+        }
+    }
+    
+    // Send a simple notification email to the logged-in user with spam prevention
+    $subject = "Stock Monitor Report - AiKUN Furniture";
+    $message = "
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+        <h2 style='color: #2c3e50;'>Stock Monitor Report</h2>
+        <p>Hello $currentUserName,</p>
+        <p>You have accessed the Stock Monitor page. Here's a quick summary:</p>
+        <ul>
+            <li>Monitoring threshold: $threshold items</li>
+            <li>Report generated on: " . date('Y-m-d H:i:s') . "</li>
+            <li>Access level: $currentUserRole</li>
+        </ul>
+        <p>You can view the full stock report in your admin dashboard.</p>
+        <br>
+        <p>Best regards,<br>The AiKUN Furniture System</p>
+    </div>";
+    
+    $simpleEmailResult = sendEmailToLoggedInUser($subject, $message, 'notification');
+}
 
 // Run stock monitoring
 $report = runStockMonitoring($threshold, $forceEmail);
@@ -35,6 +82,66 @@ if ($isWebRequest) {
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
         <link rel="stylesheet" href="../css/userlist.css">
         <link rel="stylesheet" href="../css/products.css">
+        <style>
+            .action-buttons {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 15px;
+                flex-wrap: wrap;
+            }
+            
+            .btn-primary {
+                background: #007bff !important;
+                color: white !important;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                text-decoration: none;
+                font-size: 14px;
+                transition: background-color 0.3s;
+            }
+            
+            .btn-primary:hover {
+                background: #0056b3 !important;
+                color: white !important;
+            }
+            
+            .btn-email {
+                background: #28a745 !important;
+                color: white !important;
+            }
+            
+            .btn-email:hover {
+                background: #1e7e34 !important;
+            }
+            
+            .success-alert, .error-alert {
+                padding: 15px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .success-alert {
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+            
+            .error-alert {
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+            
+            .success-alert i, .error-alert i {
+                font-size: 18px;
+            }
+            
+            /* Spam prevention related styles removed */
+        </style>
     </head>
     <body class="product-list-main" style="margin-top:0; padding-top:0;">
         <?php include 'adminheader.php'; ?>
@@ -45,16 +152,32 @@ if ($isWebRequest) {
             <div class="email-success-message">
                 <div class="success-alert">
                     <i class="fas fa-check-circle"></i>
-                    <strong>Email Sent Successfully!</strong>
+                    <strong>Stock Alert Email Sent Successfully!</strong>
                     <p>Stock monitoring report has been sent to your email address.</p>
+                </div>
+            </div>
+            <?php elseif (isset($_GET['send_simple_email']) && $simpleEmailResult && $simpleEmailResult['success']): ?>
+            <div class="email-success-message">
+                <div class="success-alert">
+                    <i class="fas fa-check-circle"></i>
+                    <strong>Email Sent Successfully!</strong>
+                    <p><?= htmlspecialchars($simpleEmailResult['message']) ?></p>
+                </div>
+            </div>
+            <?php elseif (isset($_GET['send_simple_email']) && $simpleEmailResult && !$simpleEmailResult['success']): ?>
+            <div class="email-error-message">
+                <div class="error-alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Email Failed to Send</strong>
+                    <p><?= htmlspecialchars($simpleEmailResult['error']) ?></p>
                 </div>
             </div>
             <?php elseif (isset($_GET['send_email']) && !$report['email_sent']): ?>
             <div class="email-error-message">
                 <div class="error-alert">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Email Failed to Send</strong>
-                    <p>There was an issue sending the email. Please check your email configuration or try again later.</p>
+                    <strong>Stock Alert Email Failed</strong>
+                    <p>There was an issue sending the stock alert email. Please check your email configuration or try again later.</p>
                 </div>
             </div>
             <?php endif; ?>
@@ -160,15 +283,26 @@ if ($isWebRequest) {
             <!-- Actions -->
             <div class="report-section">
                 <h2><i class="fas fa-tools"></i> Actions</h2>
-                <a href="stock_monitor.php?send_email=1&threshold=<?php echo $threshold; ?>" class="btn btn-email">
-                    <i class="fas fa-envelope"></i> Send Email Alert
-                </a>
-                <a href="stock_monitor.php?threshold=5" class="btn">Run Check (Threshold: 5)</a>
-                <a href="stock_monitor.php?threshold=10" class="btn">Run Check (Threshold: 10)</a>
-                <a href="stock_monitor.php?threshold=20" class="btn">Run Check (Threshold: 20)</a>
-                <a href="../product/list.php" class="btn btn-secondary">Manage Products</a>
-                <a href="adminpage.php" class="btn btn-secondary">Back to Dashboard</a>
+                <div class="action-buttons">
+                    <a href="stock_monitor.php?send_simple_email=1&threshold=<?php echo $threshold; ?>" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Send Email to Logged-in User
+                    </a>
+                    <a href="stock_monitor.php?send_email=1&threshold=<?php echo $threshold; ?>" class="btn btn-email">
+                        <i class="fas fa-envelope"></i> Send Stock Alert Email
+                    </a>
+                </div>
+                <div class="action-buttons">
+                    <a href="stock_monitor.php?threshold=5" class="btn">Run Check (Threshold: 5)</a>
+                    <a href="stock_monitor.php?threshold=10" class="btn">Run Check (Threshold: 10)</a>
+                    <a href="stock_monitor.php?threshold=20" class="btn">Run Check (Threshold: 20)</a>
+                </div>
+                <div class="action-buttons">
+                    <a href="../product/list.php" class="btn btn-secondary">Manage Products</a>
+                    <a href="adminpage.php" class="btn btn-secondary">Back to Dashboard</a>
+                </div>
             </div>
+            
+            <!-- Email statistics removed (spam prevention disabled) -->
         </div>
         
         <?php include '../footer.php'; ?>

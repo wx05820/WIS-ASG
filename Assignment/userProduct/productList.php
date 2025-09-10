@@ -17,10 +17,14 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
 // SQL base
 
-$sql = "SELECT p.*, c.name AS category_name 
+$sql = "SELECT p.*, c.name AS category_name,
+        COALESCE(AVG(pr.rating), 0) as avg_rating,
+        COUNT(DISTINCT pr.review_id) as review_count
     FROM product p 
     LEFT JOIN category c ON p.catID = c.catID 
-    WHERE p.status IS NULL";
+    LEFT JOIN product_reviews pr ON p.prodID = pr.product_id AND pr.user_id > 0 AND pr.product_id > 0
+    WHERE p.status IS NULL
+    GROUP BY p.prodID, c.name";
 
 $params = [];
 
@@ -69,10 +73,13 @@ if ($user_id && isset($_db) && $_db !== null) {
         $wishlistStmt = $_db->prepare("SELECT prodID FROM wishlist WHERE userID = ?");
         $wishlistStmt->execute([$user_id]);
         $wishlistItems = array_column($wishlistStmt->fetchAll(PDO::FETCH_ASSOC), 'prodID');
+        error_log("ProductList - User $user_id wishlist items: " . json_encode($wishlistItems));
     } catch (Exception $e) {
         error_log("Wishlist query error: " . $e->getMessage());
         $wishlistItems = [];
     }
+} else {
+    error_log("ProductList - No user ID or database connection");
 }
 
 // Get current page
@@ -91,8 +98,7 @@ unset($p);
 
 <link rel="stylesheet" href="../css/index.css">
 <link rel="stylesheet" href="../css/userproduct.css">
-<script src="../js/cart.js" defer></script>
-<script src="../js/userproduct.js" defer></script>
+<script src="../js/userProduct.js" defer></script>
 <script>
 // Initialize product list functionality
 document.addEventListener('DOMContentLoaded', function() {
@@ -129,6 +135,29 @@ document.addEventListener('DOMContentLoaded', function() {
                         <h3><?= htmlspecialchars($p['name']); ?></h3>
                         <p class="category">Category: <?= htmlspecialchars($p['category_name']); ?></p>
                         <p class="price"><?= money($p['price']); ?></p>
+                        
+                        <!-- Rating Display -->
+                        <div class="product-rating <?= $p['review_count'] == 0 ? 'no-rating' : ''; ?>" 
+                             onclick="event.stopPropagation(); showRatingPopup('<?= $p['prodID']; ?>', <?= $avgRating; ?>, <?= $reviewCount; ?>)">
+                            <?php 
+                            $avgRating = round($p['avg_rating'], 1);
+                            $reviewCount = (int)$p['review_count'];
+                            $fullStars = floor($avgRating);
+                            ?>
+                            <div class="stars">
+                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                    <span class="star <?= $i <= $fullStars ? 'filled' : ''; ?>">★</span>
+                                <?php endfor; ?>
+                            </div>
+                            <span class="rating-text">
+                                <?php if ($avgRating > 0): ?>
+                                    <?= $avgRating; ?><?= $reviewCount > 0 ? " ({$reviewCount})" : ''; ?>
+                                <?php else: ?>
+                                    <span class="no-rating-text">No rating yet</span>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        
                         <p class="stock <?= ($p['qty'] > 0 ? 'in-stock' : 'out-stock'); ?>">
                             <?= $p['qty'] > 0 ? "In Stock: {$p['qty']}" : "Out of Stock"; ?>
                         </p>
@@ -136,15 +165,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             <?php if ($p['qty'] > 0): ?>
                                 <?php if ($user_id): ?>
                                         <!-- Add to Cart Form -->
-                                        <form action="../order/cart_add.php" method="POST" class="cart-form" id="btn-add-<?= $p['prodID']; ?>" data-action="../order/cart_add.php" data-prod-id="<?= $p['prodID']; ?>">
+                                        <form action="../order/cart_add.php" method="POST" class="cart-form" id="btn-add-<?= $p['prodID']; ?>" data-action="../order/cart_add.php" data-prod-id="<?= $p['prodID']; ?>" onsubmit="return setQtyForAddToCart(this)">
                                             <input type="hidden" name="action" value="add">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <div class="qty-selector" style="display:flex;align-items:center;gap:8px;margin:8px 0;">
                                                 <label for="list-qty-<?= $p['prodID']; ?>" style="min-width:60px;">Qty</label>
                                                 <div class="qty-control" style="display:flex;align-items:center;gap:6px;">
-                                                    <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" aria-label="Decrease quantity" style="padding:6px 10px;">−</button>
-                                                    <input id="list-qty-<?= $p['prodID']; ?>" type="number" value="1" min="1" max="<?= (int)$p['qty']; ?>" style="width:80px;padding:6px;">
-                                                    <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">+</button>
+                                                    <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" aria-label="Decrease quantity" style="padding:6px 10px;">◀</button>
+                                                    <input id="list-qty-<?= $p['prodID']; ?>" name="visible_qty" type="number" value="1" min="1" max="<?= (int)$p['qty']; ?>" style="width:80px;padding:6px;">
+                                                    <button type="button" class="qty-btn" data-target="#list-qty-<?= $p['prodID']; ?>" data-op="plus" aria-label="Increase quantity" style="padding:6px 10px;">▶</button>
                                                 </div>
                                             </div>
                                             <input type="hidden" name="qty" value="1">
@@ -165,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <input type="hidden" name="action" value="<?= in_array($p['prodID'], $wishlistItems) ? 'remove' : 'add'; ?>">
                                             <input type="hidden" name="prodID" value="<?= $p['prodID']; ?>">
                                             <button type="submit" class="btn-secondary btn-wishlist <?= in_array($p['prodID'], $wishlistItems) ? 'in-wishlist' : ''; ?>" id="wishlist-btn-<?= $p['prodID']; ?>">
-                                                <i class="fas fa-heart" style="<?= in_array($p['prodID'], $wishlistItems) ? 'color: #e74c3c;' : ''; ?>"></i> 
+                                                <i class="fas fa-heart"></i> 
                                                 <span class="wishlist-text"><?= in_array($p['prodID'], $wishlistItems) ? 'In Wishlist' : 'Wishlist'; ?></span>
                                             </button>
                                         </form>
@@ -295,6 +324,158 @@ function setQtyForBuyNow(form) {
 }
 </script>
 
+<script src="../js/userProduct.js"></script>
+
+    <script>
+    // Rating popup functionality
+    function showRatingPopup(productId, avgRating, reviewCount) {
+        if (reviewCount === 0) {
+            alert('No reviews available for this product yet.');
+            return;
+        }
+        
+        // Show loading state
+        const modal = document.createElement('div');
+        modal.className = 'rating-modal-overlay';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease-out;
+        `;
+        
+        // Create modal content
+        const modalContent = document.createElement('div');
+        modalContent.className = 'rating-modal-content';
+        modalContent.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 700px;
+            width: 95%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease-out;
+            border: 3px solid #8B4513;
+        `;
+        
+        const fullStars = Math.floor(avgRating);
+        const hasHalfStar = avgRating % 1 >= 0.5;
+        
+        modalContent.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8B4513; margin-bottom: 15px; font-size: 1.5rem;">Product Reviews</h3>
+                <div style="display: flex; justify-content: center; align-items: center; gap: 5px; margin-bottom: 10px;">
+                    ${Array.from({length: 5}, (_, i) => 
+                        `<span style="font-size: 2rem; color: ${i < fullStars ? '#FFD700' : (i === fullStars && hasHalfStar ? '#FFD700' : '#ddd')};">★</span>`
+                    ).join('')}
+                </div>
+                <p style="font-size: 1.2rem; color: #8B4513; font-weight: bold; margin: 0;">
+                    ${avgRating.toFixed(1)} out of 5 stars
+                </p>
+                <p style="color: #666; margin: 5px 0 0 0;">
+                    Based on ${reviewCount} review${reviewCount !== 1 ? 's' : ''}
+                </p>
+            </div>
+            <div id="reviews-container" style="text-align: left; margin: 20px 0;">
+                <div style="text-align: center; color: #666;">Loading reviews...</div>
+            </div>
+            <div style="margin-top: 20px;">
+                <button onclick="closeRatingModal()" 
+                        style="background: #8B4513; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem;">
+                    Close
+                </button>
+            </div>
+        `;
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Fetch detailed reviews
+        fetchReviews(productId, modalContent);
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeRatingModal();
+            }
+        });
+    }
+    
+    // Fetch detailed reviews
+    function fetchReviews(productId, modalContent) {
+        fetch(`../order/get_reviews.php?product_id=${productId}`)
+            .then(response => response.json())
+            .then(data => {
+                const reviewsContainer = modalContent.querySelector('#reviews-container');
+                if (data.success && data.reviews.length > 0) {
+                    // Update the review count in the header to match actual reviews
+                    const reviewCountElement = modalContent.querySelector('p:last-of-type');
+                    if (reviewCountElement) {
+                        reviewCountElement.innerHTML = `Based on ${data.reviews.length} review${data.reviews.length !== 1 ? 's' : ''}`;
+                    }
+                    
+                    reviewsContainer.innerHTML = data.reviews.map(review => `
+                        <div style="border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 15px; background: #fafafa;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <strong style="color: #8B4513; font-size: 1.1rem;">${review.username}</strong>
+                                    <div style="display: flex; gap: 2px;">
+                                        ${Array.from({length: 5}, (_, i) => 
+                                            `<span style="color: ${i < review.rating ? '#FFD700' : '#ddd'}; font-size: 1rem;">★</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                                <span style="color: #666; font-size: 0.9rem;">${review.date}</span>
+                            </div>
+                            ${review.title ? `<h4 style="color: #5D4037; margin: 5px 0; font-size: 1rem;">${review.title}</h4>` : ''}
+                            <p style="color: #333; line-height: 1.5; margin: 0;">${review.content}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    reviewsContainer.innerHTML = '<div style="text-align: center; color: #666;">No detailed reviews available.</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching reviews:', error);
+                const reviewsContainer = modalContent.querySelector('#reviews-container');
+                reviewsContainer.innerHTML = '<div style="text-align: center; color: #e74c3c;">Error loading reviews. Please try again.</div>';
+            });
+    }
+    
+    function closeRatingModal() {
+        const modal = document.querySelector('.rating-modal-overlay');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    // Add CSS animations if not already present
+    if (!document.querySelector('#rating-modal-styles')) {
+        const style = document.createElement('style');
+        style.id = 'rating-modal-styles';
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    </script>
 </body>
 
 <?php
