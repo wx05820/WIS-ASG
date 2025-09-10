@@ -99,7 +99,6 @@
 .wooden-header {
     background: linear-gradient(135deg, var(--wood-primary) 0%, #7a4a2a 100%);
     color: var(--text-light);
-    border-bottom: 3px solid var(--wood-dark);
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     position: relative;
     z-index: 1000;

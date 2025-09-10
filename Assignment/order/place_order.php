@@ -3,6 +3,7 @@ require_once '../_base.php';
 
 $user_id = $_SESSION['user_id'] ?? null;
 checkLogin();
+checkUserStatus(); // Check if user is banned
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $_SESSION['error'] = "Invalid request method";

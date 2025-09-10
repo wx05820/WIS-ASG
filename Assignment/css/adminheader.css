@@ -1,9 +1,22 @@
 /* Admin Header Styles */
+/* Reset body margins and padding to remove empty space above header */
+body {
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    margin: 0;
+    padding: 0;
+}
+
 .wooden-header { 
     width: 100%; 
     background-color: var(--wood-primary);
     color: var(--text-light);
     border-bottom: 3px solid var(--wood-dark);
+    margin: 0;
+    padding: 0;
 }
 
 .wooden-header .header-container { 

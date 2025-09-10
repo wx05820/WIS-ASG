@@ -13,12 +13,13 @@ $id_order = isset($_GET['id_order']) && strtoupper($_GET['id_order']) === 'ASC' 
 // Get current page
 $page = isset($_GET['page']) && ctype_digit($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Prepare SQL query for orders with pagination
+// Prepare SQL query for orders with pagination - only shipping-related statuses
 $sql = '
     SELECT orderID, orderDate, userID, status, shipping_method, subtotal, 
            shipping_fee, discount, total, phoneNo, recipient_name, unitNo, 
            address_line_1, address_line_2, city, postcode, state
     FROM `order` 
+    WHERE status IN (\'Pending\', \'Processing\', \'Shipped\', \'Delivered\')
     ORDER BY orderDate DESC, orderID DESC
 ';
 
@@ -46,6 +47,9 @@ $date_filter = isset($_GET['date']) ? $_GET['date'] : 'all';
 // Build WHERE clause for filtering
 $where_conditions = [];
 $params = [];
+
+// Always filter for shipping-related statuses
+$where_conditions[] = "status IN ('Pending', 'Processing', 'Shipped', 'Delivered')";
 
 if (!empty($search)) {
     $where_conditions[] = "(orderID LIKE ? OR userID LIKE ?)";
@@ -99,10 +103,11 @@ unset($order);
 $total_orders = $pager->item_count;
 $total_pages = $pager->page_count;
 
-// Get order status statistics for pie chart
+// Get order status statistics for pie chart - only shipping-related statuses
 $status_stats_sql = "
     SELECT status, COUNT(*) as count 
     FROM `order` 
+    WHERE status IN ('Pending', 'Processing', 'Shipped', 'Delivered')
     GROUP BY status 
     ORDER BY count DESC
 ";
@@ -119,11 +124,7 @@ $status_color_map = [
     'Pending' => '#FF6384',    // Red/Pink
     'Processing' => '#36A2EB', // Blue  
     'Shipped' => '#FFCE56',    // Yellow
-    'Delivered' => '#4BC0C0',  // Teal
-    'Refunded' => '#FF9F40',   // Orange
-    'Received' => '#8B5A2B',   // Brown (wood color)
-    'Cancelled' => '#6C757D',  // Gray
-    'Completed' => '#28A745'   // Green
+    'Delivered' => '#4BC0C0'   // Teal
 ];
 
 foreach ($status_stats as $stat) {
@@ -165,16 +166,12 @@ include 'adminheader.php';
                 <h4>All Status</h4>
                 <div class="legend-grid">
                     <?php 
-                    // Use the same color mapping as the chart
+                    // Use the same color mapping as the chart - only shipping statuses
                     $legend_colors = [
                         'Pending' => ['color' => '#FF6384', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
                         'Processing' => ['color' => '#36A2EB', 'bg' => '#cce5ff', 'border' => '#74c0fc'],
                         'Shipped' => ['color' => '#FFCE56', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
-                        'Delivered' => ['color' => '#4BC0C0', 'bg' => '#d4edda', 'border' => '#c3e6cb'],
-                        'Refunded' => ['color' => '#FF9F40', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
-                        'Received' => ['color' => '#8B5A2B', 'bg' => '#f5f5dc', 'border' => '#deb887'],
-                        'Cancelled' => ['color' => '#6C757D', 'bg' => '#f8f9fa', 'border' => '#dee2e6'],
-                        'Completed' => ['color' => '#28A745', 'bg' => '#d4edda', 'border' => '#c3e6cb']
+                        'Delivered' => ['color' => '#4BC0C0', 'bg' => '#d4edda', 'border' => '#c3e6cb']
                     ];
                     
                     // Show legend items in the same order as the chart data
@@ -259,7 +256,6 @@ include 'adminheader.php';
                         <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
                         <option value="Shipped" <?php echo $status_filter === 'Shipped' ? 'selected' : ''; ?>>Shipped</option>
                         <option value="Delivered" <?php echo $status_filter === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
-                        <option value="Cancelled" <?php echo $status_filter === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                     </select>
                     
                     <select name="date" id="dateFilter" class="filter-select sortby-select">
@@ -403,7 +399,6 @@ include 'adminheader.php';
                         <option value="Processing">Processing</option>
                         <option value="Shipped">Shipped</option>
                         <option value="Delivered">Delivered</option>
-                        <option value="Refunded">Refunded</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -434,6 +429,44 @@ const statusChart = AdminJS.createDonutChart('statusChart', chartData);
 
 // Shipping-specific functionality
 document.addEventListener('DOMContentLoaded', function() {
+    // Debug: Check if ListUserShipping is available
+    console.log('ListUserShipping available:', typeof ListUserShipping !== 'undefined');
+    console.log('Search input found:', document.getElementById('searchInput'));
+    console.log('Status filter found:', document.getElementById('statusFilter'));
+    console.log('Date filter found:', document.getElementById('dateFilter'));
+    
+    // Manual event listener setup for real-time search (backup)
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            console.log('Search input changed:', this.value);
+            if (typeof ListUserShipping !== 'undefined' && ListUserShipping.filterItems) {
+                ListUserShipping.filterItems();
+            }
+        });
+    }
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            console.log('Status filter changed:', this.value);
+            if (typeof ListUserShipping !== 'undefined' && ListUserShipping.filterItems) {
+                ListUserShipping.filterItems();
+            }
+        });
+    }
+    
+    if (dateFilter) {
+        dateFilter.addEventListener('change', function() {
+            console.log('Date filter changed:', this.value);
+            if (typeof ListUserShipping !== 'undefined' && ListUserShipping.filterItems) {
+                ListUserShipping.filterItems();
+            }
+        });
+    }
+    
     // Handle status form submission with loading feedback
     const statusForms = document.querySelectorAll('.status-form');
     statusForms.forEach(form => {

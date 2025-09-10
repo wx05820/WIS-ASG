@@ -2,8 +2,15 @@
 require_once '../_base.php';
 
 // Check if user is logged in and has admin privileges
-if (!isStaffAdmin()) {
-    redirect('../loginstaff.php');
+if (!isLoggedInStaff()) {
+    error_log("Update status: User not logged in");
+    redirect('loginstaff.php');
+    exit;
+}
+
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    error_log("Update status: User doesn't have required role. Role: " . ($_SESSION['staff_role'] ?? 'not set'));
+    redirect('loginstaff.php');
     exit;
 }
 
@@ -12,18 +19,23 @@ $pdo = $_db;
 
 // Check if form was submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("Update status: POST received. Data: " . print_r($_POST, true));
+    
     $order_id = req('order_id');
     $new_status = req('new_status');
     
+    error_log("Update status: order_id=$order_id, new_status=$new_status");
+    
     // Validate inputs
     if (empty($order_id) || empty($new_status)) {
+        error_log("Update status: Invalid order ID or status");
         temp('error', 'Invalid order ID or status');
         redirect('shipping.php');
         exit;
     }
     
-    // Validate status value
-    $valid_statuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Refunded'];
+    // Validate status value - only shipping-related statuses
+    $valid_statuses = ['Pending', 'Processing', 'Shipped', 'Delivered'];
     if (!in_array($new_status, $valid_statuses)) {
         temp('error', 'Invalid status value');
         redirect('shipping.php');

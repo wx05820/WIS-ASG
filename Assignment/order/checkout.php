@@ -3,6 +3,7 @@ require_once '../_base.php';
 
 $user_id = $_SESSION['user_id'] ?? null;
 checkLogin();
+checkUserStatus(); // Check if user is banned
 
 if (isset($_SESSION['success'])) {
     echo '<div class="alert alert-success">' . htmlspecialchars($_SESSION['success']) . '</div>';
