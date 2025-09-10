@@ -1,11 +1,19 @@
 <?php
+// Debug: Log that the script is starting
+error_log("=== SHIPPING PAGE START ===");
+
 include '../_base.php';
 include '../lib/SimplePager.php';
 
+// Debug: Log after includes
+error_log("Includes loaded successfully");
+
 // Check if user is admin
 if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    error_log("User not authorized, redirecting to login");
     redirect('/admin/loginstaff.php');
 }
+
 
 // Determine ID sort order
 $id_order = isset($_GET['id_order']) && strtoupper($_GET['id_order']) === 'ASC' ? 'ASC' : 'DESC';
@@ -13,54 +21,33 @@ $id_order = isset($_GET['id_order']) && strtoupper($_GET['id_order']) === 'ASC' 
 // Get current page
 $page = isset($_GET['page']) && ctype_digit($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Prepare SQL query for orders with pagination - only shipping-related statuses
-$sql = '
-    SELECT orderID, orderDate, userID, status, shipping_method, subtotal, 
-           shipping_fee, discount, total, phoneNo, recipient_name, unitNo, 
-           address_line_1, address_line_2, city, postcode, state
-    FROM `order` 
-    WHERE status IN (\'Pending\', \'Processing\', \'Shipped\', \'Delivered\')
-    ORDER BY orderDate DESC, orderID DESC
-';
-
-$params = [];
-
-// Create SimplePager instance
-$pager = new SimplePager($sql, $params, 10, $page);
-$orders = $pager->result;
-
-// Convert result to objects for compatibility with existing code
-foreach ($orders as &$order) {
-    $order = (object) $order;
-}
-unset($order);
-
-// Set variables for backward compatibility
-$total_orders = $pager->item_count;
-$total_pages = $pager->page_count;
 
 // Handle search and filter parameters
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $status_filter = isset($_GET['status']) ? $_GET['status'] : 'all';
 $date_filter = isset($_GET['date']) ? $_GET['date'] : 'all';
 
+// Debug: Log filter parameters
+error_log("Filter parameters - Search: '$search', Status: '$status_filter', Date: '$date_filter'");
+
 // Build WHERE clause for filtering
 $where_conditions = [];
 $params = [];
 
-// Always filter for shipping-related statuses
-$where_conditions[] = "status IN ('Pending', 'Processing', 'Shipped', 'Delivered')";
+// Status filter - if 'all' is selected, show all shipping-related statuses, otherwise filter by specific status
+if ($status_filter !== 'all') {
+    $where_conditions[] = "status = ?";
+    $params[] = $status_filter;
+} else {
+    // Show all shipping-related statuses when 'all' is selected
+    $where_conditions[] = "status IN ('Pending', 'Processing', 'Shipped', 'Delivered')";
+}
 
 if (!empty($search)) {
     $where_conditions[] = "(orderID LIKE ? OR userID LIKE ?)";
     $search_param = "%$search%";
     $params[] = $search_param;
     $params[] = $search_param;
-}
-
-if ($status_filter !== 'all') {
-    $where_conditions[] = "status = ?";
-    $params[] = $status_filter;
 }
 
 if ($date_filter !== 'all') {
@@ -88,10 +75,17 @@ $sql = "
     $where_clause
     ORDER BY orderID $id_order, orderDate DESC
 ";
-
 // Create SimplePager instance with filtered parameters
-$pager = new SimplePager($sql, $params, 10, $page);
-$orders = $pager->result;
+try {
+    $pager = new SimplePager($sql, $params, 10, $page);
+    $orders = $pager->result;
+    error_log("Database query successful, got " . count($orders) . " orders");
+} catch (Exception $e) {
+    error_log("Database query failed: " . $e->getMessage());
+    $orders = [];
+}
+
+
 
 // Convert result to objects for compatibility with existing code
 foreach ($orders as &$order) {
@@ -250,7 +244,7 @@ include 'adminheader.php';
                         <i class="fas fa-search"></i>
                     </button>
                     
-                    <select name="status" id="statusFilter" class="filter-select" style="width: 180px; padding: 0.5rem 0.7rem; font-size: 1rem;">
+                    <select id="statusFilter" class="filter-select" style="width: 180px; padding: 0.5rem 0.7rem; font-size: 1rem;">
                         <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Status</option>
                         <option value="Pending" <?php echo $status_filter === 'Pending' ? 'selected' : ''; ?>>Pending</option>
                         <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
@@ -258,7 +252,7 @@ include 'adminheader.php';
                         <option value="Delivered" <?php echo $status_filter === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
                     </select>
                     
-                    <select name="date" id="dateFilter" class="filter-select sortby-select">
+                    <select id="dateFilter" class="filter-select sortby-select">
                         <option value="all" <?php echo $date_filter === 'all' ? 'selected' : ''; ?>>All Time</option>
                         <option value="today" <?php echo $date_filter === 'today' ? 'selected' : ''; ?>>Today</option>
                         <option value="week" <?php echo $date_filter === 'week' ? 'selected' : ''; ?>>This Week</option>
@@ -323,15 +317,15 @@ include 'adminheader.php';
 
                         <!-- Right Column -->
                         <div class="order-right-column">
-                            <form class="status-form" method="POST" action="update_status.php">
-                                <input type="hidden" name="order_id" value="<?php echo $order->orderID; ?>">
-                                <select name="new_status" class="status-select status-<?php echo strtolower($order->status); ?>" onchange="this.form.submit()">
-                                    <option value="Pending" <?php echo $order->status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                                    <option value="Processing" <?php echo $order->status === 'Processing' ? 'selected' : ''; ?>>Processing</option>
-                                    <option value="Shipped" <?php echo $order->status === 'Shipped' ? 'selected' : ''; ?>>Shipped</option>
-                                    <option value="Delivered" <?php echo $order->status === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
-                                </select>
-                            </form>
+                        <form class="status-form" method="POST" action="update_status.php">
+                            <input type="hidden" name="order_id" value="<?php echo $order->orderID; ?>">
+                            <select name="new_status" class="status-select status-<?php echo strtolower($order->status); ?>">
+                                <option value="Pending" <?php echo $order->status === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                <option value="Processing" <?php echo $order->status === 'Processing' ? 'selected' : ''; ?>>Processing</option>
+                                <option value="Shipped" <?php echo $order->status === 'Shipped' ? 'selected' : ''; ?>>Shipped</option>
+                                <option value="Delivered" <?php echo $order->status === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
+                            </select>
+                        </form>
                             <div class="order-shipping-method">
                                 <span class="shipping-label">Shipping Method:</span>
                                 <span class="shipping-value"><?php echo $order->shipping_method; ?></span>
@@ -414,8 +408,6 @@ include 'adminheader.php';
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- Admin JavaScript -->
 <script src="../js/admin.js"></script>
-<!-- Consolidated List/Shipping JavaScript -->
-<script src="../js/listusershipping.js"></script>
 
 <script>
 // Enhanced Donut Chart for Order Status Distribution
@@ -425,49 +417,355 @@ const chartData = {
     colors: <?php echo json_encode($chart_colors); ?>
 };
 
-const statusChart = AdminJS.createDonutChart('statusChart', chartData);
+window.statusChart = AdminJS.createDonutChart('statusChart', chartData);
 
 // Shipping-specific functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // Debug: Check if ListUserShipping is available
-    console.log('ListUserShipping available:', typeof ListUserShipping !== 'undefined');
-    console.log('Search input found:', document.getElementById('searchInput'));
-    console.log('Status filter found:', document.getElementById('statusFilter'));
-    console.log('Date filter found:', document.getElementById('dateFilter'));
-    
-    // Manual event listener setup for real-time search (backup)
+    // Real-time filtering with AJAX
     const searchInput = document.getElementById('searchInput');
     const statusFilter = document.getElementById('statusFilter');
     const dateFilter = document.getElementById('dateFilter');
+    const ordersContainer = document.querySelector('.orders-table-container');
+    const noDataMessage = document.getElementById('noDataMessage');
+    const showingStart = document.getElementById('showing-start');
+    const showingEnd = document.getElementById('showing-end');
+    const totalOrders = document.getElementById('total-orders');
     
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            console.log('Search input changed:', this.value);
-            if (typeof ListUserShipping !== 'undefined' && ListUserShipping.filterItems) {
-                ListUserShipping.filterItems();
-            }
+    // Debounce function to limit API calls
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    // Fetch filtered data from server
+    function fetchFilteredData() {
+        const search = searchInput ? searchInput.value.trim() : '';
+        const status = statusFilter ? statusFilter.value : 'all';
+        const date = dateFilter ? dateFilter.value : 'all';
+        const idOrder = '<?php echo $id_order; ?>';
+        
+        // Show loading state
+        if (ordersContainer) {
+            ordersContainer.innerHTML = '<div class="loading">Loading orders...</div>';
+        }
+        
+        // Make AJAX request
+        fetch(`ajax_shipping_filter.php?search=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}&date=${encodeURIComponent(date)}&id_order=${idOrder}&page=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error:', data.error);
+                    return;
+                }
+                
+                // Update orders display
+                updateOrdersDisplay(data.orders);
+                
+                // Update counters
+                if (showingStart) showingStart.textContent = '1';
+                if (showingEnd) showingEnd.textContent = Math.min(10, data.total_orders);
+                if (totalOrders) totalOrders.textContent = data.total_orders;
+                
+                // Update chart if needed
+                if (data.status_stats) {
+                    updateChart(data.status_stats);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                if (ordersContainer) {
+                    ordersContainer.innerHTML = '<div class="error">Error loading orders. Please try again.</div>';
+                }
+            });
+    }
+    
+    // Update orders display
+    function updateOrdersDisplay(orders) {
+        if (!ordersContainer) return;
+        
+        if (orders.length === 0) {
+            if (noDataMessage) noDataMessage.style.display = 'block';
+            ordersContainer.innerHTML = '';
+        } else {
+            if (noDataMessage) noDataMessage.style.display = 'none';
+            ordersContainer.innerHTML = generateOrdersHTML(orders);
+        }
+    }
+    
+    // Generate orders HTML
+    function generateOrdersHTML(orders) {
+        let html = '';
+        orders.forEach(order => {
+            html += `
+                <div class="order-card" 
+                     data-orderid="${order.orderID}"
+                     data-userid="${order.userID}" 
+                     data-recipient="${order.recipient_name.toLowerCase()}"
+                     data-phone="${order.phoneNo}"
+                     data-status="${order.status}"
+                     data-date="${order.orderDate.split(' ')[0]}">
+                    
+                    <!-- Multi-select checkbox (hidden by default) -->
+                    <div class="order-checkbox" style="display: none;">
+                        <input type="checkbox" class="order-select-checkbox" value="${order.orderID}" id="order_${order.orderID}">
+                        <label for="order_${order.orderID}"></label>
+                    </div>
+                    
+                    <!-- Left Column -->
+                    <div class="order-left-column">
+                        <div class="order-id-large">${order.orderID}</div>
+                        <div class="order-user-id">User ID: ${order.userID}</div>
+                        <div class="order-phone">Phone: ${order.phoneNo}</div>
+                        <div class="order-total">
+                            <span class="total-label">Total:</span>
+                            <span class="total-amount">RM ${parseFloat(order.total).toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="order-right-column">
+                        <form class="status-form" method="POST" action="update_status.php">
+                            <input type="hidden" name="order_id" value="${order.orderID}">
+                            <select name="new_status" class="status-select status-${order.status.toLowerCase()}">
+                                <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                                <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                                <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+                                <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                            </select>
+                        </form>
+                        <div class="order-shipping-method">
+                            <span class="shipping-label">Shipping Method:</span>
+                            <span class="shipping-value">${order.shipping_method}</span>
+                        </div>
+                        <div class="order-date">
+                            <span class="date-label">Order Date:</span>
+                            <span class="date-value">${new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                        <div class="order-address">
+                            <span class="address-label">Address:</span>
+                            <span class="address-value">${order.unitNo} ${order.address_line_1}, ${order.address_line_2}, ${order.city} ${order.postcode}, ${order.state}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         });
+        return html;
+    }
+    
+    // Update chart
+    function updateChart(statusStats) {
+        console.log('updateChart called with:', statusStats);
+        
+        if (!statusStats || statusStats.length === 0) {
+            console.log('No status stats to update chart');
+            return;
+        }
+        
+        // Update chart data with correct format for AdminJS
+        const chartData = {
+            labels: statusStats.map(stat => stat.status),
+            values: statusStats.map(stat => stat.count),
+            colors: statusStats.map(stat => {
+                const colorMap = {
+                    'Pending': '#FF6384',    // Red/Pink
+                    'Processing': '#36A2EB', // Blue  
+                    'Shipped': '#FFCE56',    // Yellow
+                    'Delivered': '#4BC0C0'   // Teal
+                };
+                return colorMap[stat.status] || '#6c757d';
+            })
+        };
+        
+        console.log('Chart data prepared:', chartData);
+        console.log('window.statusChart exists:', !!window.statusChart);
+        console.log('AdminJS exists:', typeof AdminJS !== 'undefined');
+        
+        // Update the existing chart if it exists
+        if (window.statusChart && typeof window.statusChart.update === 'function') {
+            console.log('Updating existing chart');
+            // Update chart data
+            window.statusChart.data.labels = chartData.labels;
+            window.statusChart.data.datasets[0].data = chartData.values;
+            window.statusChart.data.datasets[0].backgroundColor = chartData.colors;
+            window.statusChart.update();
+        } else {
+            console.log('Creating new chart');
+            // Create new chart if it doesn't exist
+            if (typeof AdminJS !== 'undefined' && AdminJS.createDonutChart) {
+                window.statusChart = AdminJS.createDonutChart('statusChart', chartData);
+            } else {
+                console.error('AdminJS or createDonutChart not available');
+            }
+        }
+        
+        // Update the status legend
+        updateStatusLegend(statusStats);
+        
+        console.log('Chart update completed');
+    }
+    
+    // Update status legend
+    function updateStatusLegend(statusStats) {
+        const legendContainer = document.querySelector('.chart-legend .legend-grid');
+        if (!legendContainer) {
+            console.log('Legend container not found');
+            return;
+        }
+        
+        // Clear existing legend items
+        legendContainer.innerHTML = '';
+        
+        // Create legend items for each status
+        statusStats.forEach(stat => {
+            const colorMap = {
+                'Pending': '#FF6384',    // Red/Pink
+                'Processing': '#36A2EB', // Blue  
+                'Shipped': '#FFCE56',    // Yellow
+                'Delivered': '#4BC0C0'   // Teal
+            };
+            
+            const color = colorMap[stat.status] || '#6c757d';
+            
+            const legendItem = document.createElement('div');
+            legendItem.className = 'legend-item';
+            legendItem.style.cssText = `
+                display: flex;
+                align-items: center;
+                margin-bottom: 8px;
+                font-size: 14px;
+            `;
+            
+            legendItem.innerHTML = `
+                <div class="legend-color" style="
+                    width: 16px;
+                    height: 16px;
+                    background-color: ${color};
+                    border-radius: 50%;
+                    margin-right: 8px;
+                    border: 2px solid #fff;
+                    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+                "></div>
+                <div class="legend-info">
+                    <span class="legend-label">${stat.status}</span>
+                    <span class="legend-count">${stat.count} orders</span>
+                </div>
+            `;
+            
+            legendContainer.appendChild(legendItem);
+        });
+        
+        console.log('Legend updated with stats:', statusStats);
+    }
+    
+    // Set up event listeners
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(fetchFilteredData, 300));
     }
     
     if (statusFilter) {
-        statusFilter.addEventListener('change', function() {
-            console.log('Status filter changed:', this.value);
-            if (typeof ListUserShipping !== 'undefined' && ListUserShipping.filterItems) {
-                ListUserShipping.filterItems();
-            }
-        });
+        statusFilter.addEventListener('change', fetchFilteredData);
     }
     
     if (dateFilter) {
-        dateFilter.addEventListener('change', function() {
-            console.log('Date filter changed:', this.value);
-            if (typeof ListUserShipping !== 'undefined' && ListUserShipping.filterItems) {
-                ListUserShipping.filterItems();
+        dateFilter.addEventListener('change', fetchFilteredData);
+    }
+    
+    // Handle status form submission with AJAX
+    function handleStatusFormSubmission(form) {
+        const formData = new FormData(form);
+        const orderId = formData.get('order_id');
+        const newStatus = formData.get('new_status');
+        const statusSelect = form.querySelector('.status-select');
+        
+        // Show loading state
+        const originalValue = statusSelect.value;
+        statusSelect.disabled = true;
+        statusSelect.style.opacity = '0.6';
+        
+        // Make AJAX request
+        fetch('update_status.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(data => {
+            if (data.includes('success') || data.includes('Status updated')) {
+                // Update the status select to show new status
+                statusSelect.value = newStatus;
+                statusSelect.className = `status-select status-${newStatus.toLowerCase()}`;
+                
+                // Show success feedback
+                showStatusUpdateFeedback(orderId, newStatus, true);
+                
+                // Refresh the filtered data to get updated order list and chart
+                fetchFilteredData();
+            } else {
+                // Show error feedback
+                showStatusUpdateFeedback(orderId, originalValue, false);
+                statusSelect.value = originalValue;
             }
+        })
+        .catch(error => {
+            console.error('Error updating status:', error);
+            showStatusUpdateFeedback(orderId, originalValue, false);
+            statusSelect.value = originalValue;
+        })
+        .finally(() => {
+            statusSelect.disabled = false;
+            statusSelect.style.opacity = '1';
         });
     }
     
-    // Handle status form submission with loading feedback
+    // Show status update feedback
+    function showStatusUpdateFeedback(orderId, status, success) {
+        const orderCard = document.querySelector(`[data-orderid="${orderId}"]`);
+        if (orderCard) {
+            const feedback = document.createElement('div');
+            feedback.className = `status-feedback ${success ? 'success' : 'error'}`;
+            feedback.textContent = success ? `Status updated to ${status}` : `Failed to update status`;
+            feedback.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 600;
+                z-index: 1000;
+                ${success ? 'background: #d4edda; color: #155724; border: 1px solid #c3e6cb;' : 'background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;'}
+            `;
+            
+            orderCard.style.position = 'relative';
+            orderCard.appendChild(feedback);
+            
+            // Remove feedback after 3 seconds
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.parentNode.removeChild(feedback);
+                }
+            }, 3000);
+        }
+    }
+    
+    // Set up event delegation for status forms (including dynamically generated ones)
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('status-select')) {
+            e.preventDefault();
+            const form = e.target.closest('.status-form');
+            if (form) {
+                handleStatusFormSubmission(form);
+            }
+        }
+    });
+    
+    // Legacy form submission handling (fallback)
     const statusForms = document.querySelectorAll('.status-form');
     statusForms.forEach(form => {
         form.addEventListener('submit', function(e) {
