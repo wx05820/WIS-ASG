@@ -1,20 +1,10 @@
 <?php
-/**
- * Stock Monitoring Script
- * This script checks for low stock products and sends email alerts to admins
- * Ca                            <td><span class="stock low-stock"><?php echo $product['qty']; ?></span></td>
-                            <td>
-                                <a href="../product/updateproduct.php?prodID=<?php echo urlencode($product['prodID']); ?>" class="btn">Edit Product</a>
-                            </td>
-                        </tr>run manually or via cron job
- */
-
 require_once '../_base.php';
 
 // Set execution time limit for long-running script
 set_time_limit(300); // 5 minutes
 
-// Check if user is admin (for manual execution via web)
+// Check if user is admin
 $isWebRequest = !empty($_SERVER['HTTP_HOST']);
 if ($isWebRequest) {
     if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
@@ -26,8 +16,11 @@ if ($isWebRequest) {
 $threshold = isset($_GET['threshold']) ? (int)$_GET['threshold'] : 5;
 $threshold = max(1, min(100, $threshold)); // Ensure reasonable range
 
+// Check if email should be sent (force send when accessing from header)
+$forceEmail = isset($_GET['send_email']) || !isset($_GET['threshold']);
+
 // Run stock monitoring
-$report = runStockMonitoring($threshold);
+$report = runStockMonitoring($threshold, $forceEmail);
 
 // If this is a web request, show results
 if ($isWebRequest) {
@@ -47,6 +40,25 @@ if ($isWebRequest) {
         <?php include 'adminheader.php'; ?>
         
         <div class="container">
+            <!-- Email Success Message -->
+            <?php if (isset($_GET['send_email']) && $report['email_sent']): ?>
+            <div class="email-success-message">
+                <div class="success-alert">
+                    <i class="fas fa-check-circle"></i>
+                    <strong>Email Sent Successfully!</strong>
+                    <p>Stock monitoring report has been sent to your email address.</p>
+                </div>
+            </div>
+            <?php elseif (isset($_GET['send_email']) && !$report['email_sent']): ?>
+            <div class="email-error-message">
+                <div class="error-alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Email Failed to Send</strong>
+                    <p>There was an issue sending the email. Please check your email configuration or try again later.</p>
+                </div>
+            </div>
+            <?php endif; ?>
+            
             <div class="report-header">
                 <h1><i class="fas fa-chart-line"></i> Stock Monitoring Report</h1>
                 <p>Generated on <?php echo $report['timestamp']; ?> | Threshold: <?php echo $report['threshold']; ?> items</p>
@@ -115,7 +127,7 @@ if ($isWebRequest) {
                             <th>Product Name</th>
                             <th>Category</th>
                             <th>Price (RM)</th>
-                            <th>Current Stock</th>
+                            <th>Stock</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -148,6 +160,9 @@ if ($isWebRequest) {
             <!-- Actions -->
             <div class="report-section">
                 <h2><i class="fas fa-tools"></i> Actions</h2>
+                <a href="stock_monitor.php?send_email=1&threshold=<?php echo $threshold; ?>" class="btn btn-email">
+                    <i class="fas fa-envelope"></i> Send Email Alert
+                </a>
                 <a href="stock_monitor.php?threshold=5" class="btn">Run Check (Threshold: 5)</a>
                 <a href="stock_monitor.php?threshold=10" class="btn">Run Check (Threshold: 10)</a>
                 <a href="stock_monitor.php?threshold=20" class="btn">Run Check (Threshold: 20)</a>

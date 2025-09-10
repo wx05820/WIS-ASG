@@ -676,8 +676,8 @@ body {
 }
 
 .low-stock {
-    background: #fff3cd;
-    color: #856404;
+    background: #f8d7da;
+    color: #721c24;
 }
 
 .out-of-stock {
@@ -1410,13 +1410,15 @@ body {
     width: 100%;
     border-collapse: collapse;
     margin-top: 10px;
+    font-size: 14px;
 }
 
 .product-table th,
 .product-table td {
-    padding: 10px;
+    padding: 12px 10px;
     text-align: left;
     border-bottom: 1px solid #ddd;
+    vertical-align: middle;
 }
 
 .product-table td {
@@ -1427,6 +1429,24 @@ body {
     background-color: #f8f9fa;
     font-weight: bold;
     color: #333;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.product-table th:last-child,
+.product-table td:last-child {
+    text-align: right;
+    width: 120px;
+}
+
+/* Ensure consistent button sizing in stock monitor tables */
+.product-table .btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    border-radius: 4px;
+    white-space: nowrap;
+    min-width: 100px;
 }
 
 .stock-critical {
@@ -1455,6 +1475,85 @@ body {
     background: var(--wood-secondary);
     color: white;
     text-decoration: none;
+}
+
+.btn-email {
+    background: #28A745 !important;
+    border: 2px solid #28A745;
+    font-weight: bold;
+    box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+}
+
+.btn-email:hover {
+    background: #218838 !important;
+    border-color: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.btn-email i {
+    margin-right: 8px;
+}
+
+/* Email Success/Error Messages */
+.email-success-message,
+.email-error-message {
+    margin-bottom: 20px;
+    animation: slideDown 0.5s ease-out;
+}
+
+.success-alert {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    padding: 15px 20px;
+    color: #155724;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.error-alert {
+    background: linear-gradient(135deg, #f8d7da 0%, #f1c0c5 100%);
+    border: 2px solid #dc3545;
+    border-radius: 8px;
+    padding: 15px 20px;
+    color: #721c24;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.success-alert i,
+.error-alert i {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.success-alert strong,
+.error-alert strong {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.success-alert p,
+.error-alert p {
+    margin: 0;
+    font-size: 14px;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .btn-secondary {
@@ -1507,12 +1606,12 @@ body {
 }
 
 .summary-card.low-stock {
-    background: #fff8e1;
-    border: 1px solid #ffecb3;
+    background: #fee;
+    border: 1px solid #fcc;
 }
 
 .summary-card.low-stock h3 {
-    color: #FFC107;
+    color: #DC3545;
 }
 
 .summary-card.email-status {
