@@ -110,6 +110,7 @@ $requestId = $_POST['request_id'] ?? '';
 
 // Debug: Log received data
 error_log("Cart add request - Product ID: $prodID, Quantity: $qty, User ID: $userID");
+error_log("POST data received: " . print_r($_POST, true));
 
 // Input validation
 if (empty($prodID)) {
@@ -161,11 +162,22 @@ try {
     $cart = $cartStmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$cart) {
-        // Create new cart
-        $cartID = 'C' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
-        $createCartQuery = "INSERT INTO cart (cartID, userID) VALUES (?, ?)";
+        // Create new cart - let the database trigger handle cartID generation
+        $createCartQuery = "INSERT INTO cart (userID) VALUES (?)";
         $createCartStmt = $_db->prepare($createCartQuery);
-        $createCartStmt->execute([$cartID, $userID]);
+        $createCartStmt->execute([$userID]);
+        
+        // Get the generated cartID
+        $cartID = $_db->lastInsertId();
+        
+        // If lastInsertId doesn't work, get the cartID from the database
+        if (!$cartID) {
+            $getCartQuery = "SELECT cartID FROM cart WHERE userID = ? ORDER BY cartID DESC LIMIT 1";
+            $getCartStmt = $_db->prepare($getCartQuery);
+            $getCartStmt->execute([$userID]);
+            $cartResult = $getCartStmt->fetch(PDO::FETCH_ASSOC);
+            $cartID = $cartResult['cartID'];
+        }
     } else {
         $cartID = $cart['cartID'];
     }
@@ -189,11 +201,10 @@ try {
         $message = "Updated " . $product['name'] . " quantity in cart (was " . $existingItem['qty'] . ", now " . $newQty . ")";
         error_log("Updated cart item: Product $prodID, old qty: " . $existingItem['qty'] . ", added: $qty, new qty: $newQty");
     } else {
-        // Add new item
-        $cartItemID = 'CI' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
-        $addQuery = "INSERT INTO cart_items (cart_item_id, cartID, prodID, qty) VALUES (?, ?, ?, ?)";
+        // Add new item - let the database trigger handle cart_item_id generation
+        $addQuery = "INSERT INTO cart_items (cartID, prodID, qty) VALUES (?, ?, ?)";
         $addStmt = $_db->prepare($addQuery);
-        $addStmt->execute([$cartItemID, $cartID, $prodID, $qty]);
+        $addStmt->execute([$cartID, $prodID, $qty]);
         $message = "Added " . $product['name'] . " to cart (qty: $qty)";
         error_log("Added new cart item: Product $prodID, qty: $qty");
     }

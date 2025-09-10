@@ -472,5 +472,3 @@ $page_title = $page_titles[$step] ?? 'Register';
     <?php endif; ?>
 </body>
 </html>
-
-           

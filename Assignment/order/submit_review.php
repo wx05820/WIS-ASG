@@ -43,6 +43,15 @@ $qualityRating = !empty($_POST['quality_rating']) ? (int)$_POST['quality_rating'
 $deliveryRating = !empty($_POST['delivery_rating']) ? (int)$_POST['delivery_rating'] : null;
 $valueRating = !empty($_POST['value_rating']) ? (int)$_POST['value_rating'] : null;
 
+// Debug logging
+error_log("Review submission debug:");
+error_log("User ID: " . $userID);
+error_log("Order ID: " . $orderID);
+error_log("Product ID: " . $productID);
+error_log("Rating: " . $rating);
+error_log("Title: " . $title);
+error_log("Review Text: " . $reviewText);
+
 
 // Validate required fields
 if (empty($orderID) || empty($productID) || $rating < 1 || $rating > 5 || empty($title) || empty($reviewText)) {

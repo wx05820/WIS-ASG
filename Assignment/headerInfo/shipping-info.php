@@ -1,6 +1,7 @@
 <?php
-// Shipping Information Page for AiKUN Furniture
-?>
+    include '../header.php';?>
+
+    <link rel="stylesheet" href="../css/shipInfo.css">
 
 <div class="shipping-info-container">
     <div class="shipping-header">
@@ -92,3 +93,5 @@
         </div>
     </div>
 </div>
+
+<?php include '../footer.php'; ?>

@@ -186,20 +186,20 @@ class LocationService {
 
     navigateWithGoogle(userLat, userLng) {
         const url = `https://www.google.com/maps/dir/${userLat},${userLng}/${STORE_COORDINATES}`;
-        window.open(url, '_blank');
+        window.location.href = url;
         this.closeNavigationModal();
     }
 
     navigateWithWaze(userLat, userLng) {
         const [storeLat, storeLng] = STORE_COORDINATES.split(',');
         const url = `https://waze.com/ul?ll=${storeLat},${storeLng}&navigate=yes`;
-        window.open(url, '_blank');
+        window.location.href = url;
         this.closeNavigationModal();
     }
 
     navigateWithApple(userLat, userLng) {
         const url = `http://maps.apple.com/?daddr=${STORE_COORDINATES}&saddr=${userLat},${userLng}`;
-        window.open(url, '_blank');
+        window.location.href = url;
         this.closeNavigationModal();
     }
 
@@ -267,7 +267,7 @@ class ContactAdmin {
     }
 
     viewReplies(messageId) {
-        window.open('contact_replies.php?id=' + messageId, '_blank');
+        window.location.href = 'contact_replies.php?id=' + messageId;
     }
 }
 

@@ -1915,3 +1915,82 @@ function validateVoucher($code, $order_amount = 0) {
 }
 
 
+
+
+// Function to get cart items for a user
+function get_cart($user_id) {
+    global $_db;
+    
+    if (!$user_id) {
+        return [];
+    }
+    
+    try {
+        // Get user's cart
+        $cartQuery = "SELECT cartID FROM cart WHERE userID = ?";
+        $cartStmt = $_db->prepare($cartQuery);
+        $cartStmt->execute([$user_id]);
+        $cart = $cartStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$cart) {
+            return [];
+        }
+        
+        $cartID = $cart['cartID'];
+        
+        // Get cart items with product details
+        $itemsQuery = "SELECT ci.*, p.name as title, p.price, p.qty as stock, p.image1 as img, p.color, p.material,
+                              COALESCE(c.name, 'Uncategorized') as category_name
+                      FROM cart_items ci
+                      JOIN product p ON ci.prodID = p.prodID
+                      LEFT JOIN category c ON p.catID = c.catID
+                      WHERE ci.cartID = ? AND (p.status IS NULL OR p.status != 'removed')";
+        $itemsStmt = $_db->prepare($itemsQuery);
+        $itemsStmt->execute([$cartID]);
+        $cart_items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $result = [];
+        foreach ($cart_items as $item) {
+            $result[$item['prodID']] = [
+                'id' => $item['prodID'],
+                'qty' => $item['qty'],
+                'product' => [
+                    'title' => $item['title'],
+                    'price' => $item['price'],
+                    'stock' => $item['stock'],
+                    'img' => $item['img'] ? 'data:image/jpeg;base64,' . base64_encode($item['img']) : '../images/placeholder.jpg',
+                    'color' => $item['color'],
+                    'material' => $item['material'],
+                    'category' => $item['category_name']
+                ]
+            ];
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log("Get cart error: " . $e->getMessage());
+        return [];
+    }
+}
+
+// Function to calculate cart totals
+function cartTotals($cart) {
+    $itemCount = 0;
+    $subtotal = 0;
+    
+    foreach ($cart as $item) {
+        $itemCount += $item['qty'];
+        $subtotal += $item['product']['price'] * $item['qty'];
+    }
+    
+    $shipping = 8.00;
+    $total = $subtotal + $shipping;
+    
+    return [
+        'itemCount' => $itemCount,
+        'subtotal' => $subtotal,
+        'shipping' => $shipping,
+        'total' => $total
+    ];
+}
