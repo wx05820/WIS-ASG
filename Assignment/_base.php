@@ -1426,6 +1426,104 @@ function checkLowStockProducts($threshold = 5) {
 }
 
 /**
+ * Check low stock products with pagination support
+ * @param int $threshold - Stock threshold level
+ * @param int $limit - Items per page
+ * @param int $offset - Offset for pagination
+ * @return array - Array with paginated products and total counts
+ */
+function checkLowStockProductsWithPagination($threshold = 5, $limit = 10, $offset = 0) {
+    global $_db;
+    
+    try {
+        // Get total counts first
+        $stmt = $_db->prepare("
+            SELECT COUNT(*) as total
+            FROM product p
+            LEFT JOIN category c ON p.catID = c.catID
+            WHERE p.qty <= ? AND p.qty > 0 AND (p.status != 'removed' OR p.status IS NULL OR p.status = '')
+        ");
+        $stmt->execute([$threshold]);
+        $totalLowStock = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        $stmt = $_db->prepare("
+            SELECT COUNT(*) as total
+            FROM product p
+            LEFT JOIN category c ON p.catID = c.catID
+            WHERE p.qty = 0 AND (p.status != 'removed' OR p.status IS NULL OR p.status = '')
+        ");
+        $stmt->execute();
+        $totalOutOfStock = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        // Get paginated low stock products
+        $stmt = $_db->prepare("
+            SELECT p.prodID, p.name, p.qty, p.price, c.name AS category
+            FROM product p
+            LEFT JOIN category c ON p.catID = c.catID
+            WHERE p.qty <= ? AND p.qty > 0 AND (p.status != 'removed' OR p.status IS NULL OR p.status = '')
+            ORDER BY p.qty ASC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->execute([$threshold, $limit, $offset]);
+        $lowStockProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get paginated out of stock products
+        $stmt = $_db->prepare("
+            SELECT p.prodID, p.name, p.qty, p.price, c.name AS category
+            FROM product p
+            LEFT JOIN category c ON p.catID = c.catID
+            WHERE p.qty = 0 AND (p.status != 'removed' OR p.status IS NULL OR p.status = '')
+            ORDER BY p.name ASC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->execute([$limit, $offset]);
+        $outOfStockProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Add default values for missing columns
+        foreach ($lowStockProducts as &$product) {
+            if (!isset($product['price'])) $product['price'] = 0;
+            if (!isset($product['category'])) $product['category'] = 'Unknown';
+        }
+        
+        foreach ($outOfStockProducts as &$product) {
+            if (!isset($product['price'])) $product['price'] = 0;
+            if (!isset($product['category'])) $product['category'] = 'Unknown';
+        }
+        
+        return [
+            'low_stock' => $lowStockProducts,
+            'out_of_stock' => $outOfStockProducts,
+            'total_low_stock' => $totalLowStock,
+            'total_out_of_stock' => $totalOutOfStock,
+            'threshold' => $threshold
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("Stock check with pagination PDO error: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        return [
+            'low_stock' => [], 
+            'out_of_stock' => [], 
+            'total_low_stock' => 0,
+            'total_out_of_stock' => 0,
+            'threshold' => $threshold, 
+            'error' => $e->getMessage()
+        ];
+    } catch (Exception $e) {
+        error_log("Stock check with pagination general error: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        return [
+            'low_stock' => [], 
+            'out_of_stock' => [], 
+            'total_low_stock' => 0,
+            'total_out_of_stock' => 0,
+            'threshold' => $threshold, 
+            'error' => $e->getMessage()
+        ];
+    }
+}
+
+/**
  * Send low stock alert email to all admin users
  * @param array $stockData - Data from checkLowStockProducts()
  * @return bool - Success status
@@ -1660,14 +1758,15 @@ function logStockAlert($lowStockProducts, $outOfStockProducts, $emailsSent) {
 /**
  * Main function to run stock monitoring (can be called via cron or manually)
  * @param int $threshold - Stock threshold level
+ * @param bool $forceEmail - Force email sending (only when explicitly requested)
  * @return array - Report of the stock check
  */
-function runStockMonitoring($threshold = 5) {
+function runStockMonitoring($threshold = 5, $forceEmail = false) {
     $stockData = checkLowStockProducts($threshold);
     $emailSent = false;
     
-    // Only send email if there are low stock or out of stock products
-    if (!empty($stockData['low_stock']) || !empty($stockData['out_of_stock'])) {
+    // Only send email when explicitly forced (manual request, not automatic)
+    if ($forceEmail && (!empty($stockData['low_stock']) || !empty($stockData['out_of_stock']))) {
         $emailSent = sendLowStockAlert($stockData);
     }
     
@@ -1675,6 +1774,38 @@ function runStockMonitoring($threshold = 5) {
         'timestamp' => date('Y-m-d H:i:s'),
         'low_stock_count' => count($stockData['low_stock']),
         'out_of_stock_count' => count($stockData['out_of_stock']),
+        'email_sent' => $emailSent,
+        'threshold' => $threshold,
+        'products' => $stockData
+    ];
+}
+
+/**
+ * Stock monitoring with pagination support
+ * @param int $threshold - Stock threshold level
+ * @param bool $forceEmail - Force email sending (only when explicitly requested)
+ * @param int $limit - Items per page
+ * @param int $offset - Offset for pagination
+ * @return array - Report of the stock check with pagination
+ */
+function runStockMonitoringWithPagination($threshold = 5, $forceEmail = false, $limit = 10, $offset = 0) {
+    $stockData = checkLowStockProductsWithPagination($threshold, $limit, $offset);
+    $emailSent = false;
+    
+    // Only send email when explicitly forced (manual request, not automatic)
+    // Check total counts to ensure there are actually stock issues before sending email
+    if ($forceEmail && ($stockData['total_low_stock'] > 0 || $stockData['total_out_of_stock'] > 0)) {
+        // For email, get all products (not paginated)
+        $allStockData = checkLowStockProducts($threshold);
+        $emailSent = sendLowStockAlert($allStockData);
+    }
+    
+    return [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'low_stock_count' => count($stockData['low_stock']),
+        'out_of_stock_count' => count($stockData['out_of_stock']),
+        'total_low_stock' => $stockData['total_low_stock'],
+        'total_out_of_stock' => $stockData['total_out_of_stock'],
         'email_sent' => $emailSent,
         'threshold' => $threshold,
         'products' => $stockData
@@ -1871,4 +2002,186 @@ function validateVoucher($code, $order_amount = 0) {
         error_log("Voucher validation error: " . $e->getMessage());
         return false;
     }
+}
+
+
+/**
+ * Send email to the currently logged-in user with spam prevention
+ */
+function sendEmailToLoggedInUser($subject, $message, $email_type = 'general', $force_send = false) {
+    global $_db;
+    
+    try {
+        $userEmail = null;
+        $userName = null;
+        
+        // Check for regular user session first
+        if (isset($_SESSION['user']['email']) && !empty($_SESSION['user']['email'])) {
+            $userEmail = $_SESSION['user']['email'];
+            $userName = $_SESSION['user']['username'] ?? 'User';
+            error_log("Sending email to regular user: $userEmail");
+        }
+        // Check for admin/staff session
+        elseif (isset($_SESSION['staff_id']) && !empty($_SESSION['staff_id'])) {
+            try {
+                $stmt = $_db->prepare('SELECT username, email FROM user WHERE userID = ?');
+                $stmt->execute([$_SESSION['staff_id']]);
+                $staff_user = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($staff_user && !empty($staff_user['email'])) {
+                    $userEmail = $staff_user['email'];
+                    $userName = $staff_user['username'] ?? 'Admin';
+                    error_log("Sending email to admin/staff user: $userEmail");
+                } else {
+                    error_log("Admin/staff user found but no email address");
+                    return [
+                        'success' => false,
+                        'error' => 'No email address found for current user',
+                        'error_type' => 'no_email'
+                    ];
+                }
+            } catch (PDOException $e) {
+                error_log("Error fetching admin/staff user data: " . $e->getMessage());
+                return [
+                    'success' => false,
+                    'error' => 'Database error while fetching user data',
+                    'error_type' => 'database_error'
+                ];
+            }
+        }
+        else {
+            error_log("No logged-in user or admin/staff found for email sending");
+            return [
+                'success' => false,
+                'error' => 'No logged-in user found',
+                'error_type' => 'not_logged_in'
+            ];
+        }
+        
+        if (empty($userEmail)) {
+            error_log("No valid email found for current user");
+            return [
+                'success' => false,
+                'error' => 'No valid email address found',
+                'error_type' => 'invalid_email'
+            ];
+        }
+        
+        // Directly send email (spam prevention removed)
+        $result = sendStockAlertEmail($userEmail, $userName, $subject, $message);
+        if ($result) {
+            return [
+                'success' => true,
+                'message' => 'Email sent successfully'
+            ];
+        }
+        return [
+            'success' => false,
+            'error' => 'Failed to send email. Please check email configuration.',
+            'error_type' => 'send_failure'
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Error sending email to logged-in user: " . $e->getMessage());
+        return [
+            'success' => false,
+            'error' => 'Unexpected error occurred',
+            'error_type' => 'exception'
+        ];
+    }
+}
+
+/**
+ * Send welcome email with spam prevention
+ */
+// Simplified welcome email sender (spam prevention removed)
+function sendWelcomeEmail($force_send = false) {
+    if (!isset($_SESSION['user']) && !isset($_SESSION['staff_id'])) {
+        return [
+            'success' => false,
+            'error' => 'No logged-in user found',
+            'error_type' => 'not_logged_in'
+        ];
+    }
+    
+    $userName = 'User';
+    if (isset($_SESSION['user']['username'])) {
+        $userName = $_SESSION['user']['username'];
+    } elseif (isset($_SESSION['staff_id'])) {
+        global $_db;
+        try {
+            $stmt = $_db->prepare('SELECT username FROM user WHERE userID = ?');
+            $stmt->execute([$_SESSION['staff_id']]);
+            $staff_user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($staff_user) {
+                $userName = $staff_user['username'];
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching staff user info: " . $e->getMessage());
+        }
+    }
+    
+    $subject = "Welcome to AiKUN Furniture!";
+    $message = "
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+        <h2 style='color: #2c3e50;'>Welcome, $userName!</h2>
+        <p>Thank you for logging into AiKUN Furniture. We're glad to have you back!</p>
+        <p>Here's what you can do:</p>
+        <ul>
+            <li>Browse our latest furniture collection</li>
+            <li>Update your profile information</li>
+            <li>Track your orders</li>
+            <li>Manage your account settings</li>
+        </ul>
+        <p>If you have any questions, feel free to contact our support team.</p>
+        <br>
+        <p>Best regards,<br>The AiKUN Furniture Team</p>
+    </div>";
+    
+    return sendEmailToLoggedInUser($subject, $message, 'welcome', $force_send);
+}
+
+/**
+ * Send order confirmation email with spam prevention
+ */
+// Simplified order confirmation email sender (spam prevention removed)
+function sendOrderConfirmationEmail($orderId, $orderDetails = [], $force_send = false) {
+    if (!isset($_SESSION['user']) && !isset($_SESSION['staff_id'])) {
+        return [
+            'success' => false,
+            'error' => 'No logged-in user found',
+            'error_type' => 'not_logged_in'
+        ];
+    }
+    
+    $userName = 'User';
+    if (isset($_SESSION['user']['username'])) {
+        $userName = $_SESSION['user']['username'];
+    } elseif (isset($_SESSION['staff_id'])) {
+        global $_db;
+        try {
+            $stmt = $_db->prepare('SELECT username FROM user WHERE userID = ?');
+            $stmt->execute([$_SESSION['staff_id']]);
+            $staff_user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($staff_user) {
+                $userName = $staff_user['username'];
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching staff user info: " . $e->getMessage());
+        }
+    }
+    
+    $subject = "Order Confirmation #$orderId - AiKUN Furniture";
+    $message = "
+    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+        <h2 style='color: #2c3e50;'>Order Confirmation</h2>
+        <p>Dear $userName,</p>
+        <p>Thank you for your order! Your order #$orderId has been confirmed.</p>
+        <p>We'll process your order and send you tracking information once it ships.</p>
+        <p>You can track your order status in your account dashboard.</p>
+        <br>
+        <p>Best regards,<br>The AiKUN Furniture Team</p>
+    </div>";
+    
+    return sendEmailToLoggedInUser($subject, $message, 'order_confirmation', $force_send);
 }

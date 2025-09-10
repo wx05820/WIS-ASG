@@ -399,12 +399,6 @@ try {
                 </div>
             </form>
 
-            <?php if (!empty($pagerHtml)): ?>
-                <div style="margin-bottom: 20px;">
-                    <?php echo $pagerHtml; ?>
-                </div>
-            <?php endif; ?>
-
             <!-- Results Summary -->
             <div style="background: #8B4513; padding: 10px 15px; border-radius: 4px; margin-top: 15px; margin-bottom: 15px; border-left: 4px solid #8B4513;">
                 <span style="color: #F5F5F5; font-size: 0.9rem;">

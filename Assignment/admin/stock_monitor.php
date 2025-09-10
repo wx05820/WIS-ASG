@@ -17,57 +17,21 @@ if ($isWebRequest) {
 $threshold = isset($_GET['threshold']) ? (int)$_GET['threshold'] : 5;
 $threshold = max(1, min(100, $threshold)); // Ensure reasonable range
 
+// Pagination parameters
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$limit = 10; // Items per page
+$offset = ($page - 1) * $limit;
+
 // Check if email should be sent (only when explicitly requested)
 $forceEmail = isset($_GET['send_email']) && $_GET['send_email'] == '1';
 
-// Check if simple email should be sent to logged-in user
-$sendSimpleEmail = isset($_GET['send_simple_email']) && $_GET['send_simple_email'] == '1';
-$simpleEmailResult = null;
+// Run stock monitoring with pagination
+$report = runStockMonitoringWithPagination($threshold, $forceEmail, $limit, $offset);
 
-if ($sendSimpleEmail) {
-    // Get current user info (works for both regular users and admin/staff)
-    $currentUserName = 'User';
-    $currentUserRole = 'User';
-    
-    if (isset($_SESSION['user']['username'])) {
-        $currentUserName = $_SESSION['user']['username'];
-        $currentUserRole = $_SESSION['user']['role'] ?? 'User';
-    } elseif (isset($_SESSION['staff_id'])) {
-        try {
-            $stmt = $_db->prepare('SELECT username, role FROM user WHERE userID = ?');
-            $stmt->execute([$_SESSION['staff_id']]);
-            $staff_user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($staff_user) {
-                $currentUserName = $staff_user['username'];
-                $currentUserRole = $staff_user['role'];
-            }
-        } catch (PDOException $e) {
-            error_log("Error fetching staff user info: " . $e->getMessage());
-        }
-    }
-    
-    // Send a simple notification email to the logged-in user with spam prevention
-    $subject = "Stock Monitor Report - AiKUN Furniture";
-    $message = "
-    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-        <h2 style='color: #2c3e50;'>Stock Monitor Report</h2>
-        <p>Hello $currentUserName,</p>
-        <p>You have accessed the Stock Monitor page. Here's a quick summary:</p>
-        <ul>
-            <li>Monitoring threshold: $threshold items</li>
-            <li>Report generated on: " . date('Y-m-d H:i:s') . "</li>
-            <li>Access level: $currentUserRole</li>
-        </ul>
-        <p>You can view the full stock report in your admin dashboard.</p>
-        <br>
-        <p>Best regards,<br>The AiKUN Furniture System</p>
-    </div>";
-    
-    $simpleEmailResult = sendEmailToLoggedInUser($subject, $message, 'notification');
-}
-
-// Run stock monitoring
-$report = runStockMonitoring($threshold, $forceEmail);
+// Calculate total pages
+$totalLowStock = isset($report['total_low_stock']) ? $report['total_low_stock'] : 0;
+$totalOutOfStock = isset($report['total_out_of_stock']) ? $report['total_out_of_stock'] : 0;
+$totalPages = max(1, ceil(max($totalLowStock, $totalOutOfStock) / $limit));
 
 // If this is a web request, show results
 if ($isWebRequest) {
@@ -83,103 +47,333 @@ if ($isWebRequest) {
         <link rel="stylesheet" href="../css/userlist.css">
         <link rel="stylesheet" href="../css/products.css">
         <style>
-            .action-buttons {
+            /* Stock Monitor specific styles using list.php approach */
+            .stock-monitor-container {
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            
+            .report-header {
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                padding: 30px;
+                border-radius: 20px;
+                box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+                margin-bottom: 30px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                text-align: center;
+            }
+            
+            .report-header h1 {
+                color: var(--wood-dark);
+                margin-bottom: 15px;
+                font-size: 32px;
+                font-weight: 600;
+                text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            }
+            
+            .report-header p {
+                color: var(--wood-secondary);
+                font-size: 16px;
+            }
+            
+            /* Summary cards using same style as stats */
+            .summary-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 25px;
+                margin-bottom: 30px;
+            }
+            
+            .summary-card {
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(15px);
+                border-radius: 20px;
+                padding: 30px 25px;
+                text-align: center;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }
+            
+            .summary-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            }
+            
+            .summary-card h3 {
+                font-size: 48px;
+                font-weight: 700;
+                margin-bottom: 10px;
+                background: linear-gradient(135deg, var(--wood-primary), var(--gold-accent));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            
+            .summary-card p {
+                color: var(--wood-secondary);
+                font-size: 16px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            /* Action buttons using list.php style */
+            .product-action-bar {
                 display: flex;
                 gap: 10px;
-                margin-bottom: 15px;
+                margin-bottom: 1.5rem;
                 flex-wrap: wrap;
             }
             
-            .btn-primary {
-                background: #007bff !important;
-                color: white !important;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 5px;
+            .btn {
+                padding: 0.7rem 1.2rem;
+                border-radius: 20px;
+                background: #D3D3D3;
+                color: #333;
+                border: 2px solid #D3D3D3;
+                font-weight: 600;
+                font-size: 1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                transition: background 0.3s, color 0.3s, transform 0.2s;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
                 text-decoration: none;
-                font-size: 14px;
-                transition: background-color 0.3s;
             }
             
-            .btn-primary:hover {
-                background: #0056b3 !important;
-                color: white !important;
+            .btn:hover {
+                background: #C0C0C0;
+                color: #333;
+                border-color: #C0C0C0;
+                transform: scale(1.05);
             }
             
-            .btn-email {
-                background: #28a745 !important;
-                color: white !important;
+            .btn.btn-email {
+                background: #90EE90;
+                color: #333;
+                border-color: #90EE90;
             }
             
-            .btn-email:hover {
-                background: #1e7e34 !important;
+            .btn.btn-email:hover {
+                background: #7FDD7F;
+                color: #333;
+                border-color: #7FDD7F;
             }
             
-            .success-alert, .error-alert {
-                padding: 15px;
-                border-radius: 5px;
+            .btn-secondary {
+                background: var(--wood-light);
+                color: var(--wood-dark);
+                border-color: var(--wood-light);
+            }
+            
+            .btn-secondary:hover {
+                background: var(--gold-accent);
+                color: var(--wood-dark);
+                border-color: var(--gold-accent);
+            }
+            
+            /* Report sections */
+            .report-section {
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 30px;
+                margin-bottom: 30px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+            
+            .report-section h2 {
+                color: var(--wood-dark);
                 margin-bottom: 20px;
+                font-size: 24px;
+                font-weight: 600;
                 display: flex;
                 align-items: center;
                 gap: 10px;
             }
             
+            /* Product table styles */
+            .product-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+                background: white;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            }
+            
+            .product-table th {
+                background: linear-gradient(135deg, var(--wood-primary), var(--wood-secondary));
+                color: white;
+                padding: 15px 12px;
+                text-align: left;
+                font-weight: 600;
+                font-size: 14px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .product-table td {
+                padding: 15px 12px;
+                border-bottom: 1px solid #f0f0f0;
+                color: var(--wood-dark);
+                font-size: 14px;
+            }
+            
+            .product-table tbody tr:hover {
+                background: #f8f9fa;
+                transform: scale(1.01);
+                transition: all 0.2s ease;
+            }
+            
+            .product-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+            
+            /* Stock status badges */
+            .stock {
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .stock.out-of-stock {
+                background: #fee2e2;
+                color: #dc2626;
+                border: 1px solid #fecaca;
+            }
+            
+            .stock.low-stock {
+                background: #fef3c7;
+                color: #d97706;
+                border: 1px solid #fed7aa;
+            }
+            
+            /* Alert sections */
+            .alert-critical {
+                border-left: 5px solid #dc2626;
+            }
+            
+            .alert-warning {
+                border-left: 5px solid #d97706;
+            }
+            
+            .alert-success {
+                border-left: 5px solid #16a34a;
+            }
+            
+            /* Success/Error messages */
+            .success-alert, .error-alert {
+                padding: 15px;
+                border-radius: 12px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 500;
+            }
+            
             .success-alert {
-                background: #d4edda;
-                color: #155724;
-                border: 1px solid #c3e6cb;
+                background: #d1fae5;
+                color: #065f46;
+                border: 1px solid #a7f3d0;
             }
             
             .error-alert {
-                background: #f8d7da;
-                color: #721c24;
-                border: 1px solid #f5c6cb;
+                background: #fee2e2;
+                color: #991b1b;
+                border: 1px solid #fecaca;
             }
             
-            .success-alert i, .error-alert i {
-                font-size: 18px;
+            /* Pagination using list.php style */
+            .pagination {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 10px;
+                margin: 20px 0;
+                flex-wrap: wrap;
             }
             
-            /* Spam prevention related styles removed */
+            .pagination a, .pagination span {
+                padding: 8px 12px;
+                border: 2px solid var(--wood-light);
+                color: var(--wood-dark);
+                text-decoration: none;
+                border-radius: 8px;
+                transition: all 0.3s;
+                font-weight: 500;
+            }
+            
+            .pagination a:hover {
+                background: var(--wood-primary);
+                color: white;
+                border-color: var(--wood-primary);
+                transform: scale(1.05);
+            }
+            
+            .pagination .current {
+                background: var(--wood-primary);
+                color: white;
+                border-color: var(--wood-primary);
+            }
+            
+            .pagination .disabled {
+                color: #ccc;
+                cursor: not-allowed;
+                border-color: #f0f0f0;
+            }
+            
+            .pagination .disabled:hover {
+                background: transparent;
+                color: #ccc;
+                transform: none;
+            }
         </style>
     </head>
     <body class="product-list-main" style="margin-top:0; padding-top:0;">
         <?php include 'adminheader.php'; ?>
         
-        <div class="container">
+        <div class="container stock-monitor-container">
             <!-- Email Success Message -->
-            <?php if (isset($_GET['send_email']) && $report['email_sent']): ?>
-            <div class="email-success-message">
-                <div class="success-alert">
-                    <i class="fas fa-check-circle"></i>
-                    <strong>Stock Alert Email Sent Successfully!</strong>
-                    <p>Stock monitoring report has been sent to your email address.</p>
+            <?php if (isset($_GET['send_email'])): ?>
+                <?php 
+                $totalIssues = (isset($report['total_out_of_stock']) ? $report['total_out_of_stock'] : $report['out_of_stock_count']) + 
+                              (isset($report['total_low_stock']) ? $report['total_low_stock'] : $report['low_stock_count']);
+                ?>
+                <?php if ($totalIssues == 0): ?>
+                <div class="email-info-message">
+                    <div class="success-alert">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>No Stock Issues Found</strong>
+                        <p>All products have adequate stock levels. No email alert was sent as there are no stock issues to report.</p>
+                    </div>
                 </div>
-            </div>
-            <?php elseif (isset($_GET['send_simple_email']) && $simpleEmailResult && $simpleEmailResult['success']): ?>
-            <div class="email-success-message">
-                <div class="success-alert">
-                    <i class="fas fa-check-circle"></i>
-                    <strong>Email Sent Successfully!</strong>
-                    <p><?= htmlspecialchars($simpleEmailResult['message']) ?></p>
+                <?php elseif ($report['email_sent']): ?>
+                <div class="email-success-message">
+                    <div class="success-alert">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>Stock Alert Email Sent Successfully!</strong>
+                        <p>Stock monitoring report with <?php echo $totalIssues; ?> stock issues has been sent to admin email addresses.</p>
+                    </div>
                 </div>
-            </div>
-            <?php elseif (isset($_GET['send_simple_email']) && $simpleEmailResult && !$simpleEmailResult['success']): ?>
-            <div class="email-error-message">
-                <div class="error-alert">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Email Failed to Send</strong>
-                    <p><?= htmlspecialchars($simpleEmailResult['error']) ?></p>
+                <?php else: ?>
+                <div class="email-error-message">
+                    <div class="error-alert">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Stock Alert Email Failed</strong>
+                        <p>There was an issue sending the stock alert email. Please check your email configuration or try again later.</p>
+                    </div>
                 </div>
-            </div>
-            <?php elseif (isset($_GET['send_email']) && !$report['email_sent']): ?>
-            <div class="email-error-message">
-                <div class="error-alert">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Stock Alert Email Failed</strong>
-                    <p>There was an issue sending the stock alert email. Please check your email configuration or try again later.</p>
-                </div>
-            </div>
+                <?php endif; ?>
             <?php endif; ?>
             
             <div class="report-header">
@@ -192,12 +386,12 @@ if ($isWebRequest) {
                 <h2><i class="fas fa-info-circle"></i> Summary</h2>
                 <div class="summary-grid">
                     <div class="summary-card out-of-stock">
-                        <h3><?php echo $report['out_of_stock_count']; ?></h3>
-                        <p>Out of Stock</p>
+                        <h3><?php echo isset($report['total_out_of_stock']) ? $report['total_out_of_stock'] : $report['out_of_stock_count']; ?></h3>
+                        <p>Out of Stock (Total)</p>
                     </div>
                     <div class="summary-card low-stock">
-                        <h3><?php echo $report['low_stock_count']; ?></h3>
-                        <p>Low Stock</p>
+                        <h3><?php echo isset($report['total_low_stock']) ? $report['total_low_stock'] : $report['low_stock_count']; ?></h3>
+                        <p>Low Stock (Total)</p>
                     </div>
                     <div class="summary-card email-status <?php echo $report['email_sent'] ? 'sent' : 'not-sent'; ?>">
                         <h3><?php echo $report['email_sent'] ? 'YES' : 'NO'; ?></h3>
@@ -209,7 +403,8 @@ if ($isWebRequest) {
             <!-- Out of Stock Products -->
             <?php if (!empty($report['products']['out_of_stock'])): ?>
             <div class="report-section alert-critical">
-                <h2><i class="fas fa-times-circle"></i> Out of Stock Products (<?php echo count($report['products']['out_of_stock']); ?>)</h2>
+                <h2><i class="fas fa-times-circle"></i> Out of Stock Products 
+                (Showing <?php echo count($report['products']['out_of_stock']); ?> of <?php echo isset($report['total_out_of_stock']) ? $report['total_out_of_stock'] : count($report['products']['out_of_stock']); ?>)</h2>
                 <table class="product-table">
                     <thead>
                         <tr>
@@ -242,7 +437,8 @@ if ($isWebRequest) {
             <!-- Low Stock Products -->
             <?php if (!empty($report['products']['low_stock'])): ?>
             <div class="report-section alert-warning">
-                <h2><i class="fas fa-exclamation-triangle"></i> Low Stock Products (<?php echo count($report['products']['low_stock']); ?>)</h2>
+                <h2><i class="fas fa-exclamation-triangle"></i> Low Stock Products 
+                (Showing <?php echo count($report['products']['low_stock']); ?> of <?php echo isset($report['total_low_stock']) ? $report['total_low_stock'] : count($report['products']['low_stock']); ?>)</h2>
                 <table class="product-table">
                     <thead>
                         <tr>
@@ -280,29 +476,90 @@ if ($isWebRequest) {
             </div>
             <?php endif; ?>
             
+            <!-- Pagination -->
+            <?php if ($totalPages > 1 && (!empty($report['products']['out_of_stock']) || !empty($report['products']['low_stock']))): ?>
+            <div class="report-section">
+                <div class="pagination">
+                    <?php
+                    // Build base URL for pagination
+                    $baseUrl = "stock_monitor.php?threshold=" . $threshold;
+                    if (isset($_GET['send_email'])) {
+                        $baseUrl .= "&send_email=" . $_GET['send_email'];
+                    }
+                    
+                    // Previous button
+                    if ($page > 1): ?>
+                        <a href="<?php echo $baseUrl; ?>&page=<?php echo ($page - 1); ?>">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    <?php else: ?>
+                        <span class="disabled">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </span>
+                    <?php endif; ?>
+                    
+                    <?php
+                    // Page numbers
+                    $startPage = max(1, $page - 2);
+                    $endPage = min($totalPages, $page + 2);
+                    
+                    if ($startPage > 1): ?>
+                        <a href="<?php echo $baseUrl; ?>&page=1">1</a>
+                        <?php if ($startPage > 2): ?>
+                            <span>...</span>
+                        <?php endif;
+                    endif;
+                    
+                    for ($i = $startPage; $i <= $endPage; $i++): ?>
+                        <?php if ($i == $page): ?>
+                            <span class="current"><?php echo $i; ?></span>
+                        <?php else: ?>
+                            <a href="<?php echo $baseUrl; ?>&page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                        <?php endif;
+                    endfor;
+                    
+                    if ($endPage < $totalPages): ?>
+                        <?php if ($endPage < $totalPages - 1): ?>
+                            <span>...</span>
+                        <?php endif; ?>
+                        <a href="<?php echo $baseUrl; ?>&page=<?php echo $totalPages; ?>"><?php echo $totalPages; ?></a>
+                    <?php endif; ?>
+                    
+                    <!-- Next button -->
+                    <?php if ($page < $totalPages): ?>
+                        <a href="<?php echo $baseUrl; ?>&page=<?php echo ($page + 1); ?>">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    <?php else: ?>
+                        <span class="disabled">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </span>
+                    <?php endif; ?>
+                </div>
+                <div style="text-align: center; margin-top: 10px; color: #666;">
+                    Page <?php echo $page; ?> of <?php echo $totalPages; ?> 
+                    (<?php echo $limit; ?> items per page)
+                </div>
+            </div>
+            <?php endif; ?>
+            
             <!-- Actions -->
             <div class="report-section">
                 <h2><i class="fas fa-tools"></i> Actions</h2>
-                <div class="action-buttons">
-                    <a href="stock_monitor.php?send_simple_email=1&threshold=<?php echo $threshold; ?>" class="btn btn-primary">
-                        <i class="fas fa-paper-plane"></i> Send Email to Logged-in User
-                    </a>
-                    <a href="stock_monitor.php?send_email=1&threshold=<?php echo $threshold; ?>" class="btn btn-email">
+                <div class="product-action-bar">
+                    <a href="stock_monitor.php?send_email=1&threshold=<?php echo $threshold; ?>&page=<?php echo $page; ?>" class="btn btn-email">
                         <i class="fas fa-envelope"></i> Send Stock Alert Email
                     </a>
+                    <a href="stock_monitor.php?threshold=5&page=1" class="btn">Run Check (Threshold: 5)</a>
+                    <a href="stock_monitor.php?threshold=10&page=1" class="btn">Run Check (Threshold: 10)</a>
+                    <a href="stock_monitor.php?threshold=20&page=1" class="btn">Run Check (Threshold: 20)</a>
                 </div>
-                <div class="action-buttons">
-                    <a href="stock_monitor.php?threshold=5" class="btn">Run Check (Threshold: 5)</a>
-                    <a href="stock_monitor.php?threshold=10" class="btn">Run Check (Threshold: 10)</a>
-                    <a href="stock_monitor.php?threshold=20" class="btn">Run Check (Threshold: 20)</a>
-                </div>
-                <div class="action-buttons">
+                <div class="product-action-bar">
                     <a href="../product/list.php" class="btn btn-secondary">Manage Products</a>
                     <a href="adminpage.php" class="btn btn-secondary">Back to Dashboard</a>
                 </div>
             </div>
             
-            <!-- Email statistics removed (spam prevention disabled) -->
         </div>
         
         <?php include '../footer.php'; ?>

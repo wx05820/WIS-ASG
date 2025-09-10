@@ -14,7 +14,14 @@ if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== d
         if (!empty($stockData['low_stock']) || !empty($stockData['out_of_stock'])) {
             $lowCount = count($stockData['low_stock']);
             $outCount = count($stockData['out_of_stock']);
-            temp('warning', "Stock Alert: $lowCount products are low in stock, $outCount products are out of stock. Check the Stock Monitor for details.");
+            
+            // Send stock alert email (auto-send on admin dashboard access)
+            $emailSent = sendLowStockAlert($stockData);
+            if ($emailSent) {
+                temp('warning', "Stock Alert: $lowCount products are low in stock, $outCount products are out of stock. Alert email has been sent. Check the Stock Monitor for details.");
+            } else {
+                temp('warning', "Stock Alert: $lowCount products are low in stock, $outCount products are out of stock. Check the Stock Monitor for details.");
+            }
         }
         $_SESSION['stock_check_done'] = date('Y-m-d'); // Mark as checked for today
     } catch (Exception $e) {
