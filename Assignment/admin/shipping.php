@@ -1,12 +1,8 @@
 <?php
-// Debug: Log that the script is starting
-error_log("=== SHIPPING PAGE START ===");
-
 include '../_base.php';
 include '../lib/SimplePager.php';
 
-// Debug: Log after includes
-error_log("Includes loaded successfully");
+
 
 // Check if user is admin
 if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {

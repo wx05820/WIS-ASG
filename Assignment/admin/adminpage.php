@@ -195,9 +195,9 @@ if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== d
                 <i class="fas fa-user-plus"></i>
                 <span>Add Staff</span>
             </a>
-            <a href="addvoucher.php" class="action-btn">
+            <a href="voucher_list.php" class="action-btn">
             <i class="fas fa-ticket"></i>
-            <span>Add Voucher</span>
+            <span>Voucher</span>
             </a>
         </div>
     </div>

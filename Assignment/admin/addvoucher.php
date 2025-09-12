@@ -68,23 +68,24 @@ if (is_post()) {
             throw new Exception('Voucher code already exists');
         }
         
+        // Map discount type to our new structure
+        $voucher_type = ($discount_type === 'Percentage') ? 'percentage' : 'fixed';
+        
         // Insert voucher
         $stmt = $_db->prepare("
-            INSERT INTO voucher (code, description, discount_type, value, minOrderAmount, maxDiscountAmount, start_date, end_date, usage_limit, current_usage, is_active) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            INSERT INTO voucher (code, discount_type, value, start_date, end_date, is_active, usage_limit, description) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
             $code,
-            $description,
-            $discount_type,
+            $voucher_type,
             $value,
-            $minOrderAmount,
-            $maxDiscountAmount,
             $start_date,
             $end_date,
-            $usage_limit ?: null,
-            $is_active
+            $is_active,
+            $usage_limit ?: 100,
+            $description
         ]);
         
         $message = 'Voucher created successfully!';
@@ -204,7 +205,7 @@ if (is_post()) {
                 </div>
                 
                 <div class="form-actions">
-                    <a href="voucherlist.php" class="btn btn-secondary">
+                    <a href="voucher_list.php" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> Back to Voucher List
                     </a>
                     <button type="submit" class="btn btn-primary">
