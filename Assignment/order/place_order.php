@@ -36,38 +36,6 @@ try {
 
     // Get items to order
     $order_items = [];
-
-// Check if this is an AJAX request
-$is_ajax = isset($_POST['ajax']) && $_POST['ajax'] === '1';
-
-try {
-    // Validate form data
-    if (empty($_POST['selected_address']) || empty($_POST['shipping_method']) || empty($_POST['payment_method'])) {
-        throw new Exception('Please fill in all required fields');
-    }
-
-    // Check idempotency token to prevent double submission
-    $idem_key = $_POST['idem_key'] ?? '';
-    if (empty($idem_key) || !isset($_SESSION['order_idem_tokens'][$idem_key]) || $_SESSION['order_idem_tokens'][$idem_key] !== 'new') {
-        throw new Exception('Invalid or expired order token. Please refresh and try again.');
-    }
-
-    // Mark token as used
-    $_SESSION['order_idem_tokens'][$idem_key] = 'used';
-
-    // Get form data
-    $address_id = $_POST['selected_address'];
-    $shipping_method = $_POST['shipping_method'];
-    $payment_method = $_POST['payment_method'];
-    $voucher_id = $_POST['voucher_id'] ?? null;
-    $voucher_code = $_POST['voucher_code'] ?? null;
-    $discount_amount = (float)($_POST['discount_amount'] ?? 0);
-
-    // Determine if this is buy now or cart checkout
-    $is_buy_now = isset($_POST['buy_now']) && $_POST['buy_now'] === '1';
-
-    // Get items to order
-    $order_items = [];
     if ($is_buy_now) {
         // Buy now checkout
         $prod_id = $_POST['prodID'];

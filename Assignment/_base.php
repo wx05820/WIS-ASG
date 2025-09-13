@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -1407,6 +1406,33 @@ function checkLogin(){
     }
 }
 
+function checkUserStatus(){
+    global $_db;
+    
+    if (!isset($_SESSION['user_id'])) {
+        return; // Let checkLogin() handle this
+    }
+    
+    try {
+        $stmt = $_db->prepare('SELECT status FROM user WHERE userID = ?');
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch();
+        
+        if ($user && $user->status === 'Banned') {
+            // Clear session data
+            session_destroy();
+            session_start();
+            
+            $_SESSION['error'] = "Your account has been suspended due to a violation of our terms of service. Please contact our support team for assistance.";
+            header('Location: /user/login.php');
+            exit;
+        }
+    } catch (PDOException $e) {
+        error_log("User status check error: " . $e->getMessage());
+        // Don't block user if there's a database error
+    }
+}
+
 function getCartCount($user_id) {
     global $_db;
     
@@ -1439,6 +1465,84 @@ function refreshCartCount($user_id) {
     
     // Clear any cached cart data if you have any
     return getCartCount($user_id);
+}
+
+// Function to get cart items for a user
+function get_cart($user_id) {
+    global $_db;
+    
+    if (!$user_id) {
+        return [];
+    }
+    
+    try {
+        // Get user's cart
+        $cartQuery = "SELECT cartID FROM cart WHERE userID = ?";
+        $cartStmt = $_db->prepare($cartQuery);
+        $cartStmt->execute([$user_id]);
+        $cart = $cartStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$cart) {
+            return [];
+        }
+        
+        $cartID = $cart['cartID'];
+        
+        // Get cart items with product details
+        $itemsQuery = "SELECT ci.*, p.name as title, p.price, p.qty as stock, p.image1 as img, p.color, p.material,
+                              COALESCE(c.name, 'Uncategorized') as category_name
+                      FROM cart_items ci
+                      JOIN product p ON ci.prodID = p.prodID
+                      LEFT JOIN category c ON p.catID = c.catID
+                      WHERE ci.cartID = ? AND (p.status IS NULL OR p.status != 'removed')";
+        $itemsStmt = $_db->prepare($itemsQuery);
+        $itemsStmt->execute([$cartID]);
+        $cart_items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $result = [];
+        foreach ($cart_items as $item) {
+            $result[$item['prodID']] = [
+                'id' => $item['prodID'],
+                'qty' => $item['qty'],
+                'product' => [
+                    'title' => $item['title'],
+                    'price' => $item['price'],
+                    'stock' => $item['stock'],
+                    'img' => $item['img'] ? 'data:image/jpeg;base64,' . base64_encode($item['img']) : '../images/placeholder.jpg',
+                    'color' => $item['color'],
+                    'material' => $item['material'],
+                    'category' => $item['category_name']
+                ]
+            ];
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log("Get cart error: " . $e->getMessage());
+        return [];
+    }
+}
+
+// Function to calculate cart totals
+function cartTotals($cart) {
+    $itemCount = 0;
+    $subtotal = 0;
+    
+    foreach ($cart as $item) {
+        $itemCount += $item['qty'];
+        $subtotal += $item['product']['price'] * $item['qty'];
+    }
+    
+    $shipping = 8.00;
+    $total = $subtotal + $shipping;
+    
+    return [
+        'itemCount' => $itemCount,
+        'subtotal' => $subtotal,
+        'shipping' => $shipping,
+        'total' => $total
+    ];
 }
 
 // ========================================
@@ -1624,28 +1728,40 @@ function sendLowStockAlert($stockData) {
         $stmt->execute();
         $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        $result = [];
-        foreach ($cart_items as $item) {
-            $result[$item['prodID']] = [
-                'id' => $item['prodID'],
-                'qty' => $item['qty'],
-                'product' => [
-                    'title' => $item['title'],
-                    'price' => $item['price'],
-                    'stock' => $item['stock'],
-                    'img' => $item['img'] ? 'data:image/jpeg;base64,' . base64_encode($item['img']) : '../images/placeholder.jpg',
-                    'color' => $item['color'],
-                    'material' => $item['material'],
-                    'category' => $item['category_name']
-                ]
-            ];
+        if (empty($admins)) {
+            error_log("No admin emails found for stock alert");
+            return false;
         }
         
-        return $result;
+        $lowStockProducts = $stockData['low_stock'];
+        $outOfStockProducts = $stockData['out_of_stock'];
+        $threshold = $stockData['threshold'];
+        
+        // Don't send email if no low stock products
+        if (empty($lowStockProducts) && empty($outOfStockProducts)) {
+            return true;
+        }
+        
+        // Prepare email content
+        $subject = "🚨 Low Stock Alert - AiKUN Furniture";
+        $emailBody = generateStockAlertEmail($lowStockProducts, $outOfStockProducts, $threshold);
+        
+        // Send email to each admin
+        $successCount = 0;
+        foreach ($admins as $admin) {
+            if (sendStockAlertEmail($admin['email'], $admin['username'], $subject, $emailBody)) {
+                $successCount++;
+            }
+        }
+        
+        // Log stock alert activity
+        logStockAlert($lowStockProducts, $outOfStockProducts, $successCount);
+        
+        return $successCount > 0;
         
     } catch (Exception $e) {
-        error_log("Get cart error: " . $e->getMessage());
-        return [];
+        error_log("Stock alert error: " . $e->getMessage());
+        return false;
     }
 }
 
