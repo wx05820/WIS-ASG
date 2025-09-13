@@ -175,10 +175,6 @@ if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== d
                 <i class="fas fa-users"></i>
                 <span>Manage Users</span>
             </a>
-            <a href="shipping.php" class="action-btn">
-            <i class="fas fa-truck"></i>
-            <span>Shipping</span>
-            </a>
             <a href="contact_messages.php" class="action-btn">
                 <i class="fas fa-envelope"></i>
                 <span>Contact Messages</span>

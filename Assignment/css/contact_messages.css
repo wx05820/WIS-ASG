@@ -21,7 +21,7 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
-    background: none;
+    background: var(--surface-muted);
     min-height: calc(100vh - 200px); /* Account for header/footer */
 }
 
@@ -122,7 +122,7 @@ body {
     border-radius: 8px;
     font-size: 14px;
     transition: all 0.3s ease;
-    background: transparent;
+    background: white;
 }
 
 .filter-group input:focus,
@@ -159,7 +159,7 @@ body {
 
 /* Message Cards */
 .message-card {
-    background: transparent;
+    background: var(--surface);
     border-radius: 12px;
     box-shadow: var(--shadow);
     padding: 25px;
@@ -573,7 +573,7 @@ body {
     text-align: center;
     padding: 80px 20px;
     color: var(--text-dark);
-    background: transparent;
+    background: var(--surface);
     border-radius: 12px;
     box-shadow: var(--shadow);
     border: 1px solid var(--border);

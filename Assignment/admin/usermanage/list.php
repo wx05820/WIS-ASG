@@ -63,7 +63,7 @@ $error_msg = get_temp('error');
     <link rel="stylesheet" href="../../css/userlist.css">
     <link rel="stylesheet" href="../../css/products.css">
 </head>
-<body class="product-list-main">
+<body class="product-list-main" style="margin-top:0; padding-top:0;">
 
     <?php include '../adminheader.php'; ?>
     <script src="../../js/adminProductList.js"></script>
@@ -216,21 +216,30 @@ $error_msg = get_temp('error');
                                     <span class="never">Never</span>
                                 <?php endif; ?>
                             </div>
-                        </div>
+                            </div>
 
                         <!-- Action Button -->
                         <div class="user-actions" onclick="event.stopPropagation();">
                             <?php if ($user->status === 'Active'): ?>
                                 <?php if ($user->role === 'Admin' || $user->role === 'Supervisor'): ?>
-                                    <?php if (isStaffSuperAdmin()): ?>
-                                        <button type="button" class="action-btn remove" onclick="openRemoveModal('<?php echo $user->userID; ?>', '<?php echo htmlspecialchars($user->username); ?>')">
+                                    <form method="post" style="display: inline;">
+                                        <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
+                                        <input type="hidden" name="action" value="delete">
+                                        <button type="submit" class="action-btn remove" onclick="return confirm('Are you sure you want to remove this staff member?')">
                                             <i class="fas fa-trash"></i> Remove
                                         </button>
-                                    <?php endif; ?>
+                                    </form>
                                 <?php else: ?>
-                                    <button type="button" class="action-btn ban" onclick="openBanModal('<?php echo $user->userID; ?>', '<?php echo htmlspecialchars($user->username); ?>')">
+                                    <form method="post" action="chgstatus.php" style="display: inline;">
+                                        <input type="hidden" name="user_id" value="<?php echo $user->userID; ?>">
+                                        <input type="hidden" name="action" value="deactivate">
+                                        <?php foreach ($_GET as $key => $value): ?>
+                                            <input type="hidden" name="<?php echo htmlspecialchars($key); ?>" value="<?php echo htmlspecialchars($value); ?>">
+                                        <?php endforeach; ?>
+                                        <button type="submit" class="action-btn ban" onclick="return confirm('Are you sure you want to ban this user?')">
                                             <i class="fas fa-ban"></i> Ban
                                         </button>
+                                    </form>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <form method="post" action="chgstatus.php" style="display: inline;">
@@ -299,92 +308,6 @@ $error_msg = get_temp('error');
                 });
             }
         });
-    </script>
-
-    <!-- Ban User Modal -->
-    <div id="banModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Ban User</h3>
-                <span class="close" onclick="closeBanModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to ban <strong id="banUsername"></strong>?</p>
-                <form id="banForm" method="POST" action="../ban_user.php">
-                    <input type="hidden" name="user_id" id="banUserId">
-                    <div class="form-group">
-                        <label for="banReason">Reason for ban (optional):</label>
-                        <textarea name="reason" id="banReason" class="form-control" rows="3" placeholder="Enter reason for banning this user..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-danger">Ban User</button>
-                        <button type="button" class="btn btn-secondary" onclick="closeBanModal()">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Remove Staff Modal -->
-    <div id="removeModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Remove Staff Member</h3>
-                <span class="close" onclick="closeRemoveModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to remove <strong id="removeUsername"></strong> from staff?</p>
-                <p style="color: #dc3545; font-weight: bold;">⚠️ This action cannot be undone!</p>
-                <form id="removeForm" method="POST" action="../remove_staff.php">
-                    <input type="hidden" name="staff_id" id="removeStaffId">
-                    <div class="form-group">
-                        <label for="removeReason">Reason for removal (optional):</label>
-                        <textarea name="reason" id="removeReason" class="form-control" rows="3" placeholder="Enter reason for removing this staff member..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-danger">Remove Staff</button>
-                        <button type="button" class="btn btn-secondary" onclick="closeRemoveModal()">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function openBanModal(userId, username) {
-            document.getElementById('banUserId').value = userId;
-            document.getElementById('banUsername').textContent = username;
-            document.getElementById('banModal').style.display = 'block';
-        }
-
-        function closeBanModal() {
-            document.getElementById('banModal').style.display = 'none';
-            document.getElementById('banForm').reset();
-        }
-
-        function openRemoveModal(staffId, username) {
-            document.getElementById('removeStaffId').value = staffId;
-            document.getElementById('removeUsername').textContent = username;
-            document.getElementById('removeModal').style.display = 'block';
-        }
-
-        function closeRemoveModal() {
-            document.getElementById('removeModal').style.display = 'none';
-            document.getElementById('removeForm').reset();
-        }
-
-        // Close modals when clicking outside
-        window.onclick = function(event) {
-            const banModal = document.getElementById('banModal');
-            const removeModal = document.getElementById('removeModal');
-            
-            if (event.target === banModal) {
-                closeBanModal();
-            }
-            if (event.target === removeModal) {
-                closeRemoveModal();
-            }
-        }
     </script>
 </body>
 </html>

@@ -17,8 +17,6 @@ html {
     background-color: var(--wood-primary);
     color: var(--text-light);
     border-bottom: 3px solid var(--wood-dark);
-    margin: 0;
-    padding: 0;
 }
 
 .wooden-header .header-container { 

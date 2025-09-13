@@ -72,7 +72,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?php echo $image_base_path; ?>images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="<?php echo $image_base_path; ?>/images/favicon.png">
     
     <!-- Font Awesome (only load if needed) -->
     <?php if (!isset($skip_fontawesome) || !$skip_fontawesome): ?>
@@ -156,15 +156,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <?php if (isLoggedIn()): ?>
                         <!-- Logged-in User Dropdown -->
                         <div class="user-dropdown">
-                            <button class="user-profile-btn" aria-label="User menu" aria-expanded="false">
+                            <button class="user-profile-btn" 
+                                    aria-label="User menu" 
+                                    aria-expanded="false"
+                                    aria-haspopup="true"
+                                    tabindex="0">
                                 <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                      alt="<?php echo htmlspecialchars($username); ?>'s profile photo" 
                                      class="profile-photo-small"
                                      onerror="this.onerror=null; this.src='<?php echo $image_base_path; ?>images/default-avatar.png'">
                                 <span class="username-display"><?php echo htmlspecialchars($username); ?></span>
-                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                                <i class="fas fa-chevron-down dropdown-arrow" aria-hidden="true"></i>
                             </button>
-                            <div class="dropdown-content" role="menu">
+                            <div class="dropdown-content" 
+                                 role="menu" 
+                                 aria-hidden="true"
+                                 aria-labelledby="user-menu-button">
                                 <div class="dropdown-header">
                                     <img src="<?php echo htmlspecialchars($user_profile_photo); ?>" 
                                          alt="Profile Photo" 
@@ -176,18 +183,34 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                     </div>
                                 </div>
                                 <hr class="dropdown-divider">
-                                <a href="<?php echo $image_base_path; ?>user/profile.php" class="dropdown-item" role="menuitem">
-                                    <i class="fas fa-user-edit"></i> Edit Profile
+                                <a href="<?php echo $image_base_path; ?>user/profile.php" 
+                                   class="dropdown-item" 
+                                   role="menuitem"
+                                   tabindex="-1">
+                                    <i class="fas fa-user-edit" aria-hidden="true"></i> 
+                                    <span>Edit Profile</span>
                                 </a>
-                                <a href="<?php echo $image_base_path; ?>user/wishlist.php" class="dropdown-item" role="menuitem">
-                                    <i class="fas fa-heart"></i> Wishlist
+                                <a href="<?php echo $image_base_path; ?>user/wishlist.php" 
+                                   class="dropdown-item" 
+                                   role="menuitem"
+                                   tabindex="-1">
+                                    <i class="fas fa-heart" aria-hidden="true"></i> 
+                                    <span>Wishlist</span>
                                 </a>
-                                <a href="<?php echo $image_base_path; ?>user/addresses.php" class="dropdown-item" role="menuitem">
-                                    <i class="fas fa-map-marker-alt"></i> Addresses
+                                <a href="<?php echo $image_base_path; ?>user/addresses.php" 
+                                   class="dropdown-item" 
+                                   role="menuitem"
+                                   tabindex="-1">
+                                    <i class="fas fa-map-marker-alt" aria-hidden="true"></i> 
+                                    <span>Addresses</span>
                                 </a>
-                                <hr class="dropdown-divider">
-                                <a href="<?php echo $image_base_path; ?>user/logout.php" class="dropdown-item logout-item" role="menuitem">
-                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                <hr class="dropdown-divider" role="separator">
+                                <a href="<?php echo $image_base_path; ?>user/logout.php" 
+                                   class="dropdown-item logout-item" 
+                                   role="menuitem"
+                                   tabindex="-1">
+                                    <i class="fas fa-sign-out-alt" aria-hidden="true"></i> 
+                                    <span>Logout</span>
                                 </a>
                             </div>
                         </div>
@@ -354,6 +377,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     
     <script src="<?php echo $image_base_path; ?>js/script.js"></script>
     <script src="<?php echo $image_base_path; ?>js/userproduct.js"></script>
+    <script src="<?php echo $image_base_path; ?>js/user-dropdown.js"></script>
     
     
     <!-- Page-specific JavaScript -->

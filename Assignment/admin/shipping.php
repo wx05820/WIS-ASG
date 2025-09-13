@@ -93,11 +93,10 @@ unset($order);
 $total_orders = $pager->item_count;
 $total_pages = $pager->page_count;
 
-// Get order status statistics for pie chart - only shipping-related statuses
+// Get order status statistics for pie chart
 $status_stats_sql = "
     SELECT status, COUNT(*) as count 
     FROM `order` 
-    WHERE status IN ('Pending', 'Processing', 'Shipped', 'Delivered')
     GROUP BY status 
     ORDER BY count DESC
 ";
@@ -111,10 +110,11 @@ $chart_data = [];
 $chart_colors = [];
 
 $status_color_map = [
-    'Pending' => '#FF6384',    // Red/Pink
+    'Pending' => '#FF6384',    // Red
     'Processing' => '#36A2EB', // Blue  
     'Shipped' => '#FFCE56',    // Yellow
-    'Delivered' => '#4BC0C0'   // Teal
+    'Delivered' => '#4BC0C0',  // Teal
+    'Refunded' => '#FF9F40'    // Orange (changed from pink to avoid confusion)
 ];
 
 foreach ($status_stats as $stat) {
@@ -164,12 +164,13 @@ $page_title = 'Shipping Management';
                 <h4>All Status</h4>
                 <div class="legend-grid">
                     <?php 
-                    // Use the same color mapping as the chart - only shipping statuses
+                    // Use the same color mapping as the chart
                     $legend_colors = [
                         'Pending' => ['color' => '#FF6384', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
                         'Processing' => ['color' => '#36A2EB', 'bg' => '#cce5ff', 'border' => '#74c0fc'],
                         'Shipped' => ['color' => '#FFCE56', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
-                        'Delivered' => ['color' => '#4BC0C0', 'bg' => '#d4edda', 'border' => '#c3e6cb']
+                        'Delivered' => ['color' => '#4BC0C0', 'bg' => '#d4edda', 'border' => '#c3e6cb'],
+                        'Refunded' => ['color' => '#FF9F40', 'bg' => '#fff3cd', 'border' => '#ffeaa7']
                     ];
                     
                     // Show legend items in the same order as the chart data
@@ -254,6 +255,7 @@ $page_title = 'Shipping Management';
                         <option value="Processing" <?php echo $status_filter === 'Processing' ? 'selected' : ''; ?>>Processing</option>
                         <option value="Shipped" <?php echo $status_filter === 'Shipped' ? 'selected' : ''; ?>>Shipped</option>
                         <option value="Delivered" <?php echo $status_filter === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
+                        <option value="Cancelled" <?php echo $status_filter === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                     </select>
                     
                     <select id="dateFilter" class="filter-select sortby-select">
@@ -397,6 +399,7 @@ $page_title = 'Shipping Management';
                         <option value="Processing">Processing</option>
                         <option value="Shipped">Shipped</option>
                         <option value="Delivered">Delivered</option>
+                        <option value="Refunded">Refunded</option>
                     </select>
                 </div>
                 <div class="form-group">

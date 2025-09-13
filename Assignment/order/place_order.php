@@ -36,13 +36,45 @@ try {
 
     // Get items to order
     $order_items = [];
+
+// Check if this is an AJAX request
+$is_ajax = isset($_POST['ajax']) && $_POST['ajax'] === '1';
+
+try {
+    // Validate form data
+    if (empty($_POST['selected_address']) || empty($_POST['shipping_method']) || empty($_POST['payment_method'])) {
+        throw new Exception('Please fill in all required fields');
+    }
+
+    // Check idempotency token to prevent double submission
+    $idem_key = $_POST['idem_key'] ?? '';
+    if (empty($idem_key) || !isset($_SESSION['order_idem_tokens'][$idem_key]) || $_SESSION['order_idem_tokens'][$idem_key] !== 'new') {
+        throw new Exception('Invalid or expired order token. Please refresh and try again.');
+    }
+
+    // Mark token as used
+    $_SESSION['order_idem_tokens'][$idem_key] = 'used';
+
+    // Get form data
+    $address_id = $_POST['selected_address'];
+    $shipping_method = $_POST['shipping_method'];
+    $payment_method = $_POST['payment_method'];
+    $voucher_id = $_POST['voucher_id'] ?? null;
+    $voucher_code = $_POST['voucher_code'] ?? null;
+    $discount_amount = (float)($_POST['discount_amount'] ?? 0);
+
+    // Determine if this is buy now or cart checkout
+    $is_buy_now = isset($_POST['buy_now']) && $_POST['buy_now'] === '1';
+
+    // Get items to order
+    $order_items = [];
     if ($is_buy_now) {
         // Buy now checkout
         $prod_id = $_POST['prodID'];
         $qty = (int)$_POST['qty'];
         
         // Get product details
-        $stmt = $_db->prepare("SELECT prodID, name, price, qty as stock FROM product WHERE prodID = ?");
+        $stmt = $_db->prepare("SELECT prodID, name, price, qty as stock, color FROM product WHERE prodID = ?");
         $stmt->execute([$prod_id]);
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -54,7 +86,8 @@ try {
             'prodID' => $prod_id,
             'qty' => $qty,
             'price' => $product['price'],
-            'name' => $product['name']
+            'name' => $product['name'],
+            'color' => $product['color'] ?? ''
         ];
     } else {
         // Cart checkout
@@ -66,7 +99,7 @@ try {
         // Get cart items
         $placeholders = str_repeat('?,', count($selected_items) - 1) . '?';
         $stmt = $_db->prepare("
-            SELECT ci.prodID, ci.qty, p.name, p.price, p.qty as stock
+            SELECT ci.prodID, ci.qty, p.name, p.price, p.qty as stock, p.color
             FROM cart_items ci
             JOIN cart c ON ci.cartID = c.cartID
             JOIN product p ON ci.prodID = p.prodID
@@ -110,41 +143,65 @@ try {
         throw new Exception('Invalid shipping address selected');
     }
 
-    // Generate payment ID
-    $payID = 'P' . date('Ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-    
     // Insert payment
-    $stmt = $_db->prepare("INSERT INTO payment (payID, payMethod, payStatus, payDate, amount) VALUES (?, ?, ?, NOW(), ?)");
-    $stmt->execute([
-        $payID,
+    $stmt = $_db->prepare("INSERT INTO payment (payMethod, payStatus, payDate, amount) VALUES (?, ?, NOW(), ?)");
+    $payment_result = $stmt->execute([
         $payment_method,
-        'Success', // Assuming successful for demo
+        'Success',
         $total
     ]);
+    
+    if (!$payment_result) {
+        $error = $stmt->errorInfo();
+        throw new Exception('Failed to create payment record: ' . $error[2]);
+    }
+    
+    // Get the auto-generated payID
+    $stmt = $_db->prepare("SELECT payID FROM payment ORDER BY created_at DESC LIMIT 1");
+    $stmt->execute();
+    $payment_check = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Create order
-    $order_id = 'ORD' . date('Ymd') . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+    $payID = $payment_check['payID'];
     
+    if (!$payID) {
+        throw new Exception('Failed to retrieve auto-generated payment ID');
+    }
+
+    // Create order 
     $stmt = $_db->prepare("
-        INSERT INTO `order` (orderID, orderDate, userID, status, shipping_method, subtotal, shipping_fee, discount, total, payID, addressID, 
-                           recipient_name, phoneNo, unitNo, address_line_1, address_line_2, city, postcode, state)
-        VALUES (?, NOW(), ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO `order` (orderDate, userID, status, shipping_method, subtotal, shipping_fee, discount, total, payID, addressID, 
+                        recipient_name, phoneNo, unitNo, address_line_1, address_line_2, city, postcode, state)
+        VALUES (NOW(), ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
-    
-    $stmt->execute([
-        $order_id, $user_id, $shipping_method, $subtotal, $shipping_fee, 
+
+    $order_result = $stmt->execute([
+        $user_id, $shipping_method, $subtotal, $shipping_fee, 
         $discount_amount, $total, $payID, $address_id,
         $address_details['recipient_name'], $address_details['phoneNo'], $address_details['unitNo'],
         $address_details['address_line_1'], $address_details['address_line_2'], 
         $address_details['city'], $address_details['postcode'], $address_details['state']
     ]);
 
+    if (!$order_result) {
+        $error = $stmt->errorInfo();
+        throw new Exception('Failed to create order record: ' . $error[2]);
+    }
+
+    // Get the auto-generated orderID
+    $stmt = $_db->prepare("SELECT orderID FROM `order` WHERE payID = ? ORDER BY orderDate DESC LIMIT 1");
+    $stmt->execute([$payID]);
+    $order_id = $stmt->fetchColumn();
+
+    if (!$order_id) {
+        throw new Exception('Failed to retrieve auto-generated order ID');
+    }
+    
     // Add order items
     $stmt = $_db->prepare("
         INSERT INTO order_items (orderID, prodID, qty, price, product_name, product_color) 
         VALUES (?, ?, ?, ?, ?, ?)
-    ");
-    
+    "); 
+
     foreach ($order_items as $item) {
         $stmt->execute([
             $order_id, $item['prodID'], $item['qty'], 

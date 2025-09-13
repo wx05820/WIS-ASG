@@ -1,6 +1,5 @@
 <?php
 include '../_base.php';
-include '../lib/SimplePager.php';
 
 // Check if user is admin
 if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
@@ -25,15 +24,12 @@ if ($user_id === '') {
     exit;
 }
 
-// Get pagination parameters for orders
-$orders_page = isset($_GET['orders_page']) && ctype_digit($_GET['orders_page']) ? (int)$_GET['orders_page'] : 1;
-
 // Get user information with additional details
-$stmt = $_db->prepare("SELECT u.*, 
+$sql = "SELECT u.*, 
                COUNT(DISTINCT o.orderID) as total_orders,
                COALESCE(SUM(ci.qty), 0) as cart_items,
                COUNT(DISTINCT w.prodID) as wishlist_items,
-               COALESCE(SUM(CASE WHEN o.status NOT IN ('Refunded', 'Cancelled') THEN o.total ELSE 0 END), 0) as total_spent,
+               COALESCE(SUM(CASE WHEN o.status IN ('Completed', 'Pending', 'Processing', 'Shipped') THEN o.total ELSE 0 END), 0) as total_spent,
                MAX(o.orderDate) as last_order_date
         FROM user u
         LEFT JOIN `order` o ON u.userID = o.userID
@@ -41,11 +37,17 @@ $stmt = $_db->prepare("SELECT u.*,
         LEFT JOIN cart_items ci ON c.cartID = ci.cartID
         LEFT JOIN wishlist w ON u.userID = w.userID
         WHERE u.userID = ?
-        GROUP BY u.userID");
+        GROUP BY u.userID";
+
+$stmt = $_db->prepare($sql);
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
+// Debug: Let's also get a simple count of orders and their total
+$debug_sql = "SELECT COUNT(*) as order_count, SUM(total) as order_total FROM `order` WHERE userID = ?";
+$debug_stmt = $_db->prepare($debug_sql);
+$debug_stmt->execute([$user_id]);
+$debug_data = $debug_stmt->fetch(PDO::FETCH_ASSOC);
 
 // Get user addresses
 $address_sql = "SELECT * FROM user_address WHERE userID = ? ORDER BY isDefault DESC, created_at DESC";
@@ -53,17 +55,11 @@ $address_stmt = $_db->prepare($address_sql);
 $address_stmt->execute([$user_id]);
 $addresses = $address_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get orders with pagination
-$orders_sql = "SELECT * FROM `order` WHERE userID = ? ORDER BY orderDate DESC";
-$orders_params = [$user_id];
-
-// Create SimplePager instance for orders
-$orders_pager = new SimplePager($orders_sql, $orders_params, 5, $orders_page);
-$recent_orders = $orders_pager->result;
-
-// Set pagination variables
-$total_orders = $orders_pager->item_count;
-$total_orders_pages = $orders_pager->page_count;
+// Get recent orders
+$orders_sql = "SELECT * FROM `order` WHERE userID = ? ORDER BY orderDate DESC LIMIT 5";
+$orders_stmt = $_db->prepare($orders_sql);
+$orders_stmt->execute([$user_id]);
+$recent_orders = $orders_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle status change
 if (is_post() && isset($_POST['action'])) {
@@ -93,7 +89,7 @@ if (is_post() && isset($_POST['action'])) {
     <title>User Details - AiKUN Furniture</title>
     <link rel="stylesheet" href="../style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../css/userdetail.css">
+    <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="../css/product_details.css">
 </head>
 <body>
@@ -209,8 +205,15 @@ if (is_post() && isset($_POST['action'])) {
                                 <div class="stat-label">Cart Items</div>
                             </div>
                         </div>
-                    
-
+                        
+                        <!-- Debug Information (remove this after testing) -->
+                        <div style="margin-top: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 5px; font-size: 0.9rem;">
+                            <strong>Debug Info:</strong><br>
+                            Complex Query Total Spent: <?php echo $user['total_spent']; ?><br>
+                            Simple Query Total Spent: <?php echo $debug_data['order_total']; ?><br>
+                            Order Count: <?php echo $debug_data['order_count']; ?><br>
+                            Cart Items (complex): <?php echo $user['cart_items']; ?><br>
+                        </div>
                     </div>
                 </div>
                 
@@ -247,18 +250,7 @@ if (is_post() && isset($_POST['action'])) {
             
             <!-- Recent Orders Section -->
             <div class="user-info-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3 class="section-title">
-                        Recent Orders 
-                        <span style="font-size: 0.8rem; font-weight: normal; color: #666; margin-left: 0.5rem;">
-                            (<?php echo $total_orders; ?> total)
-                        </span>
-                    </h3>
-                    <span style="font-size: 0.9rem; color: #666;">
-                        Page <?php echo $orders_page; ?> of <?php echo $total_orders_pages; ?>
-                    </span>
-                </div>
-                
+                <h3 class="section-title">Recent Orders</h3>
                 <?php if (!empty($recent_orders)): ?>
                     <?php foreach ($recent_orders as $order): ?>
                         <div class="order-card">
@@ -275,50 +267,6 @@ if (is_post() && isset($_POST['action'])) {
                             </div>
                         </div>
                     <?php endforeach; ?>
-                    
-                    <!-- Orders Pagination -->
-                    <?php if ($total_orders_pages > 1): ?>
-                        <div class="pagination" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee;">
-                            <div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
-                                <?php if ($orders_page > 1): ?>
-                                    <a href="?userID=<?php echo $user_id; ?>&orders_page=<?php echo $orders_page - 1; ?>" 
-                                       class="page-btn" style="padding: 0.5rem 1rem; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 0.9rem;">
-                                        <i class="fas fa-chevron-left"></i> Previous
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <span class="page-info" style="padding: 0.5rem 1rem; background: #f8f9fa; border-radius: 4px; font-size: 0.9rem;">
-                                    Page <?php echo $orders_page; ?> of <?php echo $total_orders_pages; ?>
-                                </span>
-                                
-                                <?php if ($orders_page < $total_orders_pages): ?>
-                                    <a href="?userID=<?php echo $user_id; ?>&orders_page=<?php echo $orders_page + 1; ?>" 
-                                       class="page-btn" style="padding: 0.5rem 1rem; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 0.9rem;">
-                                        Next <i class="fas fa-chevron-right"></i>
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <!-- Page Numbers -->
-                            <div style="display: flex; justify-content: center; gap: 0.25rem; margin-top: 0.5rem; flex-wrap: wrap;">
-                                <?php
-                                $start_page = max(1, $orders_page - 2);
-                                $end_page = min($total_orders_pages, $orders_page + 2);
-                                
-                                for ($i = $start_page; $i <= $end_page; $i++):
-                                ?>
-                                    <a href="?userID=<?php echo $user_id; ?>&orders_page=<?php echo $i; ?>" 
-                                       class="page-number <?php echo $i === $orders_page ? 'active' : ''; ?>"
-                                       style="padding: 0.4rem 0.8rem; background: <?php echo $i === $orders_page ? '#007bff' : '#f8f9fa'; ?>; 
-                                              color: <?php echo $i === $orders_page ? 'white' : '#333'; ?>; 
-                                              text-decoration: none; border-radius: 4px; font-size: 0.85rem; 
-                                              border: 1px solid <?php echo $i === $orders_page ? '#007bff' : '#dee2e6'; ?>;">
-                                        <?php echo $i; ?>
-                                    </a>
-                                <?php endfor; ?>
-                            </div>
-                        </div>
-                    <?php endif; ?>
                 <?php else: ?>
                     <div class="no-data">No orders found</div>
                 <?php endif; ?>
@@ -326,6 +274,23 @@ if (is_post() && isset($_POST['action'])) {
             
             <!-- Action Buttons -->
             <div class="action-buttons">
+                <?php if ($user['status'] === 'Active'): ?>
+                    <form method="post" style="display: inline;">
+                        <input type="hidden" name="action" value="change_status">
+                        <input type="hidden" name="status" value="Inactive">
+                        <button type="submit" class="btn-danger" onclick="return confirm('Are you sure you want to ban this user?')">
+                            <i class="fas fa-ban"></i> Ban User
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <form method="post" style="display: inline;">
+                        <input type="hidden" name="action" value="change_status">
+                        <input type="hidden" name="status" value="Active">
+                        <button type="submit" class="btn-success" onclick="return confirm('Are you sure you want to activate this user?')">
+                            <i class="fas fa-check"></i> Activate User
+                        </button>
+                    </form>
+                <?php endif; ?>
                 
                 <a href="usermanage/list.php" class="btn-primary">
                     <i class="fas fa-list"></i> Back to List
@@ -334,7 +299,7 @@ if (is_post() && isset($_POST['action'])) {
         <?php endif; ?>
     </main>
     
-
+    <!-- Admin JavaScript -->
     <script src="../js/admin.js"></script>
     
     <?php include '../footer.php'; ?>

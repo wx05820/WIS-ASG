@@ -4,11 +4,6 @@ include '../header.php';
 
 $user_id = $_SESSION['user_id'] ?? null;
 
-// Check if user is banned (only if logged in)
-if ($user_id) {
-    checkUserStatus();
-}
-
 if (isset($_SESSION['success'])) {
     echo '<div class="alert alert-success">' . htmlspecialchars($_SESSION['success']) . '</div>';
     unset($_SESSION['success']);

@@ -243,7 +243,7 @@ include '../header.php'; ?>
                             </div>
 
                             <div class="price-stock">
-                                <div class="price">RM <?= money($p['price'])?></div>
+                                <div class="price"><?= money($p['price'])?></div>
 
                                 <!-- Stock warnings -->
                                 <?php if ($stock <= 10 && $stock > 0): ?>
@@ -261,7 +261,7 @@ include '../header.php'; ?>
                         </div>
                                                 
                         <?php $rowSubtotal = $p['price'] * $row['qty']; ?>
-                        <div id="subtotal" class="subtotal">RM <?= money($rowSubtotal)?></div>
+                        <div id="subtotal" class="subtotal"><?= money($rowSubtotal)?></div>
                         <button type="button" class="remove" data-id="<?= htmlspecialchars($prodID)?>" aria-label="Remove <?= htmlspecialchars($p['title']) ?> from cart">Remove</button>
 
                     </div>

@@ -241,6 +241,58 @@ body::before {
     position: relative;
 }
 
+/* Remember Me Checkbox */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    user-select: none;
+    transition: color var(--transition-fast);
+}
+
+.checkbox-label:hover {
+    color: var(--primary-color);
+}
+
+.checkbox-label input[type="checkbox"] {
+    display: none;
+}
+
+.checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    margin-right: 0.75rem;
+    position: relative;
+    transition: all var(--transition-fast);
+    background: var(--gray-50);
+}
+
+.checkbox-label:hover .checkmark {
+    border-color: var(--primary-color);
+    background: var(--gray-100);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
 .form-group label {
     display: block;
     margin-bottom: 0.5rem;

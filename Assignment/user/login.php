@@ -37,30 +37,24 @@ if (is_post()) {
 
         if (!$_err) {
             $user = authenticateUser($login_input, $password);
+            $remember_me = isset($_POST['remember_me']) && $_POST['remember_me'] === '1';
             
             if ($user) {
                 // Login successful
-                loginUser($user);
+                loginUser($user, $remember_me);
                 
                 // Clear failed attempts
                 $clear_attempts = $_db->prepare("DELETE FROM failed_attempts WHERE email = ?");
                 $clear_attempts->execute([$login_input]);
         
-                if ($user->status === 'Banned') {
+                if ($user->status === 'Inactive') {
                     logoutUser(); // Clear session
                     logFailedLoginAttempt($login_input, 'Attempt to login to inactive account');
                     // Set temp message after logout to avoid session clearing
                     session_start(); // Restart session after logout
-                    temp('error', 'Your account is Banned. Please contact support.');
+                    temp('error', 'Your account is inactive. Please contact support.');
                     redirect('login.php');
                 }
-        if (isset($_POST['remember_me'])) {
-            setRememberMeCookie($user->userID);
-            setcookie('remember_me_opted_in', '1', time() + (30 * 24 * 60 * 60), '/', '', isset($_SERVER['HTTPS']), true);
-        } else {
-            clearRememberMeCookie();
-            setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
-        }
         
                 // Success message
                 $display_name = !empty($user->name) ? $user->name : $user->username;
@@ -166,6 +160,15 @@ $page_title = 'Login';
                 <?php endif; ?>
             </div>
 
+            <!-- Remember Me Checkbox -->
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="remember_me" name="remember_me" value="1">
+                    <span class="checkmark"></span>
+                    Remember me for 30 days
+                </label>
+            </div>
+
             <?php if ($show_captcha): ?>
             <!-- Security CAPTCHA (shown after failed attempts) -->
             <div class="form-group">
@@ -190,14 +193,6 @@ $page_title = 'Login';
             </div>
             <?php endif; ?>
 
-            <div class="form-options">
-                <label class="checkbox-container">
-                    <input type="checkbox" name="remember_me" id="remember_me" value="1">
-                    <span class="checkmark"></span>
-                    <span class="checkbox-label">Remember me for 30 days</span>
-                </label>
-                <small class="checkbox-help">Keep me logged in on this device</small>
-            </div>
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">

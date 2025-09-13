@@ -1,10 +1,10 @@
 <?php
 require_once '../_base.php';
 include 'voucher.php';
+checkUserStatus(); // Check if user is banned
 
 $user_id = $_SESSION['user_id'] ?? null;
 checkLogin();
-checkUserStatus(); // Check if user is banned
 
 if (isset($_SESSION['success'])) {
     echo '<div class="alert alert-success">' . htmlspecialchars($_SESSION['success']) . '</div>';
@@ -370,28 +370,28 @@ include '../header.php';
                 <div class="payment-methods">
                     <h3>Payment Method</h3>
                     <div class="payment-item">
-                        <input type="radio" id="card" name="payment_method" value="card" checked required>
+                        <input type="radio" id="card" name="payment_method" value="Credit/Debit Card" checked required>
                         <label for="card">
                             <span class="payment-icon">💳</span>
                             Credit/Debit Card
                         </label>
                     </div>
                     <div class="payment-item">
-                        <input type="radio" id="online_banking" name="payment_method" value="online_banking">
-                        <label for="online_banking">
+                        <input type="radio" id="duitnow" name="payment_method" value="DuitNow">
+                        <label for="duitnow">
                             <span class="payment-icon">🏦</span>
-                            Online Banking
+                            DuitNow
                         </label>
                     </div>
                     <div class="payment-item">
-                        <input type="radio" id="ewallet" name="payment_method" value="ewallet">
-                        <label for="ewallet">
+                        <input type="radio" id="tng" name="payment_method" value="TNG">
+                        <label for="tng">
                             <span class="payment-icon">📱</span>
-                            E-Wallet (GrabPay, Touch 'n Go)
+                            Touch 'n Go eWallet
                         </label>
                     </div>
                     <div class="payment-item">
-                        <input type="radio" id="cod" name="payment_method" value="cod">
+                        <input type="radio" id="cod" name="payment_method" value="COD">
                         <label for="cod">
                             <span class="payment-icon">💰</span>
                             Cash on Delivery
@@ -426,7 +426,7 @@ include '../header.php';
 
             <!-- Place Order Button -->
             <div class="checkout-actions">
-                <button type="submit" class="btn-primary btn-large place-order-btn" <?= empty($addresses) ? 'disabled' : '' ?> onclick="return handleFormSubmit(event)">
+                <button type="submit" class="btn-primary btn-large place-order-btn" <?= empty($addresses) ? 'disabled' : '' ?>>
                     <span class="btn-text">Place Order</span>
                     <span class="btn-loading" style="display: none;">Processing</span>
                 </button>
@@ -461,8 +461,8 @@ include '../header.php';
         updateOrderSummary();
 
         // Initialize voucher system properly
-        if (typeof iinitializeVoucherSystem === 'function') {
-            iinitializeVoucherSystem();
+        if (typeof initializeVoucherSystem === 'function') {
+            initializeVoucherSystem();
         }
         
         // Listen for address selection changes
@@ -471,6 +471,12 @@ include '../header.php';
                 updateOrderSummary();
             }
         });
+
+        // Add form submission event listener
+        const checkoutForm = document.getElementById('checkout-form');
+        if (checkoutForm) {
+            checkoutForm.addEventListener('submit', handleFormSubmit);
+        }
 
     });
 
@@ -546,6 +552,14 @@ function confirmAddAddress() {
 function handleFormSubmit(event) {
     console.log('Form submit handler called');
     
+    // Check if button is already disabled (prevent double submission)
+    const submitBtn = document.querySelector('.place-order-btn');
+    if (submitBtn && submitBtn.disabled) {
+        console.log('Form already submitting, preventing double submission');
+        event.preventDefault();
+        return false;
+    }
+    
     // Validate form first
     if (!validateCheckoutForm()) {
         console.log('Form validation failed');
@@ -556,7 +570,6 @@ function handleFormSubmit(event) {
     console.log('Form validation passed, submitting...');
     
     // Disable submit button to prevent double submission
-    const submitBtn = document.querySelector('.place-order-btn');
     if (submitBtn) {
         submitBtn.disabled = true;
         const btnText = submitBtn.querySelector('.btn-text');
@@ -567,7 +580,20 @@ function handleFormSubmit(event) {
         }
     }
     
-    // Let the form submit normally for both buy now and cart checkout
+    // Add timeout to re-enable button if form submission takes too long
+    setTimeout(() => {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+            if (btnText && btnLoading) {
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            }
+        }
+    }, 30000); // 30 second timeout
+    
+    // Let the form submit normally
     return true;
 }
 

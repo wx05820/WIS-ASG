@@ -27,21 +27,23 @@ $_err = [];
 
 $public_pages = ['login.php', 'register.php', 'forgot-password.php', 'index.php'];
 // Only check remember me token if user explicitly chose to be remembered
-// TEMPORARILY DISABLED AUTO-LOGIN TO TEST LOGOUT ISSUE
-// This prevents automatic login when user didn't check "Remember Me"
-if (false && !isLoggedIn() && !in_array(basename($_SERVER['PHP_SELF']), $public_pages)) {
+// Check for remember me token and auto-login
+if (!isLoggedIn() && !in_array(basename($_SERVER['PHP_SELF']), $public_pages)) {
     // Debug: Log what's happening
-    error_log("Auto-login check: remember_token=" . (isset($_COOKIE['remember_token']) ? 'exists' : 'not set') . 
-              ", remember_me_opted_in=" . (isset($_COOKIE['remember_me_opted_in']) ? 'exists' : 'not set'));
+    error_log("Auto-login check: remember_me=" . (isset($_COOKIE['remember_me']) ? 'exists' : 'not set'));
     
-    // Check if there's a remember me token AND the user previously opted in
-    if (isset($_COOKIE['remember_token']) && isset($_COOKIE['remember_me_opted_in'])) {
+    // Check if there's a remember me token
+    if (isset($_COOKIE['remember_me'])) {
         error_log("Attempting auto-login with remember me token");
-        $autoLoginUser = checkRememberMeToken();
-        if ($autoLoginUser) {
-            error_log("Auto-login successful for user: " . $autoLoginUser->username);
-            $display_name = !empty($autoLoginUser->name) ? $autoLoginUser->name : $autoLoginUser->username;
-            temp('info', 'Welcome back, ' . htmlspecialchars($display_name) . '!');
+        $autoLoginSuccess = checkRememberToken();
+        if ($autoLoginSuccess) {
+            // Get current user info for welcome message
+            $currentUser = getCurrentUser();
+            if ($currentUser) {
+                error_log("Auto-login successful for user: " . $currentUser->username);
+                $display_name = !empty($currentUser->name) ? $currentUser->name : $currentUser->username;
+                temp('info', 'Welcome back, ' . htmlspecialchars($display_name) . '!');
+            }
         } else {
             error_log("Auto-login failed - invalid token");
         }
@@ -74,7 +76,7 @@ function authenticateUser($loginInput, $password) {
     }
 }
 
-function loginUser($user) {
+function loginUser($user, $remember_me = false) {
     global $_db;
     session_regenerate_id(true);
     $_SESSION = [
@@ -89,6 +91,17 @@ function loginUser($user) {
         'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
         'status' => $user->status ?? 'Active'
     ];
+    
+    // Handle remember me functionality
+    if ($remember_me) {
+        // Clean up old tokens for this user before creating new one
+        cleanupUserRememberTokens($user->userID);
+        createRememberToken($user->userID);
+    } else {
+        // If not using remember me, clean up any existing tokens
+        clearAllRememberTokens($user->userID);
+    }
+    
     try {
         $forceUpdate = $_db->prepare("UPDATE user SET last_login = NOW() WHERE userID = ?");
         $forceUpdate->execute([$user->userID]);
@@ -97,13 +110,159 @@ function loginUser($user) {
     return true;
 }
 
+// Remember Me Functions
+function createRememberToken($user_id) {
+    global $_db;
+    
+    // Generate a secure random token
+    $token = bin2hex(random_bytes(32));
+    $expires = date('Y-m-d H:i:s', strtotime('+30 days')); // 30 days expiry
+    
+    try {
+        // Create remember_tokens table if it doesn't exist
+        $createTable = $_db->prepare("
+            CREATE TABLE IF NOT EXISTS remember_tokens (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                userID VARCHAR(10) NOT NULL,
+                token VARCHAR(64) NOT NULL UNIQUE,
+                expires_at DATETIME NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                user_agent TEXT,
+                ip_address VARCHAR(45),
+                INDEX idx_userID (userID),
+                INDEX idx_token (token),
+                INDEX idx_expires (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $createTable->execute();
+        
+        // Verify table was created successfully
+        if ($createTable->errorCode() !== '00000') {
+            error_log("Failed to create remember_tokens table: " . implode(', ', $createTable->errorInfo()));
+            return false;
+        }
+        
+        // Insert the new token
+        $stmt = $_db->prepare("
+            INSERT INTO remember_tokens (userID, token, expires_at, user_agent, ip_address) 
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        $result = $stmt->execute([
+            $user_id,
+            $token,
+            $expires,
+            $_SERVER['HTTP_USER_AGENT'] ?? '',
+            $_SERVER['REMOTE_ADDR'] ?? ''
+        ]);
+        
+        if ($result) {
+            error_log("Remember token created successfully for user: $user_id");
+            // Set the remember me cookie only if headers haven't been sent yet
+            if (!headers_sent()) {
+                $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+                setcookie('remember_me', $token, strtotime('+30 days'), '/', '', $secure, true);
+            } else {
+                // If headers already sent, use JavaScript to set the cookie
+                $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+                $secureFlag = $secure ? '; secure' : '';
+                echo '<script>document.cookie = "remember_me=' . $token . '; expires=' . date('D, d M Y H:i:s', strtotime('+30 days')) . ' UTC; path=/' . $secureFlag . '; samesite=strict";</script>';
+            }
+            return true;
+        } else {
+            error_log("Remember token creation failed - execute returned false");
+            return false;
+        }
+    } catch (Exception $e) {
+        error_log("Remember token creation failed: " . $e->getMessage());
+        return false;
+    }
+}
+
+function checkRememberToken() {
+    global $_db;
+    
+    if (!isset($_COOKIE['remember_me']) || empty($_COOKIE['remember_me'])) {
+        return false;
+    }
+    
+    $token = $_COOKIE['remember_me'];
+    
+    try {
+        // Check if token exists and is not expired
+        $stmt = $_db->prepare("
+            SELECT rt.userID, u.* 
+            FROM remember_tokens rt 
+            JOIN user u ON rt.userID = u.userID 
+            WHERE rt.token = ? AND rt.expires_at > NOW()
+        ");
+        $stmt->execute([$token]);
+        $user = $stmt->fetch(PDO::FETCH_OBJ);
+        
+        if ($user) {
+            error_log("Remember token valid for user: " . $user->username);
+            // Token is valid, log the user in
+            loginUser($user, false); // Don't create a new token
+            
+            // Update the token's last used time
+            $updateStmt = $_db->prepare("
+                UPDATE remember_tokens 
+                SET expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY) 
+                WHERE token = ?
+            ");
+            $updateStmt->execute([$token]);
+            
+            return true;
+        } else {
+            error_log("Remember token invalid or expired");
+            // Token is invalid or expired, clear the cookie
+            clearRememberToken($token);
+            return false;
+        }
+    } catch (Exception $e) {
+        error_log("Remember token check failed: " . $e->getMessage());
+        return false;
+    }
+}
+
+function clearRememberToken($token = null) {
+    global $_db;
+    
+    if ($token === null) {
+        $token = $_COOKIE['remember_me'] ?? '';
+    }
+    
+    if ($token) {
+        try {
+            // Delete the token from database
+            $stmt = $_db->prepare("DELETE FROM remember_tokens WHERE token = ?");
+            $stmt->execute([$token]);
+        } catch (Exception $e) {
+            error_log("Clear remember token failed: " . $e->getMessage());
+        }
+    }
+    
+    // Clear the cookie only if headers haven't been sent yet
+    if (!headers_sent()) {
+        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        setcookie('remember_me', '', time() - 3600, '/', '', $secure, true);
+    } else {
+        // If headers already sent, use JavaScript to clear the cookie
+        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        $secureFlag = $secure ? '; secure' : '';
+        echo '<script>document.cookie = "remember_me=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/' . $secureFlag . '; samesite=strict";</script>';
+    }
+}
+
 function isLoggedIn() {
     // Debug: Log session state (commented out to prevent output issues)
     // error_log("isLoggedIn() called - Session data: " . print_r($_SESSION, true));
     
     // Check if session is valid and user is logged in
     if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
-        // error_log("isLoggedIn() returning false - logged_in not set or false");
+        // Session not valid, check remember me token
+        if (checkRememberToken()) {
+            return true; // User logged in via remember me
+        }
         return false;
     }
     if (!isset($_SESSION['user_id'])) {
@@ -141,107 +300,69 @@ function getCurrentUser() {
 }
 
 function logoutUser() {
-    clearRememberMeCookie();
-    // Clear the remember me opted in flag
-    setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
+    // Clear remember me token and all tokens for this user
+    if (isset($_SESSION['user_id'])) {
+        clearAllRememberTokens($_SESSION['user_id']);
+    }
+    clearRememberToken();
+    
+    // Clear all remember me related cookies
+    if (!headers_sent()) {
+        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        $domain = $_SERVER['HTTP_HOST'] ?? '';
+        
+        // Clear remember me cookie with multiple attempts to ensure it's cleared
+        setcookie('remember_me', '', time() - 3600, '/', $domain, $secure, true);
+        setcookie('remember_me', '', time() - 3600, '/', '', $secure, true);
+        setcookie('remember_me_opted_in', '', time() - 3600, '/', $domain, $secure, true);
+        setcookie('remember_me_opted_in', '', time() - 3600, '/', '', $secure, true);
+    }
     
     // Explicitly set logged_in to false before clearing session
     $_SESSION['logged_in'] = false;
     $_SESSION = [];
     
     if (isset($_COOKIE[session_name()])) {
-        setcookie(session_name(), '', time() - 3600, '/');
+        if (!headers_sent()) {
+            setcookie(session_name(), '', time() - 3600, '/');
+        }
     }
     session_destroy();
 }
 
-function setRememberMeCookie($user_id) {
-    global $_db;
-    try {
-        $token = bin2hex(random_bytes(32));
-        $hashed_token = hash('sha256', $token);
-        $expires = time() + (30 * 24 * 60 * 60);
-        $stm = $_db->prepare("INSERT INTO remember_tokens (userID, token, expires_at) VALUES (?, ?, ?)");
-        $stm->execute([$user_id, $hashed_token, date('Y-m-d H:i:s', $expires)]);
-        setcookie('remember_token', $token, $expires, '/', '', isset($_SERVER['HTTPS']), true);
-        return true;
-    } catch (Exception $e) {
-        return false;
-    }
-}
-
-function checkRememberMeToken() {
-    global $_db;
-    if (!isset($_COOKIE['remember_token'])) {
-        error_log("checkRememberMeToken: No remember_token cookie found");
-        return false;
-    }
-    
-    $token = $_COOKIE['remember_token'];
-    $hashed_token = hash('sha256', $token);
-    error_log("checkRememberMeToken: Checking token hash: " . substr($hashed_token, 0, 10) . "...");
-    
-    try {
-        $stmt = $_db->prepare("SELECT rt.userID, rt.expires_at, u.* FROM remember_tokens rt JOIN user u ON rt.userID = u.userID WHERE rt.token = ? AND rt.expires_at > NOW()");
-        $stmt->execute([$hashed_token]);
-        $result = $stmt->fetch();
-        
-        if ($result) {
-            error_log("checkRememberMeToken: Valid token found for user " . $result->username);
-            loginUser($result);
-            refreshRememberToken($result->userID, $hashed_token);
-            return $result;
-        } else {
-            error_log("checkRememberMeToken: No valid token found in database");
-            clearRememberMeCookie();
-            return false;
-        }
-    } catch (Exception $e) {
-        error_log("checkRememberMeToken: Database error: " . $e->getMessage());
-        clearRememberMeCookie();
-        return false;
-    }
-}
-
-function refreshRememberToken($userID, $oldHashedToken) {
-    global $_db;
-    try {
-        $newToken = bin2hex(random_bytes(32));
-        $newHashedToken = hash('sha256', $newToken);
-        $expires = date('Y-m-d H:i:s', strtotime('+30 days'));
-        $stmt = $_db->prepare("UPDATE remember_tokens SET token = ?, expires_at = ? WHERE userID = ? AND token = ?");
-        $stmt->execute([$newHashedToken, $expires, $userID, $oldHashedToken]);
-        $cookie_expires = time() + (30 * 24 * 60 * 60);
-        setcookie('remember_token', $newToken, $cookie_expires, '/', '', isset($_SERVER['HTTPS']), true);
-        return true;
-    } catch (Exception $e) {
-        return false;
-    }
-}
-
-function clearRememberMeCookie() {
-    global $_db;
-    if (isset($_COOKIE['remember_token'])) {
-        $token = $_COOKIE['remember_token'];
-        $hashed_token = hash('sha256', $token);
-        try {
-            $stmt = $_db->prepare("DELETE FROM remember_tokens WHERE token = ?");
-            $stmt->execute([$hashed_token]);
-        } catch (Exception $e) {
-        }
-        setcookie('remember_token', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
-    }
-    // Also clear the opted-in flag
-    setcookie('remember_me_opted_in', '', time() - 3600, '/', '', isset($_SERVER['HTTPS']), true);
-}
 
 function clearAllRememberTokens($user_id) {
     global $_db;
     
     try {
-        $stmt = $_db->prepare("DELETE FROM remember_tokens WHERE user_id = ?");
+        $stmt = $_db->prepare("DELETE FROM remember_tokens WHERE userID = ?");
         $stmt->execute([$user_id]);
+        error_log("Cleared all remember tokens for user: " . $user_id);
     } catch (Exception $e) {
+        error_log("Error clearing remember tokens: " . $e->getMessage());
+    }
+}
+
+function cleanupUserRememberTokens($user_id) {
+    global $_db;
+    
+    try {
+        // Keep only the 3 most recent tokens for this user
+        $stmt = $_db->prepare("
+            DELETE FROM remember_tokens 
+            WHERE userID = ? AND id NOT IN (
+                SELECT id FROM (
+                    SELECT id FROM remember_tokens 
+                    WHERE userID = ? AND expires_at > NOW()
+                    ORDER BY created_at DESC 
+                    LIMIT 3
+                ) as keep_tokens
+            )
+        ");
+        $stmt->execute([$user_id, $user_id]);
+        error_log("Cleaned up old remember tokens for user: " . $user_id);
+    } catch (Exception $e) {
+        error_log("Error cleaning up remember tokens: " . $e->getMessage());
     }
 }
 
@@ -638,18 +759,8 @@ function sendContactReplyEmail($message_id, $reply_message) {
         $mail->addAddress($message->email, $message->customer_name ?: $message->name);
         $mail->Subject = 'Re: ' . $message->subject . ' - AiKUN Furniture';
         
-        // Add company logo as embedded image
-        $logo_path = __DIR__ . '/images/logo.png';
-        if (file_exists($logo_path)) {
-            $mail->addEmbeddedImage($logo_path, 'company_logo', 'logo.png');
-        }
-        
         $mail->Body = "
-            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;'>
-                <div style='text-align: center; margin-bottom: 30px;'>
-                    <img src='cid:company_logo' alt='AiKUN Furniture' style='max-width: 150px; height: auto; margin-bottom: 15px;'>
-                </div>
-                <h2>Reply from AiKUN Furniture</h2>
+            <h2>Reply from AiKUN Furniture</h2>
             <p>Dear " . htmlspecialchars($message->name) . ",</p>
             
             <p>Thank you for contacting us. Here is our reply to your message:</p>
@@ -676,7 +787,6 @@ function sendContactReplyEmail($message_id, $reply_message) {
                 This is an automated reply. Please do not reply to this email directly.
                 If you need to contact us, please use our contact form or call us directly.
             </p>
-            </div>
         ";
         
         $mail->isHTML(true);
@@ -1297,33 +1407,6 @@ function checkLogin(){
     }
 }
 
-function checkUserStatus(){
-    global $_db;
-    
-    if (!isset($_SESSION['user_id'])) {
-        return; // Let checkLogin() handle this
-    }
-    
-    try {
-        $stmt = $_db->prepare('SELECT status FROM user WHERE userID = ?');
-        $stmt->execute([$_SESSION['user_id']]);
-        $user = $stmt->fetch();
-        
-        if ($user && $user->status === 'Banned') {
-            // Clear session data
-            session_destroy();
-            session_start();
-            
-            $_SESSION['error'] = "Your account has been suspended due to a violation of our terms of service. Please contact our support team for assistance.";
-            header('Location: /user/login.php');
-            exit;
-        }
-    } catch (PDOException $e) {
-        error_log("User status check error: " . $e->getMessage());
-        // Don't block user if there's a database error
-    }
-}
-
 function getCartCount($user_id) {
     global $_db;
     
@@ -1541,40 +1624,28 @@ function sendLowStockAlert($stockData) {
         $stmt->execute();
         $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        if (empty($admins)) {
-            error_log("No admin emails found for stock alert");
-            return false;
+        $result = [];
+        foreach ($cart_items as $item) {
+            $result[$item['prodID']] = [
+                'id' => $item['prodID'],
+                'qty' => $item['qty'],
+                'product' => [
+                    'title' => $item['title'],
+                    'price' => $item['price'],
+                    'stock' => $item['stock'],
+                    'img' => $item['img'] ? 'data:image/jpeg;base64,' . base64_encode($item['img']) : '../images/placeholder.jpg',
+                    'color' => $item['color'],
+                    'material' => $item['material'],
+                    'category' => $item['category_name']
+                ]
+            ];
         }
         
-        $lowStockProducts = $stockData['low_stock'];
-        $outOfStockProducts = $stockData['out_of_stock'];
-        $threshold = $stockData['threshold'];
-        
-        // Don't send email if no low stock products
-        if (empty($lowStockProducts) && empty($outOfStockProducts)) {
-            return true;
-        }
-        
-        // Prepare email content
-        $subject = "🚨 Low Stock Alert - AiKUN Furniture";
-        $emailBody = generateStockAlertEmail($lowStockProducts, $outOfStockProducts, $threshold);
-        
-        // Send email to each admin
-        $successCount = 0;
-        foreach ($admins as $admin) {
-            if (sendStockAlertEmail($admin['email'], $admin['username'], $subject, $emailBody)) {
-                $successCount++;
-            }
-        }
-        
-        // Log stock alert activity
-        logStockAlert($lowStockProducts, $outOfStockProducts, $successCount);
-        
-        return $successCount > 0;
+        return $result;
         
     } catch (Exception $e) {
-        error_log("Stock alert error: " . $e->getMessage());
-        return false;
+        error_log("Get cart error: " . $e->getMessage());
+        return [];
     }
 }
 

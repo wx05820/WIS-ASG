@@ -36,14 +36,23 @@ $stmt = $_db->prepare("
 $stmt->execute([$order_id]);
 $order_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$payStatus = $order['payStatus'] ?? '';
+if ($payStatus === 'Pending') {
+    $badgeClass = 'status-pending';
+} elseif (in_array($payStatus, ['Success', 'Completed'])) {
+    $badgeClass = 'status-success';
+} elseif ($payStatus === 'Failed') {
+    $badgeClass = 'status-failed';
+}
+
 $page_title = 'Order Confirmation';
-$skip_fontawesome = true; // Skip Font Awesome since this page doesn't use icons
+//$skip_fontawesome = true; // Skip Font Awesome since this page doesn't use icons
 $skip_jquery = true; // Skip jQuery since this page doesn't use it
 include '../header.php';
 ?>
 
 <link rel="stylesheet" href="../css/index.css">
-<link rel="stylesheet" href="../css/checkout.css">
+<link rel="stylesheet" href="../css/success.css">
 
 <main class="container-checkout">
     <div class="checkout-card">
@@ -75,7 +84,7 @@ include '../header.php';
                     </div>
                     <div class="info-item">
                         <strong>Payment Status:</strong>
-                        <span class="status-badge status-<?= strtolower($order['payStatus']) ?>"><?= htmlspecialchars($order['payStatus']) ?></span>
+                        <span class="status-badge <?= $badgeClass ?>"> <?= htmlspecialchars($order['payStatus']) ?></span>
                     </div>
                     <div class="info-item">
                         <strong>Shipping Method:</strong>
@@ -157,135 +166,10 @@ include '../header.php';
             <div class="cod-notice">
                 <h3>💰 Cash on Delivery</h3>
                 <p>Your order will be delivered to the address above. Please have the exact amount ready for payment upon delivery.</p>
-                <p><strong>Amount to pay: RM <?= number_format($order['total'], 2) ?></strong></p>
+                <p><strong>Amount to pay: <?= money($order['total']) ?></strong></p>
             </div>
         <?php endif; ?>
     </div>
 </main>
-
-<style>
-.success-header {
-    text-align: center;
-    margin-bottom: 30px;
-    padding: 20px;
-    background: #f8f9fa;
-    border-radius: 8px;
-}
-
-.success-icon {
-    font-size: 48px;
-    margin-bottom: 15px;
-}
-
-.success-title {
-    color: #28a745;
-    margin-bottom: 10px;
-}
-
-.success-subtitle {
-    color: #6c757d;
-    font-size: 16px;
-}
-
-.order-details {
-    display: grid;
-    gap: 25px;
-    margin-bottom: 30px;
-}
-
-.order-info h2,
-.shipping-address h2,
-.order-items h2,
-.order-summary h2 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 15px;
-    color: #333;
-}
-
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
-}
-
-.info-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.status-badge {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    text-transform: uppercase;
-}
-
-.status-pending {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.status-success {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-failed {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.address-display {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 6px;
-    border-left: 4px solid #007bff;
-}
-
-.items-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.cod-notice {
-    background: #fff3cd;
-    border: 1px solid #ffeaa7;
-    border-radius: 8px;
-    padding: 20px;
-    margin-top: 20px;
-}
-
-.cod-notice h3 {
-    color: #856404;
-    margin-bottom: 10px;
-}
-
-.cod-notice p {
-    color: #856404;
-    margin-bottom: 8px;
-}
-
-.success-actions {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-    margin-top: 30px;
-}
-
-@media (max-width: 768px) {
-    .success-actions {
-        flex-direction: column;
-    }
-    
-    .info-grid {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
 
 <?php include '../footer.php'; ?>

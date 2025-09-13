@@ -3,7 +3,10 @@
 // Global variables
 let checkoutItems = [];
 let availableVouchers = [];
+let availableVouchers = [];
 let selectedVoucher = null;
+let appliedVoucher = null;
+let currentTab = 'all';
 let appliedVoucher = null;
 let currentTab = 'all';
 
@@ -22,7 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up event listeners
     setupEventListeners();
 
-    initializeVoucherSystem();
+    if (typeof initializeVoucherSystem === 'function') {
+        initializeVoucherSystem();
+    }
 });
 
 // Set up event listeners for form changes
@@ -70,6 +75,8 @@ function updateOrderSummary() {
     // Calculate totals
     const discount = calculateDiscount();
     const total = Math.max(0, subtotal + shippingFee - discount);
+    const discount = calculateDiscount();
+    const total = Math.max(0, subtotal + shippingFee - discount);
     
     // Update display
     const subtotalElement = document.getElementById('subtotal-amount');
@@ -86,6 +93,7 @@ function updateOrderSummary() {
     if (discount > 0) {
         if (discountElement) discountElement.textContent = discount.toFixed(2);
         if (discountRow) discountRow.style.display = 'flex';
+        if (discountRow) discountRow.style.display = 'flex';
     } else {
         if (discountRow) discountRow.style.display = 'none';
     }
@@ -96,6 +104,11 @@ function placeOrder() {
     const form = document.getElementById('checkout-form');
     if (!form) {
         showError('Checkout form not found');
+        return;
+    }
+    
+    // Validate form first
+    if (!validateCheckoutForm()) {
         return;
     }
     
@@ -127,12 +140,18 @@ function placeOrder() {
         }
     }
     
-    // Submit via AJAX
+    // Submit via AJAX with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     fetch('place_order.php', {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
     })
     .then(response => {
+        clearTimeout(timeoutId);
+        
         // Check if response is JSON
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -146,7 +165,10 @@ function placeOrder() {
         }
         
         // Handle non-JSON response (fallback)
-        return response.text().then(text => ({ error: true, message: 'Unexpected response format', data: text }));
+        return response.text().then(text => {
+            console.error('Unexpected response format:', text);
+            throw new Error('Server returned unexpected response format');
+        });
     })
     .then(data => {
         if (!data) return; // Already redirected
@@ -168,8 +190,14 @@ function placeOrder() {
         }
     })
     .catch(error => {
+        clearTimeout(timeoutId);
         console.error('Error placing order:', error);
-        showError('Network error. Please check your connection and try again.');
+        
+        if (error.name === 'AbortError') {
+            showError('Request timed out. Please check your connection and try again.');
+        } else {
+            showError('Network error. Please check your connection and try again.');
+        }
         
         // Re-enable button
         enableSubmitButton();
@@ -186,6 +214,25 @@ function enableSubmitButton() {
             btnText.style.display = 'inline';
             btnLoading.style.display = 'none';
         }
+    }
+}
+
+// Initialize voucher system
+function initializeVoucherSystem() {
+    // Set up voucher modal event listeners
+    const modal = document.getElementById('voucherModal');
+    if (modal) {
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target === modal) {
+                closeVoucherModal();
+            }
+        }
+    }
+    
+    // Initialize voucher data if available
+    if (typeof window.availableVouchers !== 'undefined') {
+        availableVouchers = window.availableVouchers;
     }
 }
 
@@ -569,81 +616,10 @@ function confirmAddAddress() {
     }
 }
 
-// Handle form submission
-function handleFormSubmit(event) {
-    console.log('Form submit handler called');
-    
-    // Validate form first
-    if (!validateCheckoutForm()) {
-        console.log('Form validation failed');
-        event.preventDefault();
-        return false;
-    }
-    
-    console.log('Form validation passed');
-    
-    // Disable submit button to prevent double submission
-    const submitBtn = document.querySelector('.place-order-btn');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        const btnText = submitBtn.querySelector('.btn-text');
-        const btnLoading = submitBtn.querySelector('.btn-loading');
-        if (btnText && btnLoading) {
-            btnText.style.display = 'none';
-            btnLoading.style.display = 'inline';
-        }
-    }
-    
-    // Ensure voucher data is included in form submission
-    const voucherData = getVoucherDataForSubmission();
-    if (voucherData) {
-        console.log('Adding voucher data:', voucherData);
-        const idInput = document.getElementById('voucherIdInput');
-        const codeInput = document.getElementById('voucherCodeInput');
-        const discInput = document.getElementById('voucherDiscountInput');
-        
-        if (idInput) idInput.value = voucherData.voucher_id || '';
-        if (codeInput) codeInput.value = voucherData.voucher_code || '';
-        if (discInput) discInput.value = voucherData.discount_amount || '';
-    }
-    
-    // Allow normal form submission for all cases
-    return true;
-}
+// Handle form submission (this function is defined in checkout.php inline script)
+// This is kept for reference but the actual implementation is in checkout.php
 
-// Validate checkout form
-function validateCheckoutForm() {
-    // Check all address radio buttons
-    const addressInputs = document.querySelectorAll('input[name="selected_address"]');
-    
-    let selectedAddress = null;
-    for (let i = 0; i < addressInputs.length; i++) {
-        if (addressInputs[i].checked) {
-            selectedAddress = addressInputs[i];
-            break;
-        }
-    }
-    
-    if (!selectedAddress) {
-        alert('Please select a delivery address');
-        return false;
-    }
-    
-    // Check if shipping method is selected
-    const selectedShipping = document.querySelector('input[name="shipping_method"]:checked');
-    if (!selectedShipping) {
-        alert('Please select a shipping method');
-        return false;
-    }
-    
-    // Check if payment method is selected
-    const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
-    if (!selectedPayment) {
-        alert('Please select a payment method');
-        return false;
-    }
-    
-    return true;
-}
+// Validate checkout form (this function is defined in checkout.php inline script)
+// This is kept for reference but the actual implementation is in checkout.php
 
 

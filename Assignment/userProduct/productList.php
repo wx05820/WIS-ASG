@@ -3,11 +3,6 @@ require_once '../_base.php';
 include '../lib/SimplePager.php';
 include '../header.php';
 
-// Check if user is banned (only if logged in)
-if (isset($_SESSION['user_id'])) {
-    checkUserStatus();
-}
-
 // Get search & filter inputs
 $query = isset($_GET['query']) ? trim($_GET['query']) : '';
 $category = isset($_GET['category']) ? trim($_GET['category']) : '';

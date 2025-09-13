@@ -236,7 +236,7 @@ const ListUserShipping = {
         
         let visibleCount = 0;
         
-        orderCards.forEach((card, index) => {
+        orderCards.forEach(card => {
             const orderid = card.dataset.orderid.toLowerCase();
             const userid = card.dataset.userid.toLowerCase();
             const status = card.dataset.status;
@@ -322,13 +322,6 @@ const ListUserShipping = {
         // Show/hide no results message
         const noOrdersDiv = document.getElementById('noDataMessage');
         const ordersContainer = document.querySelector('.orders-table-container');
-        
-        console.log('Filter results:', {
-            visibleCount,
-            totalCards: orderCards.length,
-            noOrdersDiv: !!noOrdersDiv,
-            ordersContainer: !!ordersContainer
-        });
         
         if (visibleCount === 0) {
             if (noOrdersDiv) noOrdersDiv.style.display = 'block';

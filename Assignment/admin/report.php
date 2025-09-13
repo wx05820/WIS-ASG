@@ -92,11 +92,11 @@ try {
             u.name,
             u.email,
             COUNT(o.orderID) as order_count,
-            SUM(CASE WHEN o.status NOT IN ('Refunded', 'Cancelled') THEN o.total ELSE 0 END) as total_spent,
-            MAX(o.orderDate) as last_order
+            SUM(o.total_amount) as total_spent,
+            MAX(o.created_at) as last_order
         FROM user u
-        LEFT JOIN `order` o ON u.userID = o.userID 
-            AND o.orderDate BETWEEN ? AND ? + INTERVAL 1 DAY
+        LEFT JOIN orders o ON u.userID = o.userID 
+            AND o.created_at BETWEEN ? AND ? + INTERVAL 1 DAY
         WHERE u.role = 'Customer'
         GROUP BY u.userID, u.username, u.name, u.email
         HAVING order_count > 0
