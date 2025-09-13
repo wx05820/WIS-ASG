@@ -1,0 +1,207 @@
+
+/* Add Voucher Page Styles - Wooden Theme */
+
+/* Override body background for voucher pages */
+body {
+    background: linear-gradient(135deg, 
+        var(--wood-primary) 0%, 
+        var(--wood-dark) 50%, 
+        var(--wood-secondary) 100%);
+}
+
+.add-list-main {
+    padding: 2rem 0;
+    background: linear-gradient(135deg, #f5f3e7 0%, #e9e4d8 100%);
+    min-height: 100vh;
+    margin-top:0; 
+    padding-top:0;
+}
+
+.voucher-form {
+    max-width: 900px;
+    margin: 50px auto;
+    padding: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.voucher-form h1 {
+    color: var(--wood-dark);
+    margin-bottom: 30px;
+    font-size: 32px;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.voucher-form h1 i {
+    color: var(--wood-primary);
+    font-size: 28px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--wood-dark);
+    font-size: 16px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 15px 20px;
+    border: 2px solid var(--wood-light);
+    border-radius: 10px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--wood-dark);
+    transition: all 0.3s ease;
+    font-family: 'Georgia', serif;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--gold-accent);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;
+    border: 2px solid var(--wood-light);
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--wood-primary);
+}
+
+.checkbox-group label {
+    margin: 0;
+    font-weight: 600;
+    color: var(--wood-dark);
+}
+
+.btn {
+    padding: 12px 20px;
+    border: 2px solid var(--wood-primary);
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    font-family: 'Georgia', serif;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: var(--wood-primary);
+    color: var(--text-light);
+}
+
+.btn-primary:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    border-color: var(--gold-accent);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--wood-dark);
+    border-color: var(--wood-light);
+}
+
+.btn-secondary:hover {
+    background: var(--gold-accent);
+    color: var(--wood-dark);
+    border-color: var(--gold-accent);
+    transform: translateY(-1px);
+}
+
+.alert {
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.alert-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.alert-danger {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 50px;
+    padding-top: 0;
+}
+
+.help-text {
+    font-size: 14px;
+    color: var(--wood-secondary);
+    margin-top: 5px;
+    font-style: italic;
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+}
+
+select.form-control {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 15px center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 45px;
+}
+
+@media (max-width: 768px) {
+    .voucher-form {
+        margin: 15px;
+        padding: 25px;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}

@@ -93,12 +93,19 @@ unset($order);
 $total_orders = $pager->item_count;
 $total_pages = $pager->page_count;
 
-// Get order status statistics for pie chart
+// Get order status statistics for pie chart - only shipping-related statuses
 $status_stats_sql = "
     SELECT status, COUNT(*) as count 
     FROM `order` 
+    WHERE status IN ('Pending', 'Processing', 'Shipped', 'Delivered')
     GROUP BY status 
-    ORDER BY count DESC
+    ORDER BY 
+        CASE status 
+            WHEN 'Pending' THEN 1 
+            WHEN 'Processing' THEN 2 
+            WHEN 'Shipped' THEN 3 
+            WHEN 'Delivered' THEN 4 
+        END
 ";
 $status_stats_stmt = $_db->prepare($status_stats_sql);
 $status_stats_stmt->execute();
@@ -113,8 +120,7 @@ $status_color_map = [
     'Pending' => '#FF6384',    // Red
     'Processing' => '#36A2EB', // Blue  
     'Shipped' => '#FFCE56',    // Yellow
-    'Delivered' => '#4BC0C0',  // Teal
-    'Refunded' => '#FF9F40'    // Orange (changed from pink to avoid confusion)
+    'Delivered' => '#4BC0C0'   // Teal
 ];
 
 foreach ($status_stats as $stat) {
@@ -144,6 +150,21 @@ $page_title = 'Shipping Management';
             margin: 0 auto;
             padding: 20px;
         }
+
+        /* Button styling for shipping page */
+        #multiSelectBtn:hover, #bulkStatusBtn:hover {
+            background-color: #8B4513 !important;
+            color: white !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.3);
+        }
+
+        /* Multi-select button active state (when in multi-select mode) */
+        #multiSelectBtn.active {
+            background-color: #28a745 !important;
+            color: white !important;
+            border-color: #28a745 !important;
+        }
     </style>
 </head>
 <body class="product-list-main" style="margin-top:0; padding-top:0;">
@@ -161,7 +182,7 @@ $page_title = 'Shipping Management';
             
             <!-- Color Legend -->
             <div class="chart-legend">
-                <h4>All Status</h4>
+                <h4>Shipping Status</h4>
                 <div class="legend-grid">
                     <?php 
                     // Use the same color mapping as the chart
@@ -169,8 +190,7 @@ $page_title = 'Shipping Management';
                         'Pending' => ['color' => '#FF6384', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
                         'Processing' => ['color' => '#36A2EB', 'bg' => '#cce5ff', 'border' => '#74c0fc'],
                         'Shipped' => ['color' => '#FFCE56', 'bg' => '#fff3cd', 'border' => '#ffeaa7'],
-                        'Delivered' => ['color' => '#4BC0C0', 'bg' => '#d4edda', 'border' => '#c3e6cb'],
-                        'Refunded' => ['color' => '#FF9F40', 'bg' => '#fff3cd', 'border' => '#ffeaa7']
+                        'Delivered' => ['color' => '#4BC0C0', 'bg' => '#d4edda', 'border' => '#c3e6cb']
                     ];
                     
                     // Show legend items in the same order as the chart data
@@ -194,11 +214,11 @@ $page_title = 'Shipping Management';
 
         <!-- Action Buttons -->
     <div class="product-action-bar" style="display: flex; gap: 10px; margin-bottom: 1.5rem;">
-        <button type="button" class="order-btn sortby-order" id="multiSelectBtn" title="Multi-select orders" >
+        <button type="button" class="order-btn sortby-order" id="multiSelectBtn" title="Multi-select orders" style="background-color: transparent; color: #8B4513; border: 2px solid #8B4513;">
          <i class="fas fa-check-square"></i>
         <span class="action-btn-label">Multi-Select</span>
         </button>
-        <button type="button" class="order-btn sortby-order" id="bulkStatusBtn" title="Change selected orders status" style="display: none; background-color: #007bff; color: white;">
+        <button type="button" class="order-btn sortby-order" id="bulkStatusBtn" title="Change selected orders status" style="display: none; background-color: transparent; color: #8B4513; border: 2px solid #8B4513;">
             <i class="fas fa-edit"></i>
             <span class="action-btn-label">Bulk Status</span>
         </button>
@@ -399,7 +419,6 @@ $page_title = 'Shipping Management';
                         <option value="Processing">Processing</option>
                         <option value="Shipped">Shipped</option>
                         <option value="Delivered">Delivered</option>
-                        <option value="Refunded">Refunded</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -814,7 +833,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     checkbox.style.display = 'block';
                 });
                 this.innerHTML = '<i class="fas fa-times"></i><span class="action-btn-label">Exit Multi-Select</span>';
-                this.style.backgroundColor = '#dc3545';
+                this.classList.add('active');
             } else {
                 // Hide checkboxes and clear selections
                 orderCheckboxes.forEach(checkbox => {
@@ -825,7 +844,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 if (bulkStatusBtn) bulkStatusBtn.style.display = 'none';
                 this.innerHTML = '<i class="fas fa-check-square"></i><span class="action-btn-label">Multi-Select</span>';
-                this.style.backgroundColor = '';
+                this.classList.remove('active');
             }
         });
     }

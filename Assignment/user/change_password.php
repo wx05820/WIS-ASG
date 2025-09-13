@@ -1,13 +1,19 @@
 <?php
 include '../_base.php';
 
-// Check if user is logged in
-if (!isLoggedIn()) {
+// Check if user or staff is logged in
+$is_staff_session = isLoggedInStaff();
+if (!isLoggedIn() && !$is_staff_session) {
     temp('error', 'Please login to change your password.');
     redirect('login.php');
 }
 
-$current_user = getCurrentUser();
+// Get current user context (customer or staff)
+if ($is_staff_session) {
+    $current_user = getCurrentStaff();
+} else {
+    $current_user = getCurrentUser();
+}
 
 if (!$current_user) {
     temp('error', 'Unable to load user profile.');

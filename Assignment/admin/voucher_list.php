@@ -113,6 +113,26 @@ $page_title = 'Voucher Management';
             margin-bottom: 0.5rem;
         }
 
+        /* Checkbox styling to match shipping page */
+        .voucher-checkbox {
+            display: flex;
+            align-items: center;
+            padding-right: 0.75rem;
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .voucher-select-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .voucher-checkbox label {
+            cursor: pointer;
+            margin-left: 0.5rem;
+        }
+
         .voucher-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
@@ -241,6 +261,64 @@ $page_title = 'Voucher Management';
             font-weight: 500;
         }
 
+        .voucher-dates {
+            margin-top: 0.5rem;
+            padding-top: 0.25rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .voucher-date {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-bottom: 0.15rem;
+        }
+
+        .voucher-created {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+            padding-top: 0.25rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .created-label {
+            color: #6b7280;
+            font-size: 0.65rem;
+            font-weight: 500;
+            min-width: fit-content;
+        }
+
+        .created-value {
+            color: #374151;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* Bulk button styling */
+        #bulkVoucherBtn:hover {
+            background-color: #8B4513 !important;
+            color: white !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.3);
+        }
+
+        /* Multi-select button styling */
+        #multiSelectBtn:hover {
+            background-color: #8B4513 !important;
+            color: white !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.3);
+        }
+
+        /* Multi-select button active state (when in multi-select mode) */
+        #multiSelectBtn.active {
+            background-color: #28a745 !important;
+            color: white !important;
+            border-color: #28a745 !important;
+        }
+
         /* Add Voucher Button */
         .add-voucher-btn {
             background: var(--wood-primary);
@@ -280,6 +358,14 @@ $page_title = 'Voucher Management';
             <i class="fas fa-plus"></i>
             <span class="action-btn-label">Add Voucher</span>
         </a>
+        <button type="button" class="order-btn sortby-order" id="multiSelectBtn" title="Multi-select vouchers" style="background-color: transparent; color: #8B4513; border: 2px solid #8B4513;">
+            <i class="fas fa-check-square"></i>
+            <span class="action-btn-label">Multi-Select</span>
+        </button>
+        <button type="button" class="order-btn sortby-order" id="bulkVoucherBtn" title="Change selected vouchers status" style="display: none; background-color: transparent; color: #8B4513; border: 2px solid #8B4513;">
+            <i class="fas fa-edit"></i>
+            <span class="action-btn-label">Bulk Status</span>
+        </button>
         <?php
         $toggle_order = $id_order === 'ASC' ? 'DESC' : 'ASC';
         $toggle_label = $id_order === 'ASC' ? 'ID Desc' : 'ID Asc';
@@ -377,6 +463,12 @@ $page_title = 'Voucher Management';
                          data-type="<?php echo strtolower($voucher->voucher_type); ?>"
                          data-status="<?php echo strtolower($voucher->is_active); ?>">
                         
+                        <!-- Multi-select checkbox (hidden by default) -->
+                        <div class="voucher-checkbox" style="display: none;">
+                            <input type="checkbox" class="voucher-select-checkbox" value="<?php echo $voucher->voucher_id; ?>" id="voucher_<?php echo $voucher->voucher_id; ?>">
+                            <label for="voucher_<?php echo $voucher->voucher_id; ?>"></label>
+                        </div>
+                        
                         <!-- Left Column -->
                         <div class="voucher-left-column">
                             <div class="voucher-code-large"><?php echo $voucher->voucher_code; ?></div>
@@ -390,15 +482,9 @@ $page_title = 'Voucher Management';
                                     echo 'RM ' . number_format($voucher->value, 2);
                                 }
                             ?></div>
-                            <div class="voucher-dates">
-                                <div style="display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.15rem;">
-                                    <span class="date-label">Start:</span>
-                                    <span class="date-value"><?php echo date('M j, Y', strtotime($voucher->start_date)); ?></span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 0.25rem;">
-                                    <span class="date-label">End:</span>
-                                    <span class="date-value"><?php echo date('M j, Y', strtotime($voucher->end_date)); ?></span>
-                                </div>
+                            <div class="voucher-usage">
+                                <span class="usage-label">Usage:</span>
+                                <span class="usage-value"><?php echo $voucher->usage_count; ?>/<?php echo $voucher->max_usage; ?></span>
                             </div>
                         </div>
 
@@ -406,18 +492,24 @@ $page_title = 'Voucher Management';
                         <div class="voucher-right-column">
                             <form class="status-form" method="POST" action="update_voucher_status.php">
                                 <input type="hidden" name="voucher_id" value="<?php echo $voucher->voucher_id; ?>">
-                                <select name="new_status" class="status-select status-<?php echo strtolower($voucher->is_active); ?>" onchange="this.form.submit()">
+                                <select name="new_status" class="status-select status-<?php echo strtolower($voucher->is_active); ?>">
                                     <option value="Active" <?php echo $voucher->is_active === 'Active' ? 'selected' : ''; ?>>Active</option>
                                     <option value="Inactive" <?php echo $voucher->is_active === 'Inactive' ? 'selected' : ''; ?>>Inactive</option>
                                 </select>
                             </form>
-                            <div class="voucher-usage">
-                                <span class="usage-label">Usage:</span>
-                                <span class="usage-value"><?php echo $voucher->usage_count; ?>/<?php echo $voucher->max_usage; ?></span>
+                            <div class="voucher-dates">
+                                <div class="voucher-date">
+                                    <span class="date-label">Start:</span>
+                                    <span class="date-value"><?php echo date('M j, Y', strtotime($voucher->start_date)); ?></span>
+                                </div>
+                                <div class="voucher-date">
+                                    <span class="date-label">End:</span>
+                                    <span class="date-value"><?php echo date('M j, Y', strtotime($voucher->end_date)); ?></span>
+                                </div>
                             </div>
-                            <div class="voucher-usage">
-                                <span class="usage-label">Created:</span>
-                                <span class="usage-value"><?php echo date('M j, Y', strtotime($voucher->created_at)); ?></span>
+                            <div class="voucher-created">
+                                <span class="created-label">Created:</span>
+                                <span class="created-value"><?php echo date('M j, Y', strtotime($voucher->created_at)); ?></span>
                             </div>
                         </div>
                     </div>
@@ -445,6 +537,33 @@ $page_title = 'Voucher Management';
                 </div>
             <?php endif; ?>
         <?php endif; ?>
+    </div>
+</div>
+
+<!-- Bulk Status Change Modal -->
+<div id="bulkVoucherModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Change Status for Selected Vouchers</h3>
+            <span class="close" id="closeVoucherModal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>You have selected <span id="selectedVoucherCount">0</span> voucher(s).</p>
+            <form id="bulkVoucherForm" method="POST" action="bulk_voucher_update.php">
+                <div class="form-group">
+                    <label for="bulkVoucherStatus">New Status:</label>
+                    <select name="bulk_status" id="bulkVoucherStatus" class="form-control" required>
+                        <option value="">Select Status</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Update Status</button>
+                    <button type="button" class="btn btn-secondary" id="cancelVoucherBulk">Cancel</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -541,20 +660,20 @@ document.addEventListener('DOMContentLoaded', function() {
                      data-type="${voucher.voucher_type.toLowerCase()}"
                      data-status="${voucher.is_active.toLowerCase()}">
                     
+                    <!-- Multi-select checkbox (hidden by default) -->
+                    <div class="voucher-checkbox" style="display: none;">
+                        <input type="checkbox" class="voucher-select-checkbox" value="${voucher.voucher_id}" id="voucher_${voucher.voucher_id}">
+                        <label for="voucher_${voucher.voucher_id}"></label>
+                    </div>
+                    
                     <!-- Left Column -->
                     <div class="voucher-left-column">
                         <div class="voucher-code-large">${voucher.voucher_code}</div>
                         <div class="voucher-type">Type: ${voucher.voucher_type}</div>
                         <div class="voucher-value">Value: ${voucher.voucher_type === 'Percentage' ? voucher.value + '%' : voucher.voucher_type === 'Free Shipping' ? 'Free Shipping' : 'RM ' + parseFloat(voucher.value).toFixed(2)}</div>
-                        <div class="voucher-dates">
-                            <div style="display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.15rem;">
-                                <span class="date-label">Start:</span>
-                                <span class="date-value">${new Date(voucher.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 0.25rem;">
-                                <span class="date-label">End:</span>
-                                <span class="date-value">${new Date(voucher.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                            </div>
+                        <div class="voucher-usage">
+                            <span class="usage-label">Usage:</span>
+                            <span class="usage-value">${voucher.usage_count}/${voucher.max_usage}</span>
                         </div>
                     </div>
 
@@ -562,18 +681,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="voucher-right-column">
                         <form class="status-form" method="POST" action="update_voucher_status.php">
                             <input type="hidden" name="voucher_id" value="${voucher.voucher_id}">
-                            <select name="new_status" class="status-select status-${voucher.is_active.toLowerCase()}" onchange="this.form.submit()">
+                            <select name="new_status" class="status-select status-${voucher.is_active.toLowerCase()}">
                                 <option value="Active" ${voucher.is_active === 'Active' ? 'selected' : ''}>Active</option>
                                 <option value="Inactive" ${voucher.is_active === 'Inactive' ? 'selected' : ''}>Inactive</option>
                             </select>
                         </form>
-                        <div class="voucher-usage">
-                            <span class="usage-label">Usage:</span>
-                            <span class="usage-value">${voucher.usage_count}/${voucher.max_usage}</span>
+                        <div class="voucher-dates">
+                            <div class="voucher-date">
+                                <span class="date-label">Start:</span>
+                                <span class="date-value">${new Date(voucher.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            </div>
+                            <div class="voucher-date">
+                                <span class="date-label">End:</span>
+                                <span class="date-value">${new Date(voucher.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            </div>
                         </div>
-                        <div class="voucher-usage">
-                            <span class="usage-label">Created:</span>
-                            <span class="usage-value">${new Date(voucher.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        <div class="voucher-created">
+                            <span class="created-label">Created:</span>
+                            <span class="created-value">${new Date(voucher.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </div>
                     </div>
                 </div>
@@ -637,6 +762,123 @@ document.addEventListener('DOMContentLoaded', function() {
             this.style.display = 'none';
             searchInput.focus();
             fetchFilteredData();
+        });
+    }
+    
+    // Multi-select functionality (matching shipping page)
+    const multiSelectBtn = document.getElementById('multiSelectBtn');
+    const bulkVoucherBtn = document.getElementById('bulkVoucherBtn');
+    const bulkVoucherModal = document.getElementById('bulkVoucherModal');
+    const closeVoucherModal = document.getElementById('closeVoucherModal');
+    const cancelVoucherBulk = document.getElementById('cancelVoucherBulk');
+    const selectedVoucherCount = document.getElementById('selectedVoucherCount');
+    const bulkVoucherForm = document.getElementById('bulkVoucherForm');
+    
+    let multiSelectMode = false;
+    
+    // Toggle multi-select mode
+    if (multiSelectBtn) {
+        multiSelectBtn.addEventListener('click', function() {
+            multiSelectMode = !multiSelectMode;
+            const checkboxes = document.querySelectorAll('.voucher-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.style.display = multiSelectMode ? 'flex' : 'none';
+            });
+            
+            if (multiSelectMode) {
+                this.classList.add('active');
+                this.innerHTML = '<i class="fas fa-times"></i><span class="action-btn-label">Cancel</span>';
+            } else {
+                this.classList.remove('active');
+                this.innerHTML = '<i class="fas fa-check-square"></i><span class="action-btn-label">Multi-Select</span>';
+                bulkVoucherBtn.style.display = 'none';
+                
+                // Uncheck all checkboxes
+                checkboxes.forEach(checkbox => {
+                    const input = checkbox.querySelector('.voucher-select-checkbox');
+                    if (input) input.checked = false;
+                });
+            }
+        });
+    }
+    
+    // Handle checkbox changes
+    function handleCheckboxChange() {
+        const checkedBoxes = document.querySelectorAll('.voucher-select-checkbox:checked');
+        
+        if (checkedBoxes.length > 0) {
+            bulkVoucherBtn.style.display = 'inline-block';
+        } else {
+            bulkVoucherBtn.style.display = 'none';
+        }
+    }
+    
+    // Add event listeners to checkboxes
+    function addCheckboxListeners() {
+        const checkboxes = document.querySelectorAll('.voucher-select-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', handleCheckboxChange);
+        });
+    }
+    
+    // Initial setup
+    addCheckboxListeners();
+    
+    // Re-add listeners after AJAX updates
+    const originalUpdateVouchersDisplay = updateVouchersDisplay;
+    updateVouchersDisplay = function(vouchers) {
+        originalUpdateVouchersDisplay(vouchers);
+        addCheckboxListeners();
+    };
+    
+    // Bulk action button click
+    if (bulkVoucherBtn) {
+        bulkVoucherBtn.addEventListener('click', function() {
+            const checkedBoxes = document.querySelectorAll('.voucher-select-checkbox:checked');
+            selectedVoucherCount.textContent = checkedBoxes.length;
+            bulkVoucherModal.style.display = 'block';
+        });
+    }
+    
+    // Close modal
+    if (closeVoucherModal) {
+        closeVoucherModal.addEventListener('click', function() {
+            bulkVoucherModal.style.display = 'none';
+        });
+    }
+    
+    if (cancelVoucherBulk) {
+        cancelVoucherBulk.addEventListener('click', function() {
+            bulkVoucherModal.style.display = 'none';
+        });
+    }
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === bulkVoucherModal) {
+            bulkVoucherModal.style.display = 'none';
+        }
+    });
+    
+    // Handle form submission
+    if (bulkVoucherForm) {
+        bulkVoucherForm.addEventListener('submit', function(e) {
+            const checkedBoxes = document.querySelectorAll('.voucher-select-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one voucher.');
+                return;
+            }
+            
+            // Add selected voucher IDs to form
+            checkedBoxes.forEach(checkbox => {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = '_bulk[]';
+                hiddenInput.value = checkbox.value;
+                this.appendChild(hiddenInput);
+            });
         });
     }
 });
