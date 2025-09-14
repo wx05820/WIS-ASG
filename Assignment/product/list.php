@@ -122,6 +122,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])
     }
 }
 
+// Handle category deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_category'])) {
+    $catId = $_POST['delete_category'];
+    
+    try {
+        // Start a transaction to ensure data consistency
+        $_db->beginTransaction();
+        
+        // First, check how many products use this category
+        $count_sql = "SELECT COUNT(*) FROM product WHERE catID = ?";
+        $count_stmt = $_db->prepare($count_sql);
+        $count_stmt->execute([$catId]);
+        $productCount = $count_stmt->fetchColumn();
+        
+        // Update all products with this category to have NULL catID (uncategorized)
+        if ($productCount > 0) {
+            $update_products_sql = "UPDATE product SET catID = NULL WHERE catID = ?";
+            $update_stmt = $_db->prepare($update_products_sql);
+            
+            if (!$update_stmt->execute([$catId])) {
+                throw new Exception("Failed to update products");
+            }
+        }
+        
+        // Then delete the category
+        $delete_cat_sql = "DELETE FROM category WHERE catID = ?";
+        $delete_stmt = $_db->prepare($delete_cat_sql);
+        
+        if (!$delete_stmt->execute([$catId])) {
+            throw new Exception("Failed to delete category");
+        }
+        
+        // Commit the transaction
+        $_db->commit();
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => "Category deleted successfully. $productCount products were moved to 'Uncategorized'."
+        ]);
+        
+    } catch (Exception $e) {
+        // Rollback the transaction on error
+        $_db->rollBack();
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // Initialize variables
 $products = [];
 $categories = [];
@@ -501,9 +549,27 @@ $page_title = "Products";
                             <button type="submit" name="bulk_operation" value="set_category" class="bulk-update-btn">
                                 Update
                             </button>
+                            <button type="button" onclick="toggleCategoryManagement()" class="bulk-action-btn" title="Manage Categories" style="padding: 4px 8px; font-size: 0.8em;">
+                                <i class="fas fa-cog"></i>
+                            </button>
                         </div>
                         <input type="text" name="new_category_name" id="new-category-input" placeholder="Enter category name" 
                                style="display:none; width:100%; padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">
+                        
+                        <!-- Category Management Panel -->
+                        <div id="category-management" style="display:none; background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px; margin-top:5px; max-height:150px; overflow-y:auto;">
+                            <h5 style="margin:0 0 8px 0; color:#333; font-size:0.9em;">Manage Categories:</h5>
+                            <?php foreach ($categories as $cat): ?>
+                                <div class="category-item" style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #eee;">
+                                    <span style="font-size:0.85em;"><?php echo htmlspecialchars($cat['categoryName']); ?></span>
+                                    <button type="button" onclick="deleteCategory('<?php echo htmlspecialchars($cat['catID']); ?>', '<?php echo htmlspecialchars(addslashes($cat['categoryName'])); ?>')" 
+                                            class="delete-cat-btn" title="Delete Category" 
+                                            style="background:none; border:none; color:#d32f2f; cursor:pointer; font-size:0.9em; padding:2px 4px;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                     
                     <!-- Set Price -->
@@ -574,6 +640,66 @@ $page_title = "Products";
                 </div>
             <?php endif; ?>
     </div>
+
+    <!-- Category Context Menu -->
+    <div id="category-context-menu" style="display:none; position:absolute; z-index:10000; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 2px 10px rgba(0,0,0,0.1); padding:5px 0; min-width:150px;">
+        <div class="context-menu-item" onclick="deleteCategoryConfirm()" style="padding:8px 15px; cursor:pointer; color:#d32f2f; font-size:14px;">
+            <i class="fas fa-trash"></i> Delete Category
+        </div>
+    </div>
+
+    <script>
+        // Toggle category management panel
+        function toggleCategoryManagement() {
+            const panel = document.getElementById('category-management');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        // Delete category with confirmation
+        function deleteCategory(catId, catName) {
+            if (confirm(`Are you sure you want to delete the category "${catName}"?\n\nThis will set all products in this category to "Uncategorized".`)) {
+                const formData = new FormData();
+                formData.append('delete_category', catId);
+                
+                fetch('', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Category deleted successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Failed to delete category: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to delete category. Please try again.');
+                });
+            }
+        }
+
+        // Add hover effects to delete buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const deleteButtons = document.querySelectorAll('.delete-cat-btn');
+            deleteButtons.forEach(btn => {
+                btn.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#ffebee';
+                    this.style.borderRadius = '3px';
+                });
+                btn.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = 'transparent';
+                });
+            });
+        });
+    </script>
+
 </body>
 </html>
 
