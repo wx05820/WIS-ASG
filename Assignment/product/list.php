@@ -12,8 +12,34 @@ if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
     redirect('../admin/loginstaff.php');
 }
 
-// Handle bulk operations
+// Initialize message variable
 $message = '';
+
+// Handle category deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_category'])) {
+    $deleteCatID = $_POST['delete_category'];
+    
+    // Check if category is being used by any products
+    $check_sql = "SELECT COUNT(*) FROM product WHERE catID = ?";
+    $check_stmt = $_db->prepare($check_sql);
+    $check_stmt->execute([$deleteCatID]);
+    $productCount = $check_stmt->fetchColumn();
+    
+    if ($productCount > 0) {
+        $message = "Cannot delete category. It is being used by $productCount product(s).";
+    } else {
+        // Delete the category
+        $delete_sql = "DELETE FROM category WHERE catID = ?";
+        $delete_stmt = $_db->prepare($delete_sql);
+        if ($delete_stmt->execute([$deleteCatID])) {
+            $message = "Category deleted successfully.";
+        } else {
+            $message = "Failed to delete category.";
+        }
+    }
+}
+
+// Handle bulk operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])) {
     $selected_ids = $_POST['selected_products'];
     $operation = $_POST['bulk_operation'] ?? '';
@@ -116,58 +142,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])
                     }
                 }
                 break;
+                
+            case 'update_all':
+                // Handle updating all fields at once
+                $updates = [];
+                $params = [];
+                $updateMessages = [];
+                
+                // Check for category update
+                $new_category = $_POST['new_category'] ?? '';
+                $new_category_name = $_POST['new_category_name'] ?? '';
+                
+                if ($new_category === 'new_category' && !empty($new_category_name)) {
+                    // Create new category
+                    $newCatName = trim($new_category_name);
+                    $cat_sql = "SELECT MAX(CAST(SUBSTRING(catID, 2) AS UNSIGNED)) FROM category";
+                    $cat_stmt = $_db->prepare($cat_sql);
+                    $cat_stmt->execute();
+                    $maxCatID = $cat_stmt->fetchColumn();
+                    $nextCatID = 'C' . str_pad(($maxCatID ? $maxCatID + 1 : 1), 4, '0', STR_PAD_LEFT);
+                    
+                    $insert_cat_sql = "INSERT INTO category (catID, name) VALUES (?, ?)";
+                    $insert_cat_stmt = $_db->prepare($insert_cat_sql);
+                    if ($insert_cat_stmt->execute([$nextCatID, $newCatName])) {
+                        $updates[] = "catID = ?";
+                        $params[] = $nextCatID;
+                        $updateMessages[] = "category to '{$newCatName}'";
+                    }
+                } elseif (!empty($new_category) && $new_category !== 'new_category') {
+                    // Use existing category
+                    $verify_cat_sql = "SELECT catID FROM category WHERE catID = ?";
+                    $verify_cat_stmt = $_db->prepare($verify_cat_sql);
+                    $verify_cat_stmt->execute([$new_category]);
+                    if ($verify_cat_stmt->fetch()) {
+                        $updates[] = "catID = ?";
+                        $params[] = $new_category;
+                        $updateMessages[] = "category";
+                    }
+                }
+                
+                // Check for price update
+                $new_price = $_POST['new_price'] ?? '';
+                if (!empty($new_price) && is_numeric($new_price)) {
+                    $updates[] = "price = ?";
+                    $params[] = $new_price;
+                    $updateMessages[] = "price to RM " . number_format($new_price, 2);
+                }
+                
+                // Check for stock update
+                $new_stock = $_POST['new_stock'] ?? '';
+                if (!empty($new_stock) && is_numeric($new_stock)) {
+                    $updates[] = "qty = ?";
+                    $params[] = $new_stock;
+                    $updateMessages[] = "stock to {$new_stock}";
+                }
+                
+                // Execute update if there are any updates to make
+                if (!empty($updates)) {
+                    $placeholders = implode(',', array_fill(0, count($selected_ids), '?'));
+                    $sql = "UPDATE product SET " . implode(', ', $updates) . " WHERE prodID IN ($placeholders)";
+                    $params = array_merge($params, $selected_ids);
+                    $stmt = $_db->prepare($sql);
+                    if ($stmt->execute($params)) {
+                        $updateText = implode(', ', $updateMessages);
+                        $message = count($selected_ids) . " products updated with {$updateText} successfully.";
+                    } else {
+                        $message = "Error updating products.";
+                    }
+                } else {
+                    $message = "No valid updates specified. Please fill in at least one field to update.";
+                }
+                break;
         }
     } catch (Exception $e) {
         $message = "Error: " . $e->getMessage();
     }
-}
-
-// Handle category deletion
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_category'])) {
-    $catId = $_POST['delete_category'];
-    
-    try {
-        // Start a transaction to ensure data consistency
-        $_db->beginTransaction();
-        
-        // First, check how many products use this category
-        $count_sql = "SELECT COUNT(*) FROM product WHERE catID = ?";
-        $count_stmt = $_db->prepare($count_sql);
-        $count_stmt->execute([$catId]);
-        $productCount = $count_stmt->fetchColumn();
-        
-        // Update all products with this category to have NULL catID (uncategorized)
-        if ($productCount > 0) {
-            $update_products_sql = "UPDATE product SET catID = NULL WHERE catID = ?";
-            $update_stmt = $_db->prepare($update_products_sql);
-            
-            if (!$update_stmt->execute([$catId])) {
-                throw new Exception("Failed to update products");
-            }
-        }
-        
-        // Then delete the category
-        $delete_cat_sql = "DELETE FROM category WHERE catID = ?";
-        $delete_stmt = $_db->prepare($delete_cat_sql);
-        
-        if (!$delete_stmt->execute([$catId])) {
-            throw new Exception("Failed to delete category");
-        }
-        
-        // Commit the transaction
-        $_db->commit();
-        
-        echo json_encode([
-            'success' => true, 
-            'message' => "Category deleted successfully. $productCount products were moved to 'Uncategorized'."
-        ]);
-        
-    } catch (Exception $e) {
-        // Rollback the transaction on error
-        $_db->rollBack();
-        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
-    }
-    exit;
 }
 
 // Initialize variables
@@ -358,6 +407,10 @@ $page_title = "Products";
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        
+                        <button type="button" id="manageCategoriesBtn" style="padding: 0.5rem; background: #959595ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; margin-left: 10px; width: 40px; height: 40px;" title="Manage Categories">
+                            <i class="fas fa-cog"></i>
+                        </button>
                     </form>
                 </div>
 
@@ -549,27 +602,9 @@ $page_title = "Products";
                             <button type="submit" name="bulk_operation" value="set_category" class="bulk-update-btn">
                                 Update
                             </button>
-                            <button type="button" onclick="toggleCategoryManagement()" class="bulk-action-btn" title="Manage Categories" style="padding: 4px 8px; font-size: 0.8em;">
-                                <i class="fas fa-cog"></i>
-                            </button>
                         </div>
                         <input type="text" name="new_category_name" id="new-category-input" placeholder="Enter category name" 
                                style="display:none; width:100%; padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">
-                        
-                        <!-- Category Management Panel -->
-                        <div id="category-management" style="display:none; background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px; margin-top:5px; max-height:150px; overflow-y:auto;">
-                            <h5 style="margin:0 0 8px 0; color:#333; font-size:0.9em;">Manage Categories:</h5>
-                            <?php foreach ($categories as $cat): ?>
-                                <div class="category-item" style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #eee;">
-                                    <span style="font-size:0.85em;"><?php echo htmlspecialchars($cat['categoryName']); ?></span>
-                                    <button type="button" onclick="deleteCategory('<?php echo htmlspecialchars($cat['catID']); ?>', '<?php echo htmlspecialchars(addslashes($cat['categoryName'])); ?>')" 
-                                            class="delete-cat-btn" title="Delete Category" 
-                                            style="background:none; border:none; color:#d32f2f; cursor:pointer; font-size:0.9em; padding:2px 4px;">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
                     </div>
                     
                     <!-- Set Price -->
@@ -590,6 +625,17 @@ $page_title = "Products";
                         <button type="submit" name="bulk_operation" value="set_stock" class="bulk-update-btn">
                             Update
                         </button>
+                    </div>
+                    
+                    <!-- Update All Button -->
+                    <div style="width: 100%; text-align: center; margin: 15px 0;">
+                        <button type="submit" name="bulk_operation" value="update_all" class="bulk-action-btn update-all-btn" 
+                                style="background: #28a745; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; justify-content: center; margin: 0 auto;"
+                                onclick="return confirm('This will update all selected products with the values entered above. Continue?')">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Update All Selected</span>
+                        </button>
+                        <small style="color: #666; font-size: 0.8em; display: block; margin-top: 4px;">Updates all filled fields for selected products</small>
                     </div>
                     
                     <!-- Clear Selection -->
@@ -640,66 +686,103 @@ $page_title = "Products";
                 </div>
             <?php endif; ?>
     </div>
-
-    <!-- Category Context Menu -->
-    <div id="category-context-menu" style="display:none; position:absolute; z-index:10000; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 2px 10px rgba(0,0,0,0.1); padding:5px 0; min-width:150px;">
-        <div class="context-menu-item" onclick="deleteCategoryConfirm()" style="padding:8px 15px; cursor:pointer; color:#d32f2f; font-size:14px;">
-            <i class="fas fa-trash"></i> Delete Category
+    
+    <!-- Category Management Modal -->
+    <div id="categoryModal" style="display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);">
+        <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: none; width: 500px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #333;">Manage Categories</h3>
+                <span id="closeModal" style="color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+            </div>
+            
+            <?php if (!empty($message)): ?>
+                <div style="padding: 10px; margin-bottom: 15px; background: #f8f9fa; border-left: 4px solid #007bff; color: #333;">
+                    <?php echo htmlspecialchars($message); ?>
+                </div>
+            <?php endif; ?>
+            
+            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px;">
+                <?php if (!empty($categories)): ?>
+                    <?php foreach ($categories as $cat): ?>
+                        <?php 
+                        // Check if category is being used by any products
+                        $check_sql = "SELECT COUNT(*) FROM product WHERE catID = ? AND (status IS NULL OR status != 'removed')";
+                        $check_stmt = $_db->prepare($check_sql);
+                        $check_stmt->execute([$cat['catID']]);
+                        $productCount = $check_stmt->fetchColumn();
+                        $isUsed = $productCount > 0;
+                        ?>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
+                            <div style="flex: 1;">
+                                <strong style="color: #000;"><?php echo htmlspecialchars($cat['categoryName']); ?></strong>
+                                <div style="font-size: 0.85em; margin-top: 2px;">
+                                    <?php if ($isUsed): ?>
+                                        <span style="color: #28a745; font-weight: 500;">
+                                            <i class="fas fa-check-circle"></i> In use (<?php echo $productCount; ?> product<?php echo $productCount > 1 ? 's' : ''; ?>)
+                                        </span>
+                                    <?php else: ?>
+                                        <span style="color: #6c757d; font-weight: 500;">
+                                            <i class="fas fa-circle"></i> Not used
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <form method="POST" style="margin: 0;" onsubmit="return confirmDelete('<?php echo htmlspecialchars($cat['categoryName']); ?>', <?php echo $isUsed ? 'true' : 'false'; ?>, <?php echo $productCount; ?>)">
+                                <input type="hidden" name="delete_category" value="<?php echo htmlspecialchars($cat['catID']); ?>">
+                                <button type="submit" 
+                                        style="padding: 5px 10px; background: <?php echo $isUsed ? '#6c757d' : '#dc3545'; ?>; color: white; border: none; border-radius: 3px; cursor: <?php echo $isUsed ? 'not-allowed' : 'pointer'; ?>; font-size: 12px;"
+                                        <?php echo $isUsed ? 'disabled title="Cannot delete category that is in use"' : ''; ?>>
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </form>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div style="padding: 20px; text-align: center; color: #666;">
+                        No categories available
+                    </div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
-
+    
     <script>
-        // Toggle category management panel
-        function toggleCategoryManagement() {
-            const panel = document.getElementById('category-management');
-            if (panel.style.display === 'none' || panel.style.display === '') {
-                panel.style.display = 'block';
-            } else {
-                panel.style.display = 'none';
+        // Category management modal functionality
+        document.getElementById('manageCategoriesBtn').onclick = function() {
+            document.getElementById('categoryModal').style.display = 'block';
+        }
+
+        document.getElementById('closeModal').onclick = function() {
+            document.getElementById('categoryModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('categoryModal')) {
+                document.getElementById('categoryModal').style.display = 'none';
             }
         }
 
-        // Delete category with confirmation
-        function deleteCategory(catId, catName) {
-            if (confirm(`Are you sure you want to delete the category "${catName}"?\n\nThis will set all products in this category to "Uncategorized".`)) {
-                const formData = new FormData();
-                formData.append('delete_category', catId);
-                
-                fetch('', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Category deleted successfully!');
-                        window.location.reload();
-                    } else {
-                        alert('Failed to delete category: ' + (data.message || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to delete category. Please try again.');
-                });
+        function confirmDelete(categoryName, isUsed, productCount) {
+            if (isUsed) {
+                alert('Cannot delete category "' + categoryName + '" because it is being used by ' + productCount + ' product(s).\n\nTo delete this category, first move or remove all products using this category.');
+                return false;
             }
+            return confirm('Are you sure you want to delete the category "' + categoryName + '"?\n\nThis category is not currently being used by any products.');
         }
 
-        // Add hover effects to delete buttons
-        document.addEventListener('DOMContentLoaded', function() {
-            const deleteButtons = document.querySelectorAll('.delete-cat-btn');
-            deleteButtons.forEach(btn => {
-                btn.addEventListener('mouseenter', function() {
-                    this.style.backgroundColor = '#ffebee';
-                    this.style.borderRadius = '3px';
-                });
-                btn.addEventListener('mouseleave', function() {
-                    this.style.backgroundColor = 'transparent';
-                });
-            });
-        });
+        // Auto-hide success message after 2 seconds
+        <?php if (!empty($message)): ?>
+        setTimeout(function() {
+            var messageDiv = document.getElementById('success-message');
+            if (messageDiv) {
+                messageDiv.style.opacity = '0';
+                setTimeout(function() {
+                    messageDiv.style.display = 'none';
+                }, 500); // Wait for fade out animation
+            }
+        }, 2000);
+        <?php endif; ?>
     </script>
-
 </body>
 </html>
 

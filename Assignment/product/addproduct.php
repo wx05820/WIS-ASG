@@ -268,6 +268,7 @@ if (isset($_GET['debug'])) {
 			</div>
 		</form>
 	</div>
+
 	<script src="../js/adminproductlist.js"></script>
 </body>
 <?php include '../footer.php'; ?>

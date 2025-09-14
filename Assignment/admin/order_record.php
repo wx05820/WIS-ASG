@@ -375,7 +375,7 @@ try {
                         <button type="submit" class="filter-btn">
                             <i class="fas fa-search"></i> Apply Filters
                         </button>
-                        <a href="order_history.php" class="filter-btn reset">
+                        <a href="order_record.php" class="filter-btn reset">
                             <i class="fas fa-undo"></i> Reset
                         </a>
                     </div>
@@ -420,7 +420,7 @@ try {
                                 <td class="status-<?php echo strtolower($o['status']); ?>"><?php echo htmlspecialchars($o['status']); ?></td>
                                 <td>RM <?php echo number_format($o['total'], 2); ?></td>
                                 <td class="orders-actions">
-                                    <a href="order_history.php?orderID=<?php echo urlencode($o['orderID']); ?>" class="btn">View</a>
+                                    <a href="order_record.php?orderID=<?php echo urlencode($o['orderID']); ?>" class="btn">View</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
