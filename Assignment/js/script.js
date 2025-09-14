@@ -11,6 +11,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Initialize shipping dropdown functionality
 function initializeShippingDropdown() {
+    // Only initialize on shipping page
+    if (!window.location.pathname.includes('shipping.php')) {
+        console.log('Not on shipping page, skipping shipping dropdown initialization');
+        return;
+    }
+    
     console.log('=== INITIALIZING SHIPPING DROPDOWN ===');
     
     const shippingIcon = document.querySelector('.shipping-icon');
