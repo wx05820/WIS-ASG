@@ -508,6 +508,7 @@ function setQtyForBuyNow(form) {
             .price-range-container input:focus {
                 outline: 2px solid #8B4513;
                 outline-offset: 2px;
+            }
             .price-range-container input:invalid {
                 border-color: #e74c3c;
             }
