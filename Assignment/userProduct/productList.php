@@ -6,7 +6,8 @@ include '../header.php';
 // Get search & filter inputs
 $query = isset($_GET['query']) ? trim($_GET['query']) : '';
 $category = isset($_GET['category']) ? trim($_GET['category']) : '';
-$room = isset($_GET['room']) ? trim($_GET['room']) : '';
+$min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : null;
+$max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : null;
 $sort = isset($_GET['sort']) ? trim($_GET['sort']) : '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
@@ -18,8 +19,7 @@ $sql = "SELECT p.*, c.name AS category_name,
     FROM product p 
     LEFT JOIN category c ON p.catID = c.catID 
     LEFT JOIN product_reviews pr ON p.prodID = pr.product_id AND pr.user_id != '0' AND pr.product_id != '0'
-    WHERE p.status IS NULL
-    GROUP BY p.prodID, c.name";
+    WHERE p.status IS NULL";
 
 $params = [];
 
@@ -33,10 +33,17 @@ if (!empty($category)) {
     $sql .= " AND c.name = ?";
     $params[] = $category;
 }
-if (!empty($room)) {
-    $sql .= " AND p.description LIKE ?";
-    $params[] = "%$room%";
+if ($min_price !== null && $min_price > 0) {
+    $sql .= " AND p.price >= ?";
+    $params[] = $min_price;
 }
+if ($max_price !== null && $max_price > 0) {
+    $sql .= " AND p.price <= ?";
+    $params[] = $max_price;
+}
+
+// Add GROUP BY clause after all WHERE conditions
+$sql .= " GROUP BY p.prodID, c.name";
 
 // Determine order direction (ASC/DESC) from separate parameter; default to ASC
 $order = isset($_GET['order']) ? strtoupper($_GET['order']) : 'ASC';
@@ -60,6 +67,8 @@ if (isset($_SESSION['error'])) {
     echo '<div class="alert alert-error">' . htmlspecialchars($_SESSION['error']) . '</div>';
     unset($_SESSION['error']);
 }
+
+// Active filters display removed as requested
 
 // Get wishlist status for all products if user is logged in
 $wishlistItems = [];
@@ -120,10 +129,24 @@ document.addEventListener('DOMContentLoaded', function() {
             <?php foreach ($products as $p): ?>
                 <div class="product-card" data-id="<?= $p['prodID']; ?>" onclick="window.location.href='product_detail.php?prodID=<?= urlencode($p['prodID']); ?>'" style="cursor: pointer;">
                     <div class="product-img">
-                        <img src="<?= htmlspecialchars($p['img']); ?>" 
+                        <?php
+                        // Prepare all images for this product
+                        $productImages = [];
+                        for ($i = 1; $i <= 3; $i++) {
+                            $imgField = "image$i";
+                            if (!empty($p[$imgField])) {
+                                $productImages[] = 'data:image/jpeg;base64,' . base64_encode($p[$imgField]);
+                            }
+                        }
+                        if (empty($productImages)) {
+                            $productImages[] = '../images/placeholder.jpg';
+                        }
+                        ?>
+                        <img src="<?= htmlspecialchars($productImages[0]); ?>" 
                             alt="<?= htmlspecialchars($p['name']); ?>" 
                             class="product-img" loading="lazy"
-                            onerror="this.src='/images/placeholder.jpg'">
+                            data-images='<?= json_encode($productImages); ?>'
+                            onerror="this.src='../images/placeholder.jpg'">
                     </div>
                     
                     <div class="product-info">
@@ -467,19 +490,157 @@ function setQtyForBuyNow(form) {
                 from { transform: translateY(-50px); opacity: 0; }
                 to { transform: translateY(0); opacity: 1; }
             }
+            .price-range-container input:focus {
+                outline: 2px solid #8B4513;
+                outline-offset: 2px;
+            }
+            .price-range-container input:invalid {
+                border-color: #e74c3c;
+            }
         `;
         document.head.appendChild(style);
     }
+    
+    // Price range validation and real-time auto-filter
+    document.addEventListener('DOMContentLoaded', function() {
+        const minPriceInput = document.querySelector('input[name="min_price"]');
+        const maxPriceInput = document.querySelector('input[name="max_price"]');
+        
+        if (minPriceInput && maxPriceInput) {
+            // Add validation
+            function validatePriceRange() {
+                const minPrice = parseFloat(minPriceInput.value);
+                const maxPrice = parseFloat(maxPriceInput.value);
+                
+                if (minPrice && maxPrice && minPrice > maxPrice) {
+                    minPriceInput.setCustomValidity('Minimum price cannot be greater than maximum price');
+                    maxPriceInput.setCustomValidity('Maximum price cannot be less than minimum price');
+                } else {
+                    minPriceInput.setCustomValidity('');
+                    maxPriceInput.setCustomValidity('');
+                }
+            }
+            
+            // Real-time auto-filter as user types
+            function autoFilter() {
+                const minPrice = minPriceInput.value.trim();
+                const maxPrice = maxPriceInput.value.trim();
+                
+                // Clear existing timeout
+                clearTimeout(window.priceRangeTimeout);
+                
+                // Only filter if at least one field has a value
+                if (minPrice || maxPrice) {
+                    // Short delay to prevent too many requests while typing
+                    window.priceRangeTimeout = setTimeout(() => {
+                        // Validate before submitting
+                        const minVal = parseFloat(minPrice);
+                        const maxVal = parseFloat(maxPrice);
+                        
+                        if ((!minPrice || minVal >= 0) && (!maxPrice || maxVal >= 0) && 
+                            (!minPrice || !maxPrice || minVal <= maxVal)) {
+                            document.querySelector('form').submit();
+                        }
+                    }, 500); // Reduced delay for faster response
+                } else {
+                    // If both fields are empty, clear the filter
+                    if (minPriceInput.value === '' && maxPriceInput.value === '') {
+                        document.querySelector('form').submit();
+                    }
+                }
+            }
+            
+            // Add event listeners for real-time filtering
+            minPriceInput.addEventListener('input', validatePriceRange);
+            maxPriceInput.addEventListener('input', validatePriceRange);
+            
+            minPriceInput.addEventListener('input', autoFilter);
+            maxPriceInput.addEventListener('input', autoFilter);
+            
+            // Also filter on blur for immediate response
+            minPriceInput.addEventListener('blur', autoFilter);
+            maxPriceInput.addEventListener('blur', autoFilter);
+        }
+    });
+    
+    // Clear price range function
+    function clearPriceRange() {
+        const minPriceInput = document.querySelector('input[name="min_price"]');
+        const maxPriceInput = document.querySelector('input[name="max_price"]');
+        
+        if (minPriceInput) minPriceInput.value = '';
+        if (maxPriceInput) maxPriceInput.value = '';
+        
+        // Clear validation messages
+        if (minPriceInput) minPriceInput.setCustomValidity('');
+        if (maxPriceInput) maxPriceInput.setCustomValidity('');
+        
+        // Submit form to clear the filter (will trigger autoFilter)
+        document.querySelector('form').submit();
+    }
+    </script>
+
+    <script>
+    // Auto-switch functionality for product list
+    let autoSwitchIntervals = new Map();
+    
+    function startProductAutoSwitch(imgElement) {
+        const images = JSON.parse(imgElement.dataset.images || '[]');
+        if (images.length <= 1) return;
+        
+        let currentIndex = 0;
+        
+        const intervalId = setInterval(() => {
+            currentIndex = (currentIndex + 1) % images.length;
+            imgElement.src = images[currentIndex];
+        }, 5000); // 5 second interval
+        
+        autoSwitchIntervals.set(imgElement, intervalId);
+    }
+    
+    function resetToFirstImage(imgElement) {
+        const images = JSON.parse(imgElement.dataset.images || '[]');
+        if (images.length > 0) {
+            imgElement.src = images[0];
+        }
+    }
+    
+    function stopProductAutoSwitch(imgElement) {
+        const intervalId = autoSwitchIntervals.get(imgElement);
+        if (intervalId) {
+            clearInterval(intervalId);
+            autoSwitchIntervals.delete(imgElement);
+        }
+    }
+    
+    // Start auto-switch only when hovering over a product image
+    document.addEventListener('mouseover', function(e) {
+        if (e.target.classList.contains('product-img')) {
+            const images = JSON.parse(e.target.dataset.images || '[]');
+            if (images.length > 1) {
+                startProductAutoSwitch(e.target);
+            }
+        }
+    });
+    
+    // Stop auto-switch and reset to first image when leaving the product image
+    document.addEventListener('mouseout', function(e) {
+        if (e.target.classList.contains('product-img')) {
+            stopProductAutoSwitch(e.target);
+            resetToFirstImage(e.target);
+        }
+    });
     </script>
 </body>
 
 <?php
 // Pager links (always show if more than 1 page)
 $params_array = [
-    'query'    => $query ?? null,
-    'category' => $category ?? null,
-    'room'     => $room ?? null,
-    'sort'     => $sort ?? null
+    'query'     => $query ?? null,
+    'category'  => $category ?? null,
+    'min_price' => $min_price ?? null,
+    'max_price' => $max_price ?? null,
+    'sort'      => $sort ?? null
 ];
 $params_array = array_filter($params_array); // drop empty ones
 $href = http_build_query($params_array);

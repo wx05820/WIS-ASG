@@ -22,48 +22,43 @@ try {
     // Sales Report - using 'order' table with common column names
     $stmt = $_db->prepare("
         SELECT 
-            DATE(orderDate) as order_date,
+            orderDate as order_date,
             COUNT(*) as order_count,
             SUM(total) as total_sales,
             AVG(total) as avg_order_value
         FROM `order` 
-        WHERE orderDate BETWEEN ? AND ? + INTERVAL 1 DAY
+        WHERE orderDate BETWEEN ? AND ?
             AND status NOT IN ('Cancelled', 'Refunded')
-        GROUP BY DATE(orderDate)
+        GROUP BY orderDate
         ORDER BY order_date DESC
     ");
     $stmt->execute([$start_date, $end_date]);
     $sales_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Product Performance - try different possible table names
+    // Product Performance - using correct table name
     $product_performance = [];
-    $possible_tables = ['order_item', 'orderitem', 'order_detail', 'orderdetail', 'order_items'];
-    
-    foreach ($possible_tables as $table_name) {
-        try {
-            $stmt = $_db->prepare("
-                SELECT 
-                    p.name as prodName,
-                    p.price,
-                    SUM(oi.qty) as total_sold,
-                    SUM(oi.qty * oi.price) as total_revenue,
-                    p.qty as current_stock
-                FROM `$table_name` oi
-                JOIN product p ON oi.prodID = p.prodID
-                JOIN `order` o ON oi.orderID = o.orderID
-                WHERE o.orderDate BETWEEN ? AND ? + INTERVAL 1 DAY
-                    AND o.status NOT IN ('Cancelled', 'Refunded')
-                GROUP BY p.prodID, p.name, p.price, p.qty
-                ORDER BY total_sold DESC
-                LIMIT 10
-            ");
-            $stmt->execute([$start_date, $end_date]);
-            $product_performance = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            break; // If successful, break out of the loop
-        } catch (Exception $e) {
-            // Continue to next table name
-            continue;
-        }
+    try {
+        $stmt = $_db->prepare("
+            SELECT 
+                p.name as prodName,
+                p.price,
+                SUM(oi.qty) as total_sold,
+                SUM(oi.qty * oi.price) as total_revenue,
+                p.qty as current_stock
+            FROM order_items oi
+            JOIN product p ON oi.prodID = p.prodID
+            JOIN `order` o ON oi.orderID = o.orderID
+            WHERE o.orderDate BETWEEN ? AND ?
+                AND o.status NOT IN ('Cancelled', 'Refunded')
+            GROUP BY p.prodID, p.name, p.price, p.qty
+            ORDER BY total_sold DESC
+            LIMIT 10
+        ");
+        $stmt->execute([$start_date, $end_date]);
+        $product_performance = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Product performance query error: " . $e->getMessage());
+        $product_performance = [];
     }
     
     // If no order items table found, create a simplified report from order table only
@@ -92,11 +87,11 @@ try {
             u.name,
             u.email,
             COUNT(o.orderID) as order_count,
-            SUM(o.total_amount) as total_spent,
-            MAX(o.created_at) as last_order
+            SUM(o.total) as total_spent,
+            MAX(o.orderDate) as last_order
         FROM user u
-        LEFT JOIN orders o ON u.userID = o.userID 
-            AND o.created_at BETWEEN ? AND ? + INTERVAL 1 DAY
+        LEFT JOIN `order` o ON u.userID = o.userID 
+            AND o.orderDate BETWEEN ? AND ?
         WHERE u.role = 'Customer'
         GROUP BY u.userID, u.username, u.name, u.email
         HAVING order_count > 0
@@ -133,7 +128,7 @@ try {
             AVG(CASE WHEN o.status NOT IN ('Cancelled', 'Refunded') THEN o.total ELSE NULL END) as avg_order_value,
             COUNT(DISTINCT o.userID) as unique_customers
         FROM `order` o
-        WHERE o.orderDate BETWEEN ? AND ? + INTERVAL 1 DAY
+        WHERE o.orderDate BETWEEN ? AND ?
     ");
     $stmt->execute([$start_date, $end_date]);
     $summary = $stmt->fetch(PDO::FETCH_ASSOC); // Changed to fetch as associative array
@@ -155,64 +150,77 @@ try {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="../css/products.css">
+    <link rel="stylesheet" href="../css/report.css">
 </head>
 
 <body class="product-list-main" style="margin-top:0; padding-top:0;">
 
     <?php include 'adminheader.php'; ?>
-    <div class="container">
-        <div class="reports-header">
-            <h1><i class="fas fa-chart-bar"></i> Reports & Analytics</h1>
-            <p>Comprehensive business insights and performance metrics</p>
+    <div class="report-container">
+        <div class="report-header">
+            <h1 class="report-title">Reports & Analytics</h1>
+            <p class="report-subtitle">Comprehensive business insights and performance metrics</p>
+            <p style="font-size: 0.9rem; color: var(--wood-dark); margin-top: 10px;">
+                <strong>Date Range:</strong> <?php echo date('M j, Y', strtotime($start_date)); ?> to <?php echo date('M j, Y', strtotime($end_date)); ?>
+            </p>
         </div>
 
         <!-- Date Filter -->
-        <div class="date-filter">
-            <form method="GET">
-                <div class="form-group">
-                    <label for="start_date">Start Date:</label>
-                    <input type="date" id="start_date" name="start_date" value="<?php echo $start_date; ?>" required>
+        <div class="filter-section">
+            <h3 class="filter-title">Date Range Filter</h3>
+            <form method="GET" class="filter-form">
+                <div class="filter-group">
+                    <label for="start_date" class="filter-label">Start Date:</label>
+                    <input type="date" id="start_date" name="start_date" value="<?php echo $start_date; ?>" class="filter-input" required>
                 </div>
-                <div class="form-group">
-                    <label for="end_date">End Date:</label>
-                    <input type="date" id="end_date" name="end_date" value="<?php echo $end_date; ?>" required>
+                <div class="filter-group">
+                    <label for="end_date" class="filter-label">End Date:</label>
+                    <input type="date" id="end_date" name="end_date" value="<?php echo $end_date; ?>" class="filter-input" required>
                 </div>
-                <button type="submit" class="btn">
+                <button type="submit" class="filter-btn filter-btn-primary">
                     <i class="fas fa-filter"></i> Apply Filter
                 </button>
-                <a href="report.php" class="btn btn-secondary">
+                <a href="report.php" class="filter-btn filter-btn-secondary">
                     <i class="fas fa-refresh"></i> Reset
                 </a>
             </form>
         </div>
 
         <!-- Summary Cards -->
-        <div class="summary-cards">
-            <div class="summary-card">
-                <h3>Total Orders</h3>
-                <p class="number"><?php echo number_format($summary['total_orders'] ?? 0); ?></p>
+        <div class="metrics-grid">
+            <div class="metric-card" data-metric="orders">
+                <span class="metric-icon"></span>
+                <h3 class="metric-label">Total Orders</h3>
+                <p class="metric-value"><?php echo number_format($summary['total_orders'] ?? 0); ?></p>
             </div>
-            <div class="summary-card">
-                <h3>Total Revenue</h3>
-                <p class="number">RM <?php echo number_format($summary['total_revenue'] ?? 0, 2); ?></p>
+            <div class="metric-card" data-metric="revenue">
+                <span class="metric-icon"></span>
+                <h3 class="metric-label">Total Revenue</h3>
+                <p class="metric-value">RM <?php echo number_format($summary['total_revenue'] ?? 0, 2); ?></p>
             </div>
-            <div class="summary-card">
-                <h3>Average Order Value</h3>
-                <p class="number">RM <?php echo number_format($summary['avg_order_value'] ?? 0, 2); ?></p>
+            <div class="metric-card" data-metric="average">
+                <span class="metric-icon"></span>
+                <h3 class="metric-label">Average Order Value</h3>
+                <p class="metric-value">RM <?php echo number_format($summary['avg_order_value'] ?? 0, 2); ?></p>
             </div>
-            <div class="summary-card">
-                <h3>Unique Customers</h3>
-                <p class="number"><?php echo number_format($summary['unique_customers'] ?? 0); ?></p>
+            <div class="metric-card" data-metric="customers">
+                <span class="metric-icon"></span>
+                <h3 class="metric-label">Unique Customers</h3>
+                <p class="metric-value"><?php echo number_format($summary['unique_customers'] ?? 0); ?></p>
             </div>
         </div>
 
+
         <!-- Sales Report -->
-        <div class="report-section">
-            <h3><i class="fas fa-chart-line"></i> Daily Sales Report</h3>
+        <div class="charts-section">
+            <h3 class="charts-title"><i class="fas fa-chart-line"></i> Daily Sales Report</h3>
             <?php if (empty($sales_data)): ?>
-                <div class="no-data">No sales data found for the selected period.</div>
+                <div class="empty-state">
+                    <h3>No Sales Data</h3>
+                    <p>No sales data found for the selected period.</p>
+                </div>
             <?php else: ?>
-                <table class="product-table">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -236,12 +244,15 @@ try {
         </div>
 
         <!-- Product Performance -->
-        <div class="report-section">
-            <h3><i class="fas fa-box"></i> Top Performing Products</h3>
+        <div class="charts-section">
+            <h3 class="charts-title"><i class="fas fa-box"></i> Top Performing Products</h3>
             <?php if (empty($product_performance)): ?>
-                <div class="no-data">No product sales data found for the selected period.</div>
+                <div class="empty-state">
+                    <h3>No Product Data</h3>
+                    <p>No product sales data found for the selected period.</p>
+                </div>
             <?php else: ?>
-                <table class="product-table">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>Product Name</th>
@@ -267,12 +278,15 @@ try {
         </div>
 
         <!-- Customer Analysis -->
-        <div class="report-section">
-            <h3><i class="fas fa-users"></i> Top Customers</h3>
+        <div class="charts-section">
+            <h3 class="charts-title"><i class="fas fa-users"></i> Top Customers</h3>
             <?php if (empty($customer_analysis)): ?>
-                <div class="no-data">No customer data found for the selected period.</div>
+                <div class="empty-state">
+                    <h3>No Customer Data</h3>
+                    <p>No customer data found for the selected period.</p>
+                </div>
             <?php else: ?>
-                <table class="product-table">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>Customer</th>

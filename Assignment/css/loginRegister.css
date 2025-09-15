@@ -124,6 +124,25 @@ body::before {
     animation: slideInUp 0.6s ease-out;
 }
 
+/* Loading state for form container */
+.form-container.loading {
+    pointer-events: none;
+    opacity: 0.9;
+    transform: scale(0.99);
+}
+
+.form-container.loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent, rgba(139, 69, 19, 0.05), transparent);
+    animation: formShimmer 2s infinite;
+    z-index: 1;
+}
+
 .form-container:hover {
     transform: translateY(-5px);
     box-shadow: 0 30px 60px rgba(139, 69, 19, 0.3);
@@ -241,6 +260,48 @@ body::before {
     position: relative;
 }
 
+/* Special handling for password form group */
+.form-group:has(.password-input-container) {
+    margin-bottom: 1.75rem; /* extra space for error messages */
+}
+
+.form-group:has(.password-input-container) .error-message {
+    position: relative;
+    z-index: 5;
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+/* Fallback for browsers without :has() support */
+.password-input-container + .error-message {
+    position: relative;
+    z-index: 5;
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+/* Ensure error message appears below password input */
+.form-group .password-input-container ~ .error-message {
+    display: block !important;
+    margin-top: 0.5rem;
+    width: 100% !important;
+    clear: both;
+    position: relative;
+    left: 0;
+    right: 0;
+}
+
+/* Force error message to be block level after password container */
+.password-input-container + .error-message {
+    display: block !important;
+    width: 100% !important;
+    margin-top: 0.5rem;
+    clear: both;
+    position: relative;
+    left: 0;
+    right: 0;
+}
+
 /* Remember Me Checkbox */
 .checkbox-label {
     display: flex;
@@ -347,10 +408,16 @@ body::before {
     color: var(--error-color);
     font-size: 0.875rem;
     margin-top: 0.5rem;
-    display: block;
+    display: block !important;
     font-weight: 500;
     animation: slideInError 0.3s ease-out;
     transform-origin: top;
+    width: 100% !important; /* full width below input */
+    word-wrap: break-word;
+    clear: both;
+    position: relative;
+    left: 0;
+    right: 0;
 }
 
 /* Furniture-style Buttons */
@@ -642,10 +709,12 @@ body::before {
 .password-input-container {
     position: relative;
     width: 100%;
+    margin-bottom: 0.5rem; /* space for error message below */
 }
 
 .password-input-container .form-input {
-    padding-right: 3rem; /* reserve space for eye icon inside */
+    padding-right: 3.5rem; /* increased space for eye icon */
+    width: 100%;
     /* Hide native reveal icon (Edge/IE) */
     -ms-reveal: none;
 }
@@ -661,8 +730,7 @@ input[type="password"]::-webkit-clear-button { display: none; }
 
 .password-toggle {
     position: absolute;
-    right: 0.75rem;
-    left: auto;
+    right: 0.5rem;
     top: 50%;
     transform: translateY(-50%);
     background: transparent;
@@ -678,6 +746,8 @@ input[type="password"]::-webkit-clear-button { display: none; }
     justify-content: center;
     width: 2rem;
     height: 2rem;
+    z-index: 15;
+    pointer-events: auto;
 }
 
 .password-toggle:hover {
@@ -893,11 +963,13 @@ input[type="password"]::-webkit-clear-button { display: none; }
     font-style: italic;
 }
 
-/* Loading Spinner */
+/* Enhanced Loading Spinner */
 .btn-loading {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    font-weight: 600;
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
 .spinner {
@@ -907,6 +979,63 @@ input[type="password"]::-webkit-clear-button { display: none; }
     border-top: 2px solid #ffffff;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+}
+
+/* Enhanced loading button states */
+.btn.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.8;
+    transform: scale(0.98);
+    transition: all 0.3s ease;
+}
+
+.btn.loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer 2s infinite;
+    border-radius: inherit;
+}
+
+/* Loading progress indicator */
+.btn.loading::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--accent-gold);
+    animation: loadingProgress 5s linear forwards;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* Pulse animation for loading text */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Shimmer effect for loading button */
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* Loading progress bar */
+@keyframes loadingProgress {
+    0% { width: 0%; }
+    100% { width: 100%; }
+}
+
+/* Form shimmer animation */
+@keyframes formShimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
 }
 
 /* OTP Input Container */
@@ -1117,6 +1246,22 @@ input[type="password"]::-webkit-clear-button { display: none; }
     .captcha-input {
         width: 100% !important;
     }
+    
+    /* Ensure eye icon positioning on mobile */
+    .password-toggle {
+        right: 0.375rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        font-size: 1rem;
+    }
+    
+    .password-input-container .form-input {
+        padding-right: 2.75rem;
+    }
+    
+    .error-message {
+        width: 100%;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1150,6 +1295,23 @@ input[type="password"]::-webkit-clear-button { display: none; }
     
     .info-box {
         padding: 0.9375rem;
+    }
+    
+    /* Fine-tune eye icon for very small screens */
+    .password-toggle {
+        right: 0.25rem;
+        width: 1.5rem;
+        height: 1.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .password-input-container .form-input {
+        padding-right: 2.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .error-message {
+        width: 100%;
     }
 }
 

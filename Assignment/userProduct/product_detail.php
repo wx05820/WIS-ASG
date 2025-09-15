@@ -76,17 +76,37 @@ if ($product) {
                     <div class="zoom-overlay" id="zoomOverlay">
                         <div class="zoom-lens" id="zoomLens"></div>
                     </div>
+                    
                 </div>
                 <div class="zoom-window" id="zoomWindow">
-                    <img id="zoomImg" src="<?= htmlspecialchars($product['images'][0]); ?>" alt="Zoomed view">
+                    <div class="zoom-image" id="zoomImage"></div>
+                </div>
+                
+                <!-- Mobile Zoom Overlay -->
+                <div class="zoom-overlay-mobile" id="mobileZoomOverlay">
+                    <img id="mobileZoomImg" src="<?= htmlspecialchars($product['images'][0]); ?>" alt="Zoomed view">
+                    <button class="zoom-close-btn" id="mobileZoomClose" onclick="closeMobileZoom()">×</button>
                 </div>
                 <?php if (count($product['images']) > 1): ?>
                 <div class="thumbs-horizontal">
+                    <!-- Left Arrow -->
+                    <button class="nav-arrow nav-arrow-left" id="prevImageBtn" onclick="previousImage()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    
+                    <!-- Thumbnail Images -->
+                    <div class="thumbnail-list">
                     <?php foreach ($product['images'] as $idx => $img): ?>
                         <img class="thumb-img" src="<?= htmlspecialchars($img); ?>"
                             alt="Thumbnail <?= $idx+1 ?>"
                             onclick="changeMainImage('<?= htmlspecialchars($img); ?>')">
                     <?php endforeach; ?>
+                    </div>
+                    
+                    <!-- Right Arrow -->
+                    <button class="nav-arrow nav-arrow-right" id="nextImageBtn" onclick="nextImage()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
                 </div>
                 <?php endif; ?>
             </div>
@@ -373,54 +393,448 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Enhanced Zoom Functionality
+// Enhanced Touch-Friendly Zoom Functionality
 const mainImg = document.getElementById("mainProductImg");
 const mainImgContainer = document.getElementById("mainImageContainer");
 const zoomWindow = document.getElementById("zoomWindow");
-const zoomImg = document.getElementById("zoomImg");
+const zoomImage = document.getElementById("zoomImage");
 const zoomLens = document.getElementById("zoomLens");
+const mobileZoomOverlay = document.getElementById("mobileZoomOverlay");
+const mobileZoomImg = document.getElementById("mobileZoomImg");
+
+let isZoomActive = false;
+let isMouseOver = false;
+let touchStartDistance = 0;
+let touchStartScale = 1;
+let currentScale = 1;
+let lastTouchTime = 0;
+let isMobile = window.innerWidth <= 768;
+
+// Image navigation variables
+let currentImageIndex = 0;
+let productImages = <?= json_encode($product['images']); ?>;
+
+
+// Initialize zoom functionality
+function initZoom() {
+    console.log('Initializing zoom functionality...');
+    
+    // Set up the zoom image using background-image with 4x magnification
+    if (zoomImage && mainImg) {
+        zoomImage.style.backgroundImage = `url(${mainImg.src})`;
+        zoomImage.style.backgroundSize = '400% 400%'; // 4x magnification
+        zoomImage.style.backgroundPosition = '0% 0%';
+        zoomImage.style.backgroundRepeat = 'no-repeat';
+        
+        console.log('Zoom image setup complete:', {
+            backgroundImage: zoomImage.style.backgroundImage,
+            backgroundSize: zoomImage.style.backgroundSize,
+            backgroundPosition: zoomImage.style.backgroundPosition
+        });
+    } else {
+        console.error('Zoom image or main image element not found!');
+    }
+}
 
 // Image change function
 function changeMainImage(newSrc) {
     mainImg.src = newSrc;
-    zoomImg.src = newSrc;
+    mobileZoomImg.src = newSrc;
+    
+    // Update zoom image background
+    if (zoomImage) {
+        zoomImage.style.backgroundImage = `url(${newSrc})`;
+    }
+    
+    // Reset zoom and magnifier when changing images
+    resetZoom();
+    resetMagnifier();
 }
 
-// Zoom functionality
+// Reset magnifier to initial state
+function resetMagnifier() {
+    if (zoomImage) {
+        zoomImage.style.backgroundPosition = '0% 0%';
+    }
+    if (zoomLens) {
+        zoomLens.style.left = '0px';
+        zoomLens.style.top = '0px';
+    }
+}
+
+// Navigation functions
+function nextImage() {
+    if (productImages.length <= 1) return;
+    
+    currentImageIndex = (currentImageIndex + 1) % productImages.length;
+    const newSrc = productImages[currentImageIndex];
+    changeMainImage(newSrc);
+    
+    console.log('Next image:', currentImageIndex, newSrc);
+}
+
+function previousImage() {
+    if (productImages.length <= 1) return;
+    
+    currentImageIndex = (currentImageIndex - 1 + productImages.length) % productImages.length;
+    const newSrc = productImages[currentImageIndex];
+    changeMainImage(newSrc);
+    
+    console.log('Previous image:', currentImageIndex, newSrc);
+}
+
+
+// Reset zoom to initial state
+function resetZoom() {
+    currentScale = 1;
+    mainImg.style.transform = 'scale(1)';
+    mainImg.style.cursor = 'zoom-in';
+    mainImg.classList.remove('zoomed');
+    isZoomActive = false;
+    hideZoomWindow();
+    hideMobileZoom();
+}
+
+// Show zoom window (desktop)
+function showZoomWindow() {
+    if (!isMobile) {
+        zoomWindow.style.display = "block";
+        zoomLens.style.display = "block";
+        
+        // Initialize the zoom image
+        initZoom();
+        
+        // Test: Set a specific background position to see if it works
+        setTimeout(() => {
+            if (zoomImage) {
+                zoomImage.style.backgroundPosition = "50% 50%"; // Center the image
+                console.log('Test: Set background position to center');
+            }
+        }, 200);
+        
+        // Test: Position lens at center of image
+        setTimeout(() => {
+            if (zoomLens) {
+                const mainImgRect = mainImg.getBoundingClientRect();
+                const centerX = mainImgRect.width / 2 - 50; // 50 is half of lens size
+                const centerY = mainImgRect.height / 2 - 50;
+                zoomLens.style.left = centerX + "px";
+                zoomLens.style.top = centerY + "px";
+                console.log('Test: Positioned lens at center');
+            }
+        }, 300);
+        
+        console.log('Zoom window shown');
+    }
+}
+
+// Hide zoom window (desktop)
+function hideZoomWindow() {
+    zoomWindow.style.display = "none";
+    zoomLens.style.display = "none";
+}
+
+// Show mobile zoom overlay
+function showMobileZoom() {
+    if (isMobile) {
+        mobileZoomOverlay.style.display = "flex";
+        document.body.style.overflow = "hidden"; // Prevent background scrolling
+    }
+}
+
+// Hide mobile zoom overlay
+function hideMobileZoom() {
+    mobileZoomOverlay.style.display = "none";
+    document.body.style.overflow = ""; // Restore scrolling
+}
+
+// Close mobile zoom (called by button)
+function closeMobileZoom() {
+    hideMobileZoom();
+    resetZoom();
+}
+
+// Toggle zoom on tap/double-tap
+function toggleZoom() {
+    if (isZoomActive) {
+        resetZoom();
+    } else {
+        currentScale = 2;
+        mainImg.style.transform = 'scale(2)';
+        mainImg.style.cursor = 'zoom-out';
+        mainImg.classList.add('zoomed');
+        isZoomActive = true;
+        
+        if (isMobile) {
+            showMobileZoom();
+        } else {
+            showZoomWindow();
+        }
+    }
+}
+
+// Mouse events for desktop
 mainImgContainer.addEventListener("mouseenter", () => {
-    zoomWindow.style.display = "block";
-    zoomLens.style.display = "block";
+    isMouseOver = true;
+    if (!isZoomActive) {
+        showZoomWindow();
+    }
 });
 
 mainImgContainer.addEventListener("mouseleave", () => {
-    zoomWindow.style.display = "none";
-    zoomLens.style.display = "none";
+    isMouseOver = false;
+    if (!isZoomActive) {
+        hideZoomWindow();
+    }
 });
 
 mainImgContainer.addEventListener("mousemove", function(e) {
+    if (!isMouseOver || isZoomActive) return;
+    
     const rect = this.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Position the lens
+    // Position the lens correctly - center it on the cursor
     const lensSize = 100;
-    const lensX = Math.max(0, Math.min(x - lensSize/2, rect.width - lensSize));
-    const lensY = Math.max(0, Math.min(y - lensSize/2, rect.height - lensSize));
+    const lensX = x - lensSize/2; // Center the lens on cursor
+    const lensY = y - lensSize/2; // Center the lens on cursor
     
-    zoomLens.style.left = lensX + "px";
-    zoomLens.style.top = lensY + "px";
+    // Keep lens within bounds
+    const boundedLensX = Math.max(0, Math.min(lensX, rect.width - lensSize));
+    const boundedLensY = Math.max(0, Math.min(lensY, rect.height - lensSize));
+    
+    zoomLens.style.left = boundedLensX + "px";
+    zoomLens.style.top = boundedLensY + "px";
 
-    // Calculate zoom
-    const percentX = x / rect.width;
-    const percentY = y / rect.height;
+        // Calculate the center of the lens area
+        const lensCenterX = boundedLensX + lensSize/2;
+        const lensCenterY = boundedLensY + lensSize/2;
+        
+        // For 4x magnification, we need to calculate the background position correctly
+        // The background image is 400% size (4x larger than the zoom window)
+        // We want the lens center to appear at the center of the zoom window
+        
+        // Convert lens center to percentage of the main image
+        const lensPercentX = lensCenterX / rect.width;
+        const lensPercentY = lensCenterY / rect.height;
+        
+        // For 4x magnification, we need to calculate the background position correctly
+        // The background image is 400% size (4x larger than the zoom window)
+        // We want the lens center to appear at the center of the zoom window
+        
+        // Image uses object-fit: contain, so it may not fill the entire frame
+        // We need to calculate the actual image area within the frame
+        const img = mainImg;
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = rect;
+        
+        // Calculate the actual image dimensions within the container
+        const imgAspectRatio = img.naturalWidth / img.naturalHeight;
+        const containerAspectRatio = containerRect.width / containerRect.height;
+        
+        let actualImgWidth, actualImgHeight, imgOffsetX, imgOffsetY;
+        
+        if (imgAspectRatio > containerAspectRatio) {
+            // Image is wider - fits to width
+            actualImgWidth = containerRect.width;
+            actualImgHeight = containerRect.width / imgAspectRatio;
+            imgOffsetX = 0;
+            imgOffsetY = (containerRect.height - actualImgHeight) / 2;
+        } else {
+            // Image is taller - fits to height
+            actualImgHeight = containerRect.height;
+            actualImgWidth = containerRect.height * imgAspectRatio;
+            imgOffsetX = (containerRect.width - actualImgWidth) / 2;
+            imgOffsetY = 0;
+        }
+        
+        // Check if cursor is within the actual image area
+        const relativeX = x - imgOffsetX;
+        const relativeY = y - imgOffsetY;
+        
+        if (relativeX >= 0 && relativeX <= actualImgWidth && relativeY >= 0 && relativeY <= actualImgHeight) {
+            // Cursor is within image area - calculate position relative to image
+            const imgPercentX = relativeX / actualImgWidth;
+            const imgPercentY = relativeY / actualImgHeight;
+            
+            const bgX = imgPercentX * 100;
+            const bgY = imgPercentY * 100;
+            
+            // Apply the background position
+            if (zoomImage) {
+                zoomImage.style.backgroundPosition = `${bgX}% ${bgY}%`;
+            }
+        }
+    
+        console.log('Complete Image Magnifier:', {
+            cursor: { x, y },
+            lens: { x: boundedLensX, y: boundedLensY, centerX: lensCenterX, centerY: lensCenterY },
+            imageArea: { 
+                width: actualImgWidth, 
+                height: actualImgHeight, 
+                offsetX: imgOffsetX, 
+                offsetY: imgOffsetY 
+            },
+            relativePosition: { x: relativeX, y: relativeY },
+            magnification: '4x',
+            method: 'object-fit contain - complete image visible'
+        });
+});
 
-    const zoomWidth = zoomImg.offsetWidth - zoomWindow.offsetWidth;
-    const zoomHeight = zoomImg.offsetHeight - zoomWindow.offsetHeight;
+// Touch events for mobile
+let touchStartX = 0;
+let touchStartY = 0;
 
-    const moveX = -percentX * zoomWidth;
-    const moveY = -percentY * zoomHeight;
+mainImgContainer.addEventListener("touchstart", function(e) {
+    if (e.touches.length === 1) {
+        // Single touch - prepare for swipe navigation
+        lastTouchTime = Date.now();
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }
+});
 
-    zoomImg.style.transform = `translate(${moveX}px, ${moveY}px)`;
+// Touch move - only for magnifier, no pinch zoom
+
+mainImgContainer.addEventListener("touchend", function(e) {
+    if (e.touches.length === 0) {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastTouchTime;
+        
+        if (timeDiff < 300) {
+            // Check if it's a swipe
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            
+            // If horizontal swipe is greater than vertical swipe
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+                if (deltaX > 0) {
+                    // Swipe right - previous image
+                    previousImage();
+                } else {
+                    // Swipe left - next image
+                    nextImage();
+                }
+            }
+        }
+    }
+});
+
+// Click events removed - only magnifier functionality
+
+// Handle window resize
+window.addEventListener("resize", function() {
+    const wasMobile = isMobile;
+    isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+        hideZoomWindow();
+        if (isZoomActive) {
+            showMobileZoom();
+        }
+    } else {
+        hideMobileZoom();
+        if (isZoomActive) {
+            showZoomWindow();
+        }
+    }
+});
+
+// Add smooth transitions
+mainImg.style.transition = 'transform 0.3s ease-in-out';
+
+// Initialize zoom image size
+function initializeZoomImage() {
+    if (!mainImg || !zoomImg) return;
+    
+    const mainImgRect = mainImg.getBoundingClientRect();
+    const zoomImgWidth = 1200; // 2x magnification
+    const zoomImgHeight = (1200 * mainImgRect.height) / mainImgRect.width;
+    
+    // Set the zoom image size
+    zoomImg.style.width = zoomImgWidth + 'px';
+    zoomImg.style.height = zoomImgHeight + 'px';
+    
+    // Ensure the image is visible
+    zoomImg.style.display = 'block';
+    zoomImg.style.opacity = '1';
+    
+    console.log('Zoom image initialized:', {
+        width: zoomImgWidth,
+        height: zoomImgHeight,
+        src: zoomImg.src
+    });
+}
+
+// Wait for images to load before initializing
+function waitForImageLoad() {
+    if (mainImg.complete && zoomImg.complete) {
+        initializeZoomImage();
+    } else {
+        mainImg.addEventListener('load', initializeZoomImage);
+        zoomImg.addEventListener('load', initializeZoomImage);
+    }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, checking elements...');
+    console.log('Main image:', mainImg);
+    console.log('Zoom image:', zoomImg);
+    console.log('Zoom window:', zoomWindow);
+    
+    initZoom();
+    
+    // Also try after images load
+    setTimeout(initZoom, 500);
+    setTimeout(initZoom, 1000);
+    
+    
+    // Test: Try to force show the image
+    setTimeout(() => {
+        if (zoomImg) {
+            zoomImg.style.border = '5px solid yellow';
+            zoomImg.style.background = 'blue';
+            console.log('Added yellow border and blue background to zoom image');
+        }
+    }, 2000);
+});
+
+// Re-initialize when window resizes
+window.addEventListener('resize', function() {
+    setTimeout(initializeZoomImage, 100);
+});
+
+// Add visual feedback for zoom interactions
+mainImgContainer.addEventListener("mouseenter", function() {
+    if (!isZoomActive) {
+        this.style.cursor = 'zoom-in';
+    }
+});
+
+mainImgContainer.addEventListener("mouseleave", function() {
+    if (!isZoomActive) {
+        this.style.cursor = 'default';
+    }
+});
+
+// Add keyboard support for accessibility
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" && isZoomActive) {
+        resetZoom();
+    }
+    
+    // Arrow key navigation
+    if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        previousImage();
+    } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        nextImage();
+    }
 });
 
 // Rating popup functionality

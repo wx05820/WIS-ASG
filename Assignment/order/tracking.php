@@ -265,6 +265,10 @@ include '../header.php';
         <!-- Debug: Show sample order for testing -->
         <div style="margin-top: 2rem;">
             <h3 style="color: #8B4513; text-align: center; margin-bottom: 1rem;">Sample Order (For Testing)</h3>
+            <p style="text-align: center; color: #666; margin-bottom: 1rem;">
+                <i class="fas fa-info-circle"></i> 
+                Click "View Details" to test the tracking functionality
+            </p>
             <div class="tracking-card" style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-bottom: 2rem; border: 1px solid #e9ecef; overflow: hidden; transition: all 0.3s ease;">
                 <div class="tracking-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-bottom: 1px solid #dee2e6;">
                     <div>
@@ -329,7 +333,7 @@ include '../header.php';
                         <small style="color: #6c757d; font-size: 0.9rem;">1 item(s)</small>
                     </div>
                     <div class="action-buttons" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        <a href="#" class="btn btn-sm btn-primary" style="background: #8B4513; border-color: #8B4513; color: white; padding: 0.5rem 1rem; font-size: 0.9rem; border-radius: 6px; font-weight: 500; text-decoration: none;">
+                        <a href="tracking_details.php?id=TEST001" class="btn btn-sm btn-primary" style="background: #8B4513; border-color: #8B4513; color: white; padding: 0.5rem 1rem; font-size: 0.9rem; border-radius: 6px; font-weight: 500; text-decoration: none;">
                             <i class="fas fa-eye"></i> View Details
                         </a>
                     </div>

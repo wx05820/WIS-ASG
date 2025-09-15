@@ -339,22 +339,107 @@ document.addEventListener('DOMContentLoaded', function() {
             const submitBtn = document.querySelector('.btn-primary');
             const normalContent = submitBtn.querySelector('span');
             const loadingContent = submitBtn.querySelector('.btn-loading');
+            const formContainer = document.querySelector('.login-container');
             
+            // Show loading state immediately
             normalContent.style.display = 'none';
             loadingContent.style.display = 'flex';
             submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
+            formContainer.classList.add('loading');
+            
+            // Set a timeout to prevent indefinite loading (5 seconds)
+            const loadingTimeout = setTimeout(() => {
+                // Reset button state if still loading
+                if (submitBtn.disabled) {
+                    normalContent.style.display = 'inline';
+                    loadingContent.style.display = 'none';
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('loading');
+                    formContainer.classList.remove('loading');
+                    
+                    // Show error message
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-error';
+                    errorDiv.innerHTML = '⏱️ Login is taking longer than expected. Please check your connection and try again.';
+                    formContainer.insertBefore(errorDiv, document.querySelector('form'));
+                    
+                    // Add retry button
+                    const retryBtn = document.createElement('button');
+                    retryBtn.type = 'button';
+                    retryBtn.className = 'btn btn-secondary';
+                    retryBtn.innerHTML = '🔄 Retry Login';
+                    retryBtn.style.marginTop = '10px';
+                    retryBtn.onclick = () => {
+                        errorDiv.remove();
+                        retryBtn.remove();
+                        formContainer.classList.remove('loading');
+                    };
+                    errorDiv.appendChild(retryBtn);
+                    
+                    // Remove error after 8 seconds
+                    setTimeout(() => {
+                        if (errorDiv.parentNode) {
+                            errorDiv.parentNode.removeChild(errorDiv);
+                        }
+                    }, 8000);
+                }
+            }, 5000); // 5 second timeout
+            
+            // Clear timeout if page unloads or form resets
+            window.addEventListener('beforeunload', () => clearTimeout(loadingTimeout));
+            
+            // Store timeout ID for potential clearing
+            submitBtn.dataset.loadingTimeout = loadingTimeout;
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            const emailField = document.getElementById('email');
+            const emailField = document.getElementById('login_input');
             const passwordField = document.getElementById('password');
             
+            // Auto-focus on empty field
             if (!emailField.value) {
                 emailField.focus();
             } else if (!passwordField.value) {
                 passwordField.focus();
             }
+            
+            // Add real-time validation feedback
+            if (emailField) {
+                emailField.addEventListener('blur', function() {
+                    const value = this.value.trim();
+                    if (value && !isValidLoginInput(value)) {
+                        this.classList.add('error');
+                        showErrorWithSound(this, 'Please enter a valid email or username');
+                    }
+                });
+            }
+            
+            // Add visual feedback for form submission
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    // Add a subtle form shake if there are validation errors
+                    const hasErrors = this.querySelector('.form-input.error');
+                    if (hasErrors) {
+                        this.style.animation = 'shake 0.5s ease-in-out';
+                        setTimeout(() => {
+                            this.style.animation = '';
+                        }, 500);
+                    }
+                });
+            }
         });
+        
+        // Helper function to validate login input
+        function isValidLoginInput(input) {
+            // Check if it's an email
+            if (input.includes('@')) {
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+            }
+            // Check if it's a valid username (alphanumeric, underscore, dash, 3-20 chars)
+            return /^[a-zA-Z0-9_-]{3,20}$/.test(input);
+        }
 
         document.querySelectorAll('.otp-input').forEach((input, index, inputs) => {
             input.addEventListener('input', (e) => {

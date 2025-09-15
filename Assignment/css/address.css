@@ -7,7 +7,7 @@
     --wood-dark: #5D4037;
     --wood-accent: #D4AF37;
     --text-light: #F5F5F5;
-    --text-dark: #2C3E50;
+    --text-dark: #5D4037;
     --background-light: #F5F3E7;
     --background-wood: #E9E4D8;
     --success-color: #27AE60;
@@ -131,8 +131,8 @@
     border-radius: 8px;
     font-size: 14px;
     transition: all 0.3s ease;
-    background: rgba(255, 255, 255, 0.9);
-    color: var(--text-dark);
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: var(--text-dark) !important;
     font-family: inherit;
 }
 
@@ -144,8 +144,34 @@
 }
 
 .form-input::placeholder {
-    color: #999;
+    color: var(--wood-dark);
     font-style: italic;
+}
+
+/* Specific styling for phone input to ensure wooden colors */
+input[name="phoneNo"] {
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: var(--text-dark) !important;
+    border: 2px solid var(--border-color) !important;
+}
+
+input[name="phoneNo"]:focus {
+    background: rgba(255, 255, 255, 1) !important;
+    color: var(--text-dark) !important;
+    border-color: var(--wood-primary) !important;
+}
+
+/* Ensure all form elements use wooden colors */
+select.form-input {
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: var(--text-dark) !important;
+    border: 2px solid var(--border-color) !important;
+}
+
+select.form-input:focus {
+    background: rgba(255, 255, 255, 1) !important;
+    color: var(--text-dark) !important;
+    border-color: var(--wood-primary) !important;
 }
 
 /* Checkbox styling */
@@ -188,49 +214,49 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--wood-primary), #A0522D);
+    background: linear-gradient(135deg, var(--wood-primary), var(--wood-dark));
     color: var(--text-light);
     box-shadow: 0 4px 15px var(--shadow-medium);
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #A0522D, var(--wood-primary));
+    background: linear-gradient(135deg, var(--wood-dark), var(--wood-primary));
     transform: translateY(-2px);
     box-shadow: 0 6px 20px var(--shadow-strong);
 }
 
 .btn-secondary {
-    background: linear-gradient(135deg, var(--wood-light), #DEB887);
+    background: linear-gradient(135deg, var(--wood-light), var(--wood-accent));
     color: var(--wood-dark);
     border: 2px solid var(--wood-light);
 }
 
 .btn-secondary:hover {
-    background: linear-gradient(135deg, #DEB887, var(--wood-light));
+    background: linear-gradient(135deg, var(--wood-accent), var(--wood-light));
     transform: translateY(-2px);
     box-shadow: 0 4px 15px var(--shadow-medium);
 }
 
 .btn-danger {
-    background: linear-gradient(135deg, var(--error-color), #C0392B);
+    background: linear-gradient(135deg, var(--error-color), #D2691E);
     color: var(--text-light);
     box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
 }
 
 .btn-danger:hover {
-    background: linear-gradient(135deg, #C0392B, var(--error-color));
+    background: linear-gradient(135deg, #D2691E, var(--error-color));
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
 }
 
 .btn-success {
-    background: linear-gradient(135deg, var(--success-color), #229954);
+    background: linear-gradient(135deg, var(--success-color), #8FBC8F);
     color: var(--text-light);
     box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
 }
 
 .btn-success:hover {
-    background: linear-gradient(135deg, #229954, var(--success-color));
+    background: linear-gradient(135deg, #8FBC8F, var(--success-color));
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
 }
@@ -306,7 +332,7 @@
 }
 
 .badge {
-    background: linear-gradient(135deg, var(--wood-accent), #FFD700);
+    background: linear-gradient(135deg, var(--wood-accent), var(--wood-light));
     color: var(--wood-dark);
     padding: 4px 12px;
     border-radius: 20px;
@@ -508,6 +534,6 @@
     .address-card {
         break-inside: avoid;
         box-shadow: none;
-        border: 1px solid #ccc;
+        border: 1px solid var(--wood-light);
     }
 }

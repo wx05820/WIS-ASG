@@ -126,15 +126,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <option value="TV Cabinet" <?php echo (isset($_GET['category']) && $_GET['category'] === 'TV Cabinet') ? 'selected' : ''; ?>>TV Cabinet</option>
                             <option value="Children's small furniture" <?php echo (isset($_GET['category']) && $_GET['category'] === 'Children\'s small furniture') ? 'selected' : ''; ?>>Children's Furniture</option>
                         </select>
-                        <select name="room" class="filter-select" aria-label="Filter by room">
-                            <option value="">All Rooms</option>
-                            <option value="living-room" <?php echo (isset($_GET['room']) && $_GET['room'] === 'living-room') ? 'selected' : ''; ?>>Living Room</option>
-                            <option value="bedroom" <?php echo (isset($_GET['room']) && $_GET['room'] === 'bedroom') ? 'selected' : ''; ?>>Bedroom</option>
-                            <option value="kitchen" <?php echo (isset($_GET['room']) && $_GET['room'] === 'kitchen') ? 'selected' : ''; ?>>Kitchen</option>
-                            <option value="dining" <?php echo (isset($_GET['room']) && $_GET['room'] === 'dining') ? 'selected' : ''; ?>>Dining Area</option>
-                            <option value="office" <?php echo (isset($_GET['room']) && $_GET['room'] === 'office') ? 'selected' : ''; ?>>Home Office</option>
-                            <option value="outdoor" <?php echo (isset($_GET['room']) && $_GET['room'] === 'outdoor') ? 'selected' : ''; ?>>Outdoor</option>
-                        </select>
+                        <div class="price-range-container" style="display: flex; gap: 5px; align-items: center;">
+                            <input type="number" name="min_price" placeholder="Min Price" 
+                                   value="<?php echo isset($_GET['min_price']) ? htmlspecialchars($_GET['min_price']) : ''; ?>" 
+                                   class="filter-select" style="width: 80px; padding: 8px;" min="0" step="0.01">
+                            <span style="color: #8B4513; font-weight: bold;">-</span>
+                            <input type="number" name="max_price" placeholder="Max Price" 
+                                   value="<?php echo isset($_GET['max_price']) ? htmlspecialchars($_GET['max_price']) : ''; ?>" 
+                                   class="filter-select" style="width: 80px; padding: 8px;" min="0" step="0.01">
+                            <?php if (isset($_GET['min_price']) || isset($_GET['max_price'])): ?>
+                            <button type="button" onclick="clearPriceRange()" 
+                                    style="background: #8B4513; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;" 
+                                    title="Clear price range">
+                                ✕
+                            </button>
+                            <?php endif; ?>
+                        </div>
 
                         <select name="sort" class="filter-select sortby-select" aria-label="Sort products" onchange="updateSort(this.value)">
                             <option value="">Sort by...</option>

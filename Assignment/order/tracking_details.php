@@ -16,6 +16,58 @@ if (empty($orderID)) {
     exit();
 }
 
+// Handle sample order for testing
+if ($orderID === 'TEST001') {
+    // Create sample order data for testing
+    $order = [
+        'orderID' => 'TEST001',
+        'orderDate' => date('Y-m-d H:i:s'),
+        'status' => 'Pending',
+        'total' => 299.00,
+        'subtotal' => 250.00,
+        'shipping_fee' => 49.00,
+        'discount' => 0.00,
+        'recipient_name' => 'John Doe',
+        'unitNo' => 'A-123',
+        'address_line_1' => '123 Main Street',
+        'address_line_2' => 'Apartment 4B',
+        'city' => 'Kuala Lumpur',
+        'state' => 'Wilayah Persekutuan',
+        'postcode' => '50000',
+        'notes' => 'Please leave at front door',
+        'customer_name' => 'johndoe',
+        'customer_email' => 'john@example.com',
+        'payMethod' => 'Credit Card',
+        'payStatus' => 'Paid',
+        'payDate' => date('Y-m-d H:i:s'),
+        'payment_amount' => 299.00,
+        'transaction_id' => 'TXN123456789'
+    ];
+    
+    // Create sample order items
+    $items = [
+        [
+            'prodID' => 'P001',
+            'name' => 'Sample Wooden Chair',
+            'price' => 250.00,
+            'qty' => 1,
+            'product_color' => 'Oak',
+            'image1' => null
+        ]
+    ];
+    
+    // Create sample status history
+    $statusHistory = [
+        [
+            'status' => 'Pending',
+            'courier' => 'System',
+            'notes' => 'Order received and being processed',
+            'current_location' => 'Processing Center',
+            'updated_at' => date('Y-m-d H:i:s')
+        ]
+    ];
+} else {
+
 // Get order details with payment info
 $orderQuery = "SELECT o.*, u.username as customer_name, u.email as customer_email,
                       p.payMethod, p.payStatus, p.payDate, p.amount as payment_amount,
@@ -68,6 +120,7 @@ if ($tableCheck->rowCount() > 0) {
         'current_location' => 'Processing Center',
         'updated_at' => $order['orderDate']
     ];
+}
 }
 
 function formatDate($date) {
