@@ -39,6 +39,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_category'])) {
     }
 }
 
+// Handle category name update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_category'])) {
+    $updateCatID = $_POST['update_category'];
+    $newCategoryName = trim($_POST['new_category_name_edit'] ?? '');
+    
+    if (empty($newCategoryName)) {
+        $message = "Category name cannot be empty.";
+    } else {
+        // Check if the new name already exists (excluding current category)
+        $check_name_sql = "SELECT COUNT(*) FROM category WHERE name = ? AND catID != ?";
+        $check_name_stmt = $_db->prepare($check_name_sql);
+        $check_name_stmt->execute([$newCategoryName, $updateCatID]);
+        $nameExists = $check_name_stmt->fetchColumn();
+        
+        if ($nameExists > 0) {
+            $message = "Category name '{$newCategoryName}' already exists. Please choose a different name.";
+        } else {
+            // Update the category name
+            $update_sql = "UPDATE category SET name = ? WHERE catID = ?";
+            $update_stmt = $_db->prepare($update_sql);
+            if ($update_stmt->execute([$newCategoryName, $updateCatID])) {
+                $message = "Category name updated to '{$newCategoryName}' successfully.";
+            } else {
+                $message = "Failed to update category name.";
+            }
+        }
+    }
+}
+
 // Handle bulk operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['selected_products'])) {
     $selected_ids = $_POST['selected_products'];
@@ -448,6 +477,7 @@ $page_title = "Products";
                         <div class="product-list-item" style="align-items: flex-start; cursor: pointer;" 
                              onclick="window.location.href='detail.php?id=<?php echo urlencode($product['prodID']); ?>'">
                             <input type="checkbox" name="selected_products[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" 
+                                   class="green-checkbox"
                                    style="margin-right:10px; margin-top:8px; width: 24px; height: 24px; transform: scale(1.3); cursor: pointer;" 
                                    onclick="event.stopPropagation();">
                             
@@ -714,7 +744,26 @@ $page_title = "Products";
                         ?>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
                             <div style="flex: 1;">
-                                <strong style="color: #000;"><?php echo htmlspecialchars($cat['categoryName']); ?></strong>
+                                <div id="category-name-<?php echo $cat['catID']; ?>">
+                                    <strong style="color: #000;"><?php echo htmlspecialchars($cat['categoryName']); ?></strong>
+                                </div>
+                                <div id="category-edit-<?php echo $cat['catID']; ?>" style="display: none;">
+                                    <form method="POST" style="display: flex; gap: 8px; align-items: center;" onsubmit="return confirm('Update category name?')">
+                                        <input type="hidden" name="update_category" value="<?php echo htmlspecialchars($cat['catID']); ?>">
+                                        <input type="text" name="new_category_name_edit" 
+                                               value="<?php echo htmlspecialchars($cat['categoryName']); ?>"
+                                               style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px; width: 200px;"
+                                               required>
+                                        <button type="submit" 
+                                                style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">
+                                            <i class="fas fa-check"></i> Save
+                                        </button>
+                                        <button type="button" onclick="cancelEdit('<?php echo $cat['catID']; ?>')"
+                                                style="padding: 4px 8px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    </form>
+                                </div>
                                 <div style="font-size: 0.85em; margin-top: 2px;">
                                     <?php if ($isUsed): ?>
                                         <span style="color: #28a745; font-weight: 500;">
@@ -727,14 +776,21 @@ $page_title = "Products";
                                     <?php endif; ?>
                                 </div>
                             </div>
-                            <form method="POST" style="margin: 0;" onsubmit="return confirmDelete('<?php echo htmlspecialchars($cat['categoryName']); ?>', <?php echo $isUsed ? 'true' : 'false'; ?>, <?php echo $productCount; ?>)">
-                                <input type="hidden" name="delete_category" value="<?php echo htmlspecialchars($cat['catID']); ?>">
-                                <button type="submit" 
-                                        style="padding: 5px 10px; background: <?php echo $isUsed ? '#6c757d' : '#dc3545'; ?>; color: white; border: none; border-radius: 3px; cursor: <?php echo $isUsed ? 'not-allowed' : 'pointer'; ?>; font-size: 12px;"
-                                        <?php echo $isUsed ? 'disabled title="Cannot delete category that is in use"' : ''; ?>>
-                                    <i class="fas fa-trash"></i> Delete
+                            <div style="display: flex; gap: 5px;">
+                                <button type="button" onclick="startEdit('<?php echo $cat['catID']; ?>')"
+                                        style="padding: 5px 8px; background: #ffc107; color: #212529; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;"
+                                        title="Edit category name">
+                                    <i class="fas fa-edit"></i> Edit
                                 </button>
-                            </form>
+                                <form method="POST" style="margin: 0; display: inline;" onsubmit="return confirmDelete('<?php echo htmlspecialchars($cat['categoryName']); ?>', <?php echo $isUsed ? 'true' : 'false'; ?>, <?php echo $productCount; ?>)">
+                                    <input type="hidden" name="delete_category" value="<?php echo htmlspecialchars($cat['catID']); ?>">
+                                    <button type="submit" 
+                                            style="padding: 5px 8px; background: <?php echo $isUsed ? '#6c757d' : '#dc3545'; ?>; color: white; border: none; border-radius: 3px; cursor: <?php echo $isUsed ? 'not-allowed' : 'pointer'; ?>; font-size: 12px;"
+                                            <?php echo $isUsed ? 'disabled title="Cannot delete category that is in use"' : ''; ?>>
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 <?php else: ?>
@@ -770,6 +826,17 @@ $page_title = "Products";
             return confirm('Are you sure you want to delete the category "' + categoryName + '"?\n\nThis category is not currently being used by any products.');
         }
 
+        // Category edit functions
+        function startEdit(catID) {
+            document.getElementById('category-name-' + catID).style.display = 'none';
+            document.getElementById('category-edit-' + catID).style.display = 'block';
+        }
+
+        function cancelEdit(catID) {
+            document.getElementById('category-name-' + catID).style.display = 'block';
+            document.getElementById('category-edit-' + catID).style.display = 'none';
+        }
+
         // Auto-hide success message after 2 seconds
         <?php if (!empty($message)): ?>
         setTimeout(function() {
@@ -783,6 +850,51 @@ $page_title = "Products";
         }, 2000);
         <?php endif; ?>
     </script>
+
+    <style>
+        /* Green checkbox styling */
+        .green-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            background-color: white;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .green-checkbox:hover {
+            border-color: #28a745;
+        }
+
+        .green-checkbox:checked {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+
+        .green-checkbox:checked::before {
+            content: "✓";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* Animation for check mark */
+        .green-checkbox:checked {
+            animation: checkboxPulse 0.3s ease-out;
+        }
+
+        @keyframes checkboxPulse {
+            0% { transform: scale(1.3); }
+            50% { transform: scale(1.4); }
+            100% { transform: scale(1.3); }
+        }
+    </style>
 </body>
 </html>
 

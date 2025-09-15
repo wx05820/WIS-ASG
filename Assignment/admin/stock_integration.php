@@ -29,8 +29,8 @@ function autoCheckStockLevels($updatedProductIds = [], $threshold = 5) {
             
             // If any updated products are now low stock, run full stock check
             if ($result['low_stock_count'] > 0) {
-                // Run stock monitoring in background (don't send email automatically)
-                runStockMonitoring($threshold, false);
+                // Run stock monitoring in background (DISABLED auto-email - manual control only)
+                runStockMonitoring($threshold, false); // Explicitly set to false to prevent auto-email
                 return true;
             }
         } catch (Exception $e) {

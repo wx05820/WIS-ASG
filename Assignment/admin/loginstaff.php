@@ -1,33 +1,6 @@
 <?php
 include '../_base.php';
 
-// Define shouldSendStockAlertToday if not already defined
-if (!function_exists('shouldSendStockAlertToday')) {
-    function shouldSendStockAlertToday() {
-        // Example: Only send once per day, store last sent date in a file or database
-        $lastSentFile = __DIR__ . '/last_stock_alert_sent.txt';
-        $today = date('Y-m-d');
-        if (file_exists($lastSentFile)) {
-            $lastSent = trim(file_get_contents($lastSentFile));
-            if ($lastSent === $today) {
-                return false;
-            }
-        }
-        // Update last sent date
-        file_put_contents($lastSentFile, $today);
-        return true;
-    }
-}
-
-// Define logStockAlertSent if not already defined
-if (!function_exists('logStockAlertSent')) {
-    function logStockAlertSent() {
-        // Example implementation: log the alert in a file or database
-        // You can customize this as needed for your application
-        error_log("Stock alert sent on " . date('Y-m-d H:i:s'));
-    }
-}
-
 $show_captcha = false;
 
 if (is_post()) {
@@ -75,27 +48,21 @@ if (is_post()) {
                 $clear_attempts = $_db->prepare("DELETE FROM failed_attempts WHERE email = ?");
                 $clear_attempts->execute([$login_input]);
                 
-                // Auto-send stock alert on admin login (with spam prevention)
+                // Auto-send stock alert on admin login (DISABLED - manual check only)
+                // Removed automatic email sending to prevent spam and allow manual control
                 try {
-                    if (shouldSendStockAlertToday()) {
-                        $stockData = checkLowStockProducts(5); // Use threshold of 5
-                        if (!empty($stockData['low_stock']) || !empty($stockData['out_of_stock'])) {
-                            $emailSent = sendLowStockAlert($stockData); // Send stock alert
-                            if ($emailSent) {
-                                logStockAlertSent(); // Log that we sent an alert
-                                temp('info', 'Welcome back! Stock alert has been sent to your email.');
-                            } else {
-                                temp('warning', 'Welcome back! Stock issues detected. Please check the Stock Monitor.');
-                            }
-                        } else {
-                            temp('success', 'Welcome back! All products are well-stocked.');
-                        }
+                    $stockData = checkLowStockProducts(5); // Still check stock levels
+                    if (!empty($stockData['low_stock']) || !empty($stockData['out_of_stock'])) {
+                        $lowCount = count($stockData['low_stock']);
+                        $outCount = count($stockData['out_of_stock']);
+                        temp('warning', "Welcome back! Stock Alert: $lowCount products are low in stock, $outCount products are out of stock. Check the Stock Monitor for details.");
                     } else {
-                        temp('info', 'Welcome back! (Stock alert already sent today)');
+                        temp('success', 'Welcome back! All products are well-stocked.');
                     }
                 } catch (Exception $e) {
-                    // Don't break login if email fails, just log it
-                    error_log("Auto stock alert failed on login: " . $e->getMessage());
+                    // Don't break login if stock check fails, just log it
+                    error_log("Stock level check failed on login: " . $e->getMessage());
+                    temp('info', 'Welcome back!');
                 }
                 
                 // Redirect to admin dashboard

@@ -5,9 +5,30 @@ if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
     redirect('loginstaff.php');
 }
 
+// Handle quick email sending from dashboard
+if (isset($_POST['send_stock_email']) && isset($_SESSION['dashboard_stock_data'])) {
+    try {
+        $stockData = $_SESSION['dashboard_stock_data'];
+        $emailSent = sendLowStockAlert($stockData);
+        if ($emailSent) {
+            temp('success', 'Stock alert email has been sent successfully!');
+        } else {
+            temp('error', 'Failed to send stock alert email. Please try again or check the Stock Monitor.');
+        }
+        // Clear the stock data session to prevent repeated sending
+        unset($_SESSION['dashboard_stock_data']);
+    } catch (Exception $e) {
+        temp('error', 'Error sending email: ' . $e->getMessage());
+        error_log("Dashboard email send failed: " . $e->getMessage());
+    }
+    // Redirect to prevent resubmission
+    redirect('adminpage.php');
+}
+
 $page_title = 'Admin Dashboard';
 
 // Auto stock monitoring check (only once per session to avoid spam)
+// EMAIL SENDING DISABLED - manual control only via Stock Monitor
 if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== date('Y-m-d')) {
     try {
         $stockData = checkLowStockProducts(5);
@@ -15,13 +36,12 @@ if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== d
             $lowCount = count($stockData['low_stock']);
             $outCount = count($stockData['out_of_stock']);
             
-            // Send stock alert email (auto-send on admin dashboard access)
-            $emailSent = sendLowStockAlert($stockData);
-            if ($emailSent) {
-                temp('warning', "Stock Alert: $lowCount products are low in stock, $outCount products are out of stock. Alert email has been sent. Check the Stock Monitor for details.");
-            } else {
-                temp('warning', "Stock Alert: $lowCount products are low in stock, $outCount products are out of stock. Check the Stock Monitor for details.");
-            }
+            // Store stock data in session for quick email sending
+            $_SESSION['dashboard_stock_data'] = $stockData;
+            $_SESSION['show_email_button'] = true;
+            
+            // Show warning message but DON'T auto-send email
+            temp('warning', "Stock Alert: $lowCount products are low in stock, $outCount products are out of stock.");
         }
         $_SESSION['stock_check_done'] = date('Y-m-d'); // Mark as checked for today
     } catch (Exception $e) {
@@ -111,6 +131,12 @@ if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== d
             </div>
         <?php endif; ?>
         
+        <?php if ($error_msg = get_temp('error')): ?>
+            <div class="alert alert-danger" style="margin-bottom: 20px; padding: 15px; background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px;">
+                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_msg); ?>
+            </div>
+        <?php endif; ?>
+        
         <?php if ($info_msg = get_temp('info')): ?>
             <div class="alert alert-info" style="margin-bottom: 20px; padding: 15px; background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; border-radius: 8px;">
                 <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($info_msg); ?>
@@ -119,7 +145,28 @@ if (!isset($_SESSION['stock_check_done']) || $_SESSION['stock_check_done'] !== d
         
         <?php if ($warning_msg = get_temp('warning')): ?>
             <div class="alert alert-warning" style="margin-bottom: 20px; padding: 15px; background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; border-radius: 8px;">
-                <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($warning_msg); ?>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($warning_msg); ?>
+                    </div>
+                    <?php if (isset($_SESSION['show_email_button']) && $_SESSION['show_email_button']): ?>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <form method="POST" style="margin: 0;" onsubmit="return confirm('Send stock alert email now?')">
+                                <button type="submit" name="send_stock_email" value="1" 
+                                        style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fas fa-envelope"></i>
+                                    <span>Send Email</span>
+                                </button>
+                            </form>
+                            <a href="stock_monitor.php" 
+                               style="background: #6c757d; color: white; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 0.9em; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Stock Monitor</span>
+                            </a>
+                        </div>
+                        <?php $_SESSION['show_email_button'] = false; // Hide button after showing ?>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php endif; ?>
         

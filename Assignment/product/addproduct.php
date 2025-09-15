@@ -152,6 +152,125 @@ if (isset($_GET['debug'])) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="../style.css">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<style>
+    /* Drag and Drop Styling */
+    .image-upload-container {
+        margin: 10px 0;
+    }
+    
+    .drop-zone {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 40px;
+        text-align: center;
+        background: #fafafa;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        max-width: 500px;
+        margin: 10px 0;
+    }
+    
+    .drop-zone:hover {
+        border-color: #8B4513;
+        background: #f5f5f5;
+    }
+    
+    .drop-zone.drag-over {
+        border-color: #28a745;
+        background: #f8fff8;
+        transform: scale(1.02);
+    }
+    
+    .drop-zone-content {
+        pointer-events: none;
+    }
+    
+    .file-preview {
+        margin-top: 15px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .file-item {
+        position: relative;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px;
+        background: #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-width: 150px;
+    }
+    
+    .file-item img {
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 4px;
+        margin-bottom: 5px;
+    }
+    
+    .file-item .file-name {
+        font-size: 0.8em;
+        color: #666;
+        word-break: break-all;
+        margin-bottom: 5px;
+    }
+    
+    .file-item .remove-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .file-item .remove-btn:hover {
+        background: #c82333;
+    }
+    
+    .file-error {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        background-color: #fee;
+        border: 1px solid #fcc;
+        border-radius: 5px;
+        color: #c33;
+        margin: 5px 0;
+        font-size: 14px;
+    }
+
+    .file-error i {
+        color: #e74c3c;
+    }
+
+    @media (max-width: 768px) {
+        .drop-zone {
+            padding: 30px 15px;
+        }
+        
+        .file-preview {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        
+        .file-item img {
+            height: 80px;
+        }
+    }
+</style>
 </head>
 <?php include '../admin/adminheader.php'; ?>
 <body main class="add-product-main" style="background: #fff;">
@@ -257,7 +376,24 @@ if (isset($_GET['debug'])) {
 			</div>
 
 			<label>Product Images (JPG/JPEG only):</label>
-			<input type="file" name="images[]" style="width: 400px" accept=".jpg,.jpeg" multiple>
+			<div class="image-upload-container">
+				<div id="drop-zone" class="drop-zone">
+					<div class="drop-zone-content">
+						<i class="fas fa-cloud-upload-alt" style="font-size: 3em; color: #ccc; margin-bottom: 15px;"></i>
+						<p style="margin: 10px 0; color: #666; font-size: 1.1em;">
+							<strong>Drag & Drop images here</strong>
+						</p>
+						<p style="margin: 5px 0; color: #999; font-size: 0.9em;">
+							or click to browse files
+						</p>
+						<p style="margin: 10px 0; color: #999; font-size: 0.8em;">
+							JPG/JPEG files only • Max 3 images
+						</p>
+					</div>
+					<input type="file" name="images[]" id="file-input" accept=".jpg,.jpeg" multiple style="display: none;">
+				</div>
+				<div id="file-preview" class="file-preview"></div>
+			</div>
 
 			<?php if (!empty($errorMsg)): ?>
 				<textarea readonly style="color: red; background: #fff; border: none; width: 100%;">Error: <?php echo htmlspecialchars($errorMsg); ?></textarea>
@@ -268,6 +404,139 @@ if (isset($_GET['debug'])) {
 			</div>
 		</form>
 	</div>
+
+	<script>
+		// Drag and Drop Functionality
+		document.addEventListener('DOMContentLoaded', function() {
+			const dropZone = document.getElementById('drop-zone');
+			const fileInput = document.getElementById('file-input');
+			const filePreview = document.getElementById('file-preview');
+			let selectedFiles = new DataTransfer();
+
+			// Click to browse files
+			dropZone.addEventListener('click', function() {
+				fileInput.click();
+			});
+
+			// File input change handler
+			fileInput.addEventListener('change', function(e) {
+				handleFiles(e.target.files);
+			});
+
+			// Drag events
+			dropZone.addEventListener('dragover', function(e) {
+				e.preventDefault();
+				dropZone.classList.add('drag-over');
+			});
+
+			dropZone.addEventListener('dragleave', function(e) {
+				e.preventDefault();
+				dropZone.classList.remove('drag-over');
+			});
+
+			dropZone.addEventListener('drop', function(e) {
+				e.preventDefault();
+				dropZone.classList.remove('drag-over');
+				handleFiles(e.dataTransfer.files);
+			});
+
+			function handleFiles(files) {
+				// Clear previous files and start fresh
+				selectedFiles = new DataTransfer();
+				filePreview.innerHTML = '';
+
+				// Limit to 3 files
+				const filesToProcess = Math.min(files.length, 3);
+				let validFiles = 0;
+
+				for (let i = 0; i < filesToProcess; i++) {
+					const file = files[i];
+					
+					// Validate file type
+					if (!file.type.match('image/jpeg') && !file.name.toLowerCase().endsWith('.jpg') && !file.name.toLowerCase().endsWith('.jpeg')) {
+						showFileError(file.name, 'Only JPG/JPEG files are allowed');
+						continue;
+					}
+
+					// Validate file size (optional - 5MB limit)
+					if (file.size > 5 * 1024 * 1024) {
+						showFileError(file.name, 'File size must be less than 5MB');
+						continue;
+					}
+
+					selectedFiles.items.add(file);
+					validFiles++;
+					displayFilePreview(file);
+				}
+
+				// Update file input with selected files
+				fileInput.files = selectedFiles.files;
+
+				// Show message if too many files
+				if (files.length > 3) {
+					showFileError('', 'Only first 3 files will be processed');
+				}
+			}
+
+			function displayFilePreview(file) {
+				const fileItem = document.createElement('div');
+				fileItem.className = 'file-item';
+
+				const img = document.createElement('img');
+				img.src = URL.createObjectURL(file);
+				img.onload = function() {
+					URL.revokeObjectURL(img.src); // Clean up memory
+				};
+
+				const fileName = document.createElement('div');
+				fileName.className = 'file-name';
+				fileName.textContent = file.name;
+
+				const removeBtn = document.createElement('button');
+				removeBtn.className = 'remove-btn';
+				removeBtn.innerHTML = '×';
+				removeBtn.type = 'button';
+				removeBtn.addEventListener('click', function() {
+					removeFile(file, fileItem);
+				});
+
+				fileItem.appendChild(img);
+				fileItem.appendChild(fileName);
+				fileItem.appendChild(removeBtn);
+				filePreview.appendChild(fileItem);
+			}
+
+			function removeFile(fileToRemove, fileItemElement) {
+				// Remove from DataTransfer
+				const newFiles = new DataTransfer();
+				for (let i = 0; i < selectedFiles.files.length; i++) {
+					const file = selectedFiles.files[i];
+					if (file !== fileToRemove) {
+						newFiles.items.add(file);
+					}
+				}
+				selectedFiles = newFiles;
+				fileInput.files = selectedFiles.files;
+
+				// Remove from preview
+				fileItemElement.remove();
+			}
+
+			function showFileError(fileName, message) {
+				const errorDiv = document.createElement('div');
+				errorDiv.className = 'file-error';
+				errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${fileName ? fileName + ': ' : ''}${message}`;
+				filePreview.appendChild(errorDiv);
+				
+				// Remove error after 5 seconds
+				setTimeout(() => {
+					if (errorDiv.parentNode) {
+						errorDiv.remove();
+					}
+				}, 5000);
+			}
+		});
+	</script>
 
 	<script src="../js/adminproductlist.js"></script>
 </body>
