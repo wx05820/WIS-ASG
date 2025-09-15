@@ -106,7 +106,6 @@ try {
     $filter_price_min = isset($_GET['price_min']) ? $_GET['price_min'] : '';
     $filter_price_max = isset($_GET['price_max']) ? $_GET['price_max'] : '';
     
-    // Build WHERE clause with filters
     // Build WHERE clause with filters - only show refunded, received, cancelled orders
     $where_conditions = ["status IN ('Received', 'Cancelled', 'Refunded')"]; // Only show completed/final statuses
     $params = [];
@@ -212,78 +211,8 @@ try {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="../css/products.css">
+    <link rel="stylesheet" href="../css/orderrecord.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        /* Order Record specific styles */
-        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-        .orders-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .orders-table th, .orders-table td { padding: 12px 15px; border-bottom: 1px solid #e6e6e6; text-align: left; }
-        .orders-table th { background: #f8f9fa; font-weight: 600; color: #333; }
-        .orders-table td { color: #000; }
-        .orders-table tr:hover { background: #f8f9fa; }
-        .orders-actions a { margin-right: 8px; }
-        
-        /* Status Color Coding */
-        .status-shipped { color: #007BFF !important; font-weight: 600; } /* Legacy */
-        .status-delivered { color: #28A745 !important; font-weight: 600; } /* Legacy */
-        .status-cancelled { color: #DC3545 !important; font-weight: 600; }
-        .status-processing { color: #FFC107 !important; font-weight: 600; } /* Shipped orders */
-        .status-received { color: #28A745 !important; font-weight: 600; } /* Delivered orders */
-        .status-pending { color: #17A2B8 !important; font-weight: 600; } /* Pending orders */
-        .status-refunded { color: #6C757D !important; font-weight: 600; } /* Refunded orders */
-        .order-detail { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 20px; }
-        .order-detail h2 { color: #333; }
-        .order-detail h3 { color: #333; }
-        .order-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .order-grid > div:nth-child(1) .label { color: #d81515a2; }
-        .order-grid > div:nth-child(2) .label { color: #28b193fa; }
-        .order-grid > div:nth-child(3) .label { color: #e87400d2; }
-        .order-row { margin-bottom: 10px; }
-        .label { color: #666; font-weight: 600; font-size: 0.95rem; }
-        .value { color: #333; }
-        .no-data { background: white; padding: 40px; text-align: center; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); color: #666; }
-        .pager { display: flex; gap: 8px; justify-content: center; align-items: center; margin: 20px 0; }
-        .pager a { padding: 8px 12px; border: 1px solid #ddd; text-decoration: none; color: #333; border-radius: 4px; background: white; }
-        .pager a:hover { background: #f5f5f5; }
-        .pager a.active { background: #8B4513; color: white; border-color: #8B4513; }
-        .btn { background: #8B4513; color: white; padding: 6px 12px; border: none; border-radius: 4px; text-decoration: none; font-size: 0.9rem; }
-        .btn:hover { background: #A0522D; color: white; }
-        
-        /* Chart Styles */
-        .chart-section { margin-bottom: 30px; }
-        .chart-container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .chart-container h3 { color: #333; margin-bottom: 20px; font-size: 1.3rem; }
-        .chart-wrapper { max-width: 300px; margin: 0 auto; }
-        .chart-legend { margin-top: 20px; }
-        .chart-legend h4 { color: #666; margin-bottom: 15px; font-size: 1rem; }
-        .legend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-        .legend-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 4px; background: #f8f9fa; }
-        .legend-color { width: 16px; height: 16px; border-radius: 50%; }
-        .legend-info { display: flex; flex-direction: column; }
-        .legend-label { font-weight: 600; color: #333; font-size: 0.9rem; }
-        .legend-count { color: #666; font-size: 0.8rem; }
-        
-        /* Filter Styles */
-        .filter-section { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .filter-section h3 { color: #444; margin-bottom: 10px; font-size: 1.1rem; }
-        .filter-form { display: flex; flex-direction: column; gap: 12px; }
-        .filter-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-        .filter-group { display: flex; flex-direction: column; }
-        .filter-group label { font-weight: 600; color: #333; margin-bottom: 4px; font-size: 0.85rem; }
-        .filter-group input, .filter-group select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; }
-        .filter-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: flex-end; }
-        .filter-btn { background: #8B4513; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-        .filter-btn:hover { background: #A0522D; }
-        .filter-btn.reset { background: #6C757D; }
-        .filter-btn.reset:hover { background: #5A6268; }
-        .price-range { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
-        .price-range span { text-align: center; color: #666; font-size: 0.75rem; }
-        
-        @media (max-width: 768px) { 
-            .order-grid { grid-template-columns: 1fr; }
-            .filter-row { grid-template-columns: 1fr; }
-        }
-    </style>
 </head>
 <body class="product-list-main" style="margin-top:0; padding-top:0;">
     <?php include 'adminheader.php'; ?>
@@ -473,52 +402,14 @@ try {
 
     <?php include '../footer.php'; ?>
     
+    <script src="../js/orderrecord.js"></script>
     <script>
-    // Pie Chart for Order Status Distribution
-    document.addEventListener('DOMContentLoaded', function() {
-        const ctx = document.getElementById('statusChart').getContext('2d');
-        
-        const chartData = {
-            labels: <?php echo json_encode($chart_labels); ?>,
-            datasets: [{
-                data: <?php echo json_encode($chart_data); ?>,
-                backgroundColor: <?php echo json_encode($chart_colors); ?>,
-                borderColor: '#fff',
-                borderWidth: 2,
-                hoverBorderWidth: 3
-            }]
-        };
-
-        const statusChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: chartData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                cutout: '60%', // This creates the ring effect (60% hollow center)
-                plugins: {
-                    legend: {
-                        display: false // We use custom legend
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${label}: ${value} orders (${percentage}%)`;
-                            }
-                        }
-                    }
-                },
-                animation: {
-                    animateRotate: true,
-                    duration: 1000
-                }
-            }
-        });
-    });
+        // Initialize the chart with PHP data
+        initializeStatusChart(
+            <?php echo json_encode($chart_labels); ?>,
+            <?php echo json_encode($chart_data); ?>,
+            <?php echo json_encode($chart_colors); ?>
+        );
     </script>
 </body>
 </html>

@@ -1,3 +1,44 @@
+// Category delete confirmation - Global function
+function confirmDelete(categoryName, isUsed, productCount) {
+    if (isUsed) {
+        alert('Cannot delete category "' + categoryName + '" because it is being used by ' + productCount + ' product(s).\n\nTo delete this category, first move or remove all products using this category.');
+        return false;
+    }
+    return confirm('Are you sure you want to delete the category "' + categoryName + '"?\n\nThis category is not currently being used by any products.');
+}
+
+// Category edit functions - Global functions
+function startEdit(catID) {
+    const nameDiv = document.getElementById('category-name-' + catID);
+    const editDiv = document.getElementById('category-edit-' + catID);
+    if (nameDiv && editDiv) {
+        nameDiv.style.display = 'none';
+        editDiv.style.display = 'block';
+    }
+}
+
+function cancelEdit(catID) {
+    const nameDiv = document.getElementById('category-name-' + catID);
+    const editDiv = document.getElementById('category-edit-' + catID);
+    if (nameDiv && editDiv) {
+        nameDiv.style.display = 'block';
+        editDiv.style.display = 'none';
+    }
+}
+
+// Function to show and auto-hide success message - Global function
+function showSuccessMessage() {
+    setTimeout(function() {
+        var messageDiv = document.getElementById('success-message');
+        if (messageDiv) {
+            messageDiv.style.opacity = '0';
+            setTimeout(function() {
+                messageDiv.style.display = 'none';
+            }, 500); // Wait for fade out animation
+        }
+    }, 2000);
+}
+
 // Centralized admin product list behavior
 document.addEventListener('DOMContentLoaded', function() {
     initializeProductList();
@@ -231,4 +272,28 @@ function initializeAddProductForm() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeAddProductForm();
     hideFormMessage();
+    initializeCategoryModal();
 });
+
+// Category management modal functionality
+function initializeCategoryModal() {
+    const manageCategoriesBtn = document.getElementById('manageCategoriesBtn');
+    const categoryModal = document.getElementById('categoryModal');
+    const closeModal = document.getElementById('closeModal');
+
+    if (manageCategoriesBtn && categoryModal && closeModal) {
+        manageCategoriesBtn.onclick = function() {
+            categoryModal.style.display = 'block';
+        }
+
+        closeModal.onclick = function() {
+            categoryModal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == categoryModal) {
+                categoryModal.style.display = 'none';
+            }
+        }
+    }
+}

@@ -1,9 +1,3 @@
-/**
- * Order History JavaScript
- * Handles order history page functionality including form submissions, 
- * star ratings, and interactive elements
- */
-
 // Define edit review functions globally first
 function editReview(productId) {
     console.log('editReview function called for product:', productId);

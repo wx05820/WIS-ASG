@@ -802,99 +802,14 @@ $page_title = "Products";
         </div>
     </div>
     
+    <?php if (!empty($message)): ?>
     <script>
-        // Category management modal functionality
-        document.getElementById('manageCategoriesBtn').onclick = function() {
-            document.getElementById('categoryModal').style.display = 'block';
+        // Call the function from adminproductlist.js to auto-hide success message
+        if (typeof showSuccessMessage === 'function') {
+            showSuccessMessage();
         }
-
-        document.getElementById('closeModal').onclick = function() {
-            document.getElementById('categoryModal').style.display = 'none';
-        }
-
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('categoryModal')) {
-                document.getElementById('categoryModal').style.display = 'none';
-            }
-        }
-
-        function confirmDelete(categoryName, isUsed, productCount) {
-            if (isUsed) {
-                alert('Cannot delete category "' + categoryName + '" because it is being used by ' + productCount + ' product(s).\n\nTo delete this category, first move or remove all products using this category.');
-                return false;
-            }
-            return confirm('Are you sure you want to delete the category "' + categoryName + '"?\n\nThis category is not currently being used by any products.');
-        }
-
-        // Category edit functions
-        function startEdit(catID) {
-            document.getElementById('category-name-' + catID).style.display = 'none';
-            document.getElementById('category-edit-' + catID).style.display = 'block';
-        }
-
-        function cancelEdit(catID) {
-            document.getElementById('category-name-' + catID).style.display = 'block';
-            document.getElementById('category-edit-' + catID).style.display = 'none';
-        }
-
-        // Auto-hide success message after 2 seconds
-        <?php if (!empty($message)): ?>
-        setTimeout(function() {
-            var messageDiv = document.getElementById('success-message');
-            if (messageDiv) {
-                messageDiv.style.opacity = '0';
-                setTimeout(function() {
-                    messageDiv.style.display = 'none';
-                }, 500); // Wait for fade out animation
-            }
-        }, 2000);
-        <?php endif; ?>
     </script>
-
-    <style>
-        /* Green checkbox styling */
-        .green-checkbox {
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            border: 2px solid #ccc;
-            border-radius: 4px;
-            background-color: white;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .green-checkbox:hover {
-            border-color: #28a745;
-        }
-
-        .green-checkbox:checked {
-            background-color: #28a745;
-            border-color: #28a745;
-        }
-
-        .green-checkbox:checked::before {
-            content: "✓";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-        }
-
-        /* Animation for check mark */
-        .green-checkbox:checked {
-            animation: checkboxPulse 0.3s ease-out;
-        }
-
-        @keyframes checkboxPulse {
-            0% { transform: scale(1.3); }
-            50% { transform: scale(1.4); }
-            100% { transform: scale(1.3); }
-        }
-    </style>
+    <?php endif; ?>
 </body>
 </html>
 
