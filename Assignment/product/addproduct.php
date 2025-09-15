@@ -162,7 +162,7 @@ if (isset($_GET['debug'])) {
 
         <!-- Page Header -->
         <div class="page-header">
-            <h1>Add Products</h1>
+            <h1>Add Product</h1>
             <p>Handcrafted with quality materials and timeless designs</p>
         </div>
 

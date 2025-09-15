@@ -192,7 +192,10 @@ $page_title = "Restore Removed Products";
                 <div class="products-list">
                     <?php foreach ($products as $product): ?>
                         <div class="product-list-item" style="align-items: flex-start; cursor:pointer;" onclick="toggleCheckbox(this)">
-                            <input type="checkbox" name="restore_ids[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" style="margin-right:15px; margin-top:8px; width: 24px; height: 24px; transform: scale(1.3); cursor: pointer;" onclick="event.stopPropagation();">
+                            <input type="checkbox" name="restore_ids[]" value="<?php echo htmlspecialchars($product['prodID']); ?>" 
+                                class="green-checkbox"
+                                style="margin-right:15px; margin-top:8px; width: 24px; height: 24px; transform: scale(1.3); cursor: pointer;" 
+                                onclick="event.stopPropagation();">
                             
                             <div class="product-image">
                                 <a>
