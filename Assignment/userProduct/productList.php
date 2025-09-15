@@ -498,7 +498,7 @@ function setQtyForBuyNow(form) {
                 from { transform: translateY(-50px); opacity: 0; }
                 to { transform: translateY(0); opacity: 1; }
             }
-            .price-range-container input:focus {
+        .price-range-container input:focus {
                 outline: 2px solid #8B4513;
                 outline-offset: 2px;
             }
@@ -646,7 +646,10 @@ function setQtyForBuyNow(form) {
         }
     });
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
     
     // QR Code Functions
     function showProductQR(productId, productName, price) {
@@ -840,6 +843,9 @@ Thank you for choosing AiKUN Furniture!`;
             window.currentQRModal = null;
         }
     }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     </script>
 </body>
