@@ -50,6 +50,7 @@ function sendOTPEmail($email, $otp) {
     }
 }
 
+
 $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
 
 if (is_post()) {
@@ -58,6 +59,7 @@ if (is_post()) {
     }
     else if ($step == 1) {
         $email = req('email');
+        $phoneNo = req('phoneNo');
         $captcha_response = req('captcha');
         $is_repeat = isRepeatOTPRequest($email);
         
@@ -82,6 +84,26 @@ if (is_post()) {
             }
         }
         
+        // Phone number validation (required) - Malaysian format
+        if ($phoneNo == '') {
+            $_err['phoneNo'] = 'Phone number is required';
+        } else {
+            // Clean the phone number for validation
+            $clean_phone = preg_replace('/[^0-9]/', '', $phoneNo);
+            
+            // Malaysian phone number validation
+            if (!preg_match('/^(0[1-9]|60[1-9])[0-9]{8,9}$/', $clean_phone)) {
+                $_err['phoneNo'] = 'Please enter a valid Malaysian phone number (e.g., 0123456789 or +60123456789)';
+            } else {
+                // Check if phone number already exists
+                $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE phoneNo = ?');
+                $stm->execute([$phoneNo]);
+                if ($stm->fetchColumn() > 0) {
+                    $_err['phoneNo'] = 'Phone number already exists';
+                }
+            }
+        }
+        
         if (empty($_err) && !checkRateLimit($email)) {
             $_err['email'] = 'Too many OTP requests. Please wait before requesting again.';
             logFailedAttempt($email, 'rate_limit', 'Exceeded OTP rate limit');
@@ -92,6 +114,7 @@ if (is_post()) {
             $otp_expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
             
             $_SESSION['registration_email'] = $email;
+            $_SESSION['registration_phone'] = $phoneNo;
             $_SESSION['registration_otp'] = $otp;
             $_SESSION['registration_otp_expiry'] = $otp_expiry;
             $_SESSION['last_otp_email'] = $email;
@@ -101,6 +124,8 @@ if (is_post()) {
 
                 if($is_repeat) {
                     $_SESSION['temp_success'] = 'New verification code sent to your email.';                
+                } else {
+                    $_SESSION['temp_success'] = 'Verification code sent to your email!';
                 }
 
                 redirect('register.php?step=2');
@@ -129,7 +154,7 @@ if (is_post()) {
 
             if (sendOTPEmail($email, $otp)) {
                 logOTPRequest($email, true);
-                $_SESSION['temp_success'] = 'A new verification code has been sent.';
+                $_SESSION['temp_success'] = 'A new verification code has been sent to your email.';
             } else {
                 $_SESSION['temp_error'] = 'Failed to resend the verification code. Please try again.';
             }
@@ -162,11 +187,11 @@ if (is_post()) {
     } elseif ($otp_input != $_SESSION['registration_otp']) {
         $_err['otp'] = 'Invalid OTP';
         logFailedAttempt($email, 'invalid_otp', 'Incorrect OTP entered');
-            }
+    }
 
-        if (empty($_err)) {
-            redirect('register.php?step=3');
-        }
+    if (empty($_err)) {
+        redirect('register.php?step=3');
+    }
     }
     else if ($step == 3) {
     $email = $_SESSION['registration_email'] ?? '';
@@ -207,6 +232,9 @@ if (is_post()) {
         $_err['confirm_password'] = 'Passwords do not match';
     }
     
+    // Get phone number from session (already validated in step 1)
+    $phoneNo = $_SESSION['registration_phone'] ?? '';
+    
     if (!$_err) {
         do {
             $username = generateRandomUsername();
@@ -218,13 +246,16 @@ if (is_post()) {
     
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-        // Generate a unique placeholder phone number (12 digits) to satisfy NOT NULL + UNIQUE
-        do {
-            $placeholderPhone = str_pad((string)random_int(0, 999999999999), 12, '0', STR_PAD_LEFT);
-            $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE phoneNo = ?');
-            $stm->execute([$placeholderPhone]);
-            $isPhoneTaken = $stm->fetchColumn() > 0;
-        } while ($isPhoneTaken);
+        // Use provided phone number or generate placeholder if none provided
+        if (!$phoneNo) {
+            // Generate a unique placeholder phone number (12 digits) to satisfy NOT NULL + UNIQUE
+            do {
+                $phoneNo = str_pad((string)random_int(0, 999999999999), 12, '0', STR_PAD_LEFT);
+                $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE phoneNo = ?');
+                $stm->execute([$phoneNo]);
+                $isPhoneTaken = $stm->fetchColumn() > 0;
+            } while ($isPhoneTaken);
+        }
 
         $role = "Customer";
         $status = "Active";
@@ -233,7 +264,7 @@ if (is_post()) {
             INSERT INTO user (username, email, phoneNo, password, photo, role, created_at, status)   
             VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
         ');
-        $stm->execute([$username, $email, $placeholderPhone, $password_hash, $randomProfilePhoto, $role, $status]);
+        $stm->execute([$username, $email, $phoneNo, $password_hash, $randomProfilePhoto, $role, $status]);
         
         if ($stm->rowCount()) {
             unset($_SESSION['registration_email'], $_SESSION['registration_otp'], $_SESSION['registration_otp_expiry']);
@@ -322,6 +353,24 @@ $page_title = $page_titles[$step] ?? 'Register';
                     </div>
                     
                     <div class="form-group">
+                        <label for="phoneNo">Phone Number</label>
+                        <input 
+                            type="tel" 
+                            id="phoneNo" 
+                            name="phoneNo" 
+                            class="form-input <?php echo isset($_err['phoneNo']) ? 'error' : ''; ?>" 
+                            maxlength="15"
+                            placeholder="0123456789 or +60123456789"
+                            value="<?php echo htmlspecialchars(req('phoneNo')); ?>"
+                            required
+                        >
+                        <small style="color: #666; font-size: 0.9em;">Malaysian phone number format required</small>
+                        <?php if (isset($_err['phoneNo'])): ?>
+                            <div class="error-message"><?php echo htmlspecialchars($_err['phoneNo']); ?></div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="captcha">Security Check</label>
                         <div class="captcha-container">
                             <div class="captcha-question">
@@ -360,7 +409,7 @@ $page_title = $page_titles[$step] ?? 'Register';
         </p>
 
         <div class="form-group">
-            <label>Verification Code</label>
+            <label>Email Verification Code</label>
             <div class="otp-container">
                 <?php for ($i = 1; $i <= 6; $i++): ?>
                     <input 
@@ -378,6 +427,7 @@ $page_title = $page_titles[$step] ?? 'Register';
                 <div class="error-message"><?php echo htmlspecialchars($_err['otp']); ?></div>
             <?php endif; ?>
         </div>
+
 
         <div class="otp-info">
             <p class="countdown" id="countdown">
@@ -451,6 +501,7 @@ $page_title = $page_titles[$step] ?? 'Register';
                                 <li id="match" class="invalid">❌ Passwords match</li>
                     </ul>
                 </div>
+
 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary" name="finish">Complete Registration</button>

@@ -79,17 +79,24 @@ if (is_post()) {
     }
 
 
-    // Validate: phoneNo (optional for staff - will auto-generate if empty)
+    // Validate: phoneNo (required for staff)
     $phoneNo = req('phoneNo');
-    if ($phoneNo && !preg_match('/^[\+]?[0-9\s\-\(\)]{10,20}$/', $phoneNo)) {
+    if (!$phoneNo) {
+        $_err['phoneNo'] = 'Phone number is required';
+    }
+    else if (!preg_match('/^[\+]?[0-9\s\-\(\)]{10,20}$/', $phoneNo)) {
         $_err['phoneNo'] = 'Invalid phone number format';
     }
-    else if ($phoneNo && strlen($phoneNo) > 20) {
+    else if (strlen($phoneNo) > 20) {
         $_err['phoneNo'] = 'Phone number too long';
     }
-    
-    if (!$phoneNo) {
-        $phoneNo = generateUniquePhoneNumber($_db);
+    else {
+        // Check if phone number already exists
+        $stm = $_db->prepare('SELECT COUNT(*) FROM user WHERE phoneNo = ?');
+        $stm->execute([$phoneNo]);
+        if ($stm->fetchColumn() > 0) {
+            $_err['phoneNo'] = 'Phone number already exists';
+        }
     }
 
 
@@ -181,7 +188,7 @@ if (is_post()) {
             </div>
 
             <div class="form-group">
-                <label for="phoneNo">Phone Number (Optional)</label>
+                <label for="phoneNo">Phone Number <span style="color: red;">*</span></label>
                 <input 
                     type="tel" 
                     id="phoneNo" 
@@ -190,6 +197,7 @@ if (is_post()) {
                     maxlength="20"
                     placeholder="Enter your phone number"
                     value="<?php echo htmlspecialchars(req('phoneNo')); ?>"
+                    required
                 >
                 <?php if (isset($_err['phoneNo'])): ?>
                     <div class="error-message"><?php echo htmlspecialchars($_err['phoneNo']); ?></div>

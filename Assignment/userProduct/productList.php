@@ -150,7 +150,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     
                     <div class="product-info">
-                        <h3><?= htmlspecialchars($p['name']); ?></h3>
+                        <h3><?= htmlspecialchars($p['name']); ?>
+                            <i class="fas fa-qrcode qr-icon" 
+                                onclick="event.stopPropagation(); showProductQR('<?= $p['prodID']; ?>', '<?= addslashes($p['name']); ?>', '<?= money($p['price']); ?>')" 
+                                style="cursor: pointer; margin-left: 10px; color: #8B4513; font-size: 16px;" 
+                                title="Show QR Code">
+                            </i>
+                        </h3>
                         <p class="category">Category: <?= htmlspecialchars($p['category_name']); ?></p>
                         <p class="price"><?= money($p['price']); ?></p>
                         
@@ -630,6 +636,202 @@ function setQtyForBuyNow(form) {
             resetToFirstImage(e.target);
         }
     });
+<<<<<<< Updated upstream
+=======
+    
+    // QR Code Functions
+    function showProductQR(productId, productName, price) {
+        // Create well-formatted text that's easy to copy and share
+        const formattedText = `🪑 AIKUN FURNITURE 🪑
+━━━━━━━━━━━━━━━━━━━━━━
+
+📦 PRODUCT DETAILS:
+${productName}
+💰 Price: ${price}
+🆔 Product ID: ${productId}
+
+━━━━━━━━━━━━━━━━━━━━━━
+📞 CONTACT TO ORDER:
+
+📱 Call/SMS: +60 12-345-6789
+💬 WhatsApp: wa.me/60123456789
+✉️ Email: sales@aikun-furniture.com
+🌐 Website: aikun-furniture.com
+
+━━━━━━━━━━━━━━━━━━━━━━
+🚚 FREE DELIVERY AVAILABLE
+🔧 Professional Assembly Included
+⭐ Premium Malaysian Furniture
+
+━━━━━━━━━━━━━━━━━━━━━━
+📱 Scanned: ${new Date().toLocaleDateString()}
+
+TO ORDER:
+1️⃣ Copy this text
+2️⃣ Contact us via phone/WhatsApp
+3️⃣ Quote Product ID: ${productId}
+
+Thank you for choosing AiKUN Furniture!`;
+
+        // Generate QR code with the formatted text
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(formattedText)}&format=png&margin=15&ecc=M`;
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease-out;
+        `;
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease-out;
+            border: 3px solid #8B4513;
+        `;
+        
+        modalContent.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #8B4513; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 1.4rem;">
+                    <i class="fas fa-qrcode"></i> Product Information QR Code
+                </h3>
+                <div style="background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%); padding: 12px; border-radius: 10px; border-left: 4px solid #4caf50; margin-bottom: 15px;">
+                    <p style="color: #2e7d32; font-size: 0.95rem; margin: 0; font-weight: bold;">
+                        <i class="fas fa-copy"></i> Scan to Copy Complete Product Info
+                    </p>
+                    <p style="color: #388e3c; font-size: 0.85rem; margin: 5px 0 0 0;">
+                        Customer can easily copy all details and contact information
+                    </p>
+                </div>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #8B4513;">
+                <h4 style="color: #8B4513; margin-bottom: 8px; font-size: 1.1rem;">${productName}</h4>
+                <p style="color: #666; font-size: 1.1rem; font-weight: bold; margin: 0;">${price}</p>
+                <p style="color: #888; font-size: 0.85rem; margin: 5px 0 0 0;">Product ID: ${productId}</p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: #8B4513; margin-bottom: 10px;">📱 QR Code</h4>
+                <div style="padding: 15px; background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%); border-radius: 15px; border: 2px dashed #8B4513;">
+                    <img src="${qrUrl}" 
+                         alt="Product Information QR Code" 
+                         style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 10px;"
+                         onload="console.log('Copyable QR code loaded')"
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y4ZjlmYSIvPjx0ZXh0IHg9IjE1MCIgeT0iMTUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNjY2Ij5RUiBFcnJvcjwvdGV4dD48L3N2Zz4=';">
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); padding: 15px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #ff9800;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <i class="fas fa-mobile-alt" style="color: #e65100;"></i>
+                    <strong style="color: #e65100; font-size: 0.95rem;">Customer Experience:</strong>
+                </div>
+                <div style="color: #bf360c; font-size: 0.85rem; text-align: left; line-height: 1.4;">
+                    1️⃣ Customer scans QR code with phone camera<br>
+                    2️⃣ Phone shows formatted product information<br>
+                    3️⃣ Customer can copy all text at once<br>
+                    4️⃣ Easy to paste into messages or notes<br>
+                    5️⃣ All contact info included for ordering
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px;">
+                <button onclick="downloadQRCode('${qrUrl}', '${productName.replace(/'/g, "\\'")}_QR')" 
+                        style="background: #2196f3; color: white; border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; font-weight: bold;">
+                    <i class="fas fa-download"></i> Download QR
+                </button>
+                <button onclick="closeQRModal()" 
+                        style="background: #8B4513; color: white; border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #1976d2; border-left: 4px solid #2196f3;">
+                <i class="fas fa-lightbulb"></i> 
+                <strong>Usage Tips:</strong> Perfect for product catalogs, business cards, brochures, and social media. Customer gets complete information and can easily contact you with product details.
+            </div>
+        `;
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Close when clicking outside
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeQRModal();
+            }
+        });
+        
+        // Store reference
+        window.currentQRModal = modal;
+    }
+
+    // Download QR code
+    function downloadQRCode(qrUrl, filename) {
+        const link = document.createElement('a');
+        link.href = qrUrl;
+        link.download = `${filename.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification('QR Code downloaded successfully!', 'success');
+    }
+
+    // Show notification
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        const bgColor = type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3';
+        
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${bgColor};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 10002;
+            font-size: 0.9rem;
+            animation: slideInRight 0.3s ease-out;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
+        
+        notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info'}"></i> ${message}`;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease-out';
+            setTimeout(() => notification.remove(), 300);
+        }, 3500);
+    }
+
+    function closeQRModal() {
+        if (window.currentQRModal) {
+            window.currentQRModal.remove();
+            window.currentQRModal = null;
+        }
+    }
+>>>>>>> Stashed changes
     </script>
 </body>
 

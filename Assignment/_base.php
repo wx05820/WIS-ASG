@@ -113,34 +113,11 @@ function loginUser($user, $remember_me = false) {
 function createRememberToken($user_id) {
     global $_db;
     
-    // Generate a secure random token
+    // Generate a secure random token (64 characters for VARCHAR(255))
     $token = bin2hex(random_bytes(32));
     $expires = date('Y-m-d H:i:s', strtotime('+30 days')); // 30 days expiry
     
     try {
-        // Create remember_tokens table if it doesn't exist
-        $createTable = $_db->prepare("
-            CREATE TABLE IF NOT EXISTS remember_tokens (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                userID VARCHAR(10) NOT NULL,
-                token VARCHAR(64) NOT NULL UNIQUE,
-                expires_at DATETIME NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                user_agent TEXT,
-                ip_address VARCHAR(45),
-                INDEX idx_userID (userID),
-                INDEX idx_token (token),
-                INDEX idx_expires (expires_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
-        $createTable->execute();
-        
-        // Verify table was created successfully
-        if ($createTable->errorCode() !== '00000') {
-            error_log("Failed to create remember_tokens table: " . implode(', ', $createTable->errorInfo()));
-            return false;
-        }
-        
         // Insert the new token
         $stmt = $_db->prepare("
             INSERT INTO remember_tokens (userID, token, expires_at, user_agent, ip_address) 
@@ -156,16 +133,28 @@ function createRememberToken($user_id) {
         
         if ($result) {
             error_log("Remember token created successfully for user: $user_id");
-            // Set the remember me cookie only if headers haven't been sent yet
-            if (!headers_sent()) {
-                $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+            
+            // Set the remember me cookie with proper settings
+            $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+            $domain = $_SERVER['HTTP_HOST'] ?? '';
+            
+            // Set cookie with multiple attempts to ensure it works
+            $cookieSet = setcookie(
+                'remember_me', 
+                $token, 
+                strtotime('+30 days'), 
+                '/', 
+                $domain, 
+                $secure, 
+                true
+            );
+            
+            if (!$cookieSet) {
+                error_log("Failed to set remember_me cookie for user: $user_id");
+                // Try alternative cookie setting
                 setcookie('remember_me', $token, strtotime('+30 days'), '/', '', $secure, true);
-            } else {
-                // If headers already sent, use JavaScript to set the cookie
-                $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-                $secureFlag = $secure ? '; secure' : '';
-                echo '<script>document.cookie = "remember_me=' . $token . '; expires=' . date('D, d M Y H:i:s', strtotime('+30 days')) . ' UTC; path=/' . $secureFlag . '; samesite=strict";</script>';
             }
+            
             return true;
         } else {
             error_log("Remember token creation failed - execute returned false");
@@ -199,13 +188,27 @@ function checkRememberToken() {
         
         if ($user) {
             error_log("Remember token valid for user: " . $user->username);
-            // Token is valid, log the user in
-            loginUser($user, false); // Don't create a new token
+            
+            // Set session data directly to avoid calling loginUser (which would create new token)
+            session_regenerate_id(true);
+            $_SESSION = [
+                'user_id' => $user->userID,
+                'username' => $user->username,
+                'email' => $user->email,
+                'name' => $user->name ?? '',
+                'user_role' => $user->role ?? 'Customer',
+                'login_time' => time(),
+                'logged_in' => true,
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'status' => $user->status ?? 'Active'
+            ];
             
             // Update the token's last used time
             $updateStmt = $_db->prepare("
                 UPDATE remember_tokens 
-                SET expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY) 
+                SET expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY),
+                    last_used_at = NOW()
                 WHERE token = ?
             ");
             $updateStmt->execute([$token]);
@@ -240,15 +243,15 @@ function clearRememberToken($token = null) {
         }
     }
     
-    // Clear the cookie only if headers haven't been sent yet
+    // Clear the cookie with multiple attempts
     if (!headers_sent()) {
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        $domain = $_SERVER['HTTP_HOST'] ?? '';
+        
+        // Multiple attempts to clear the cookie
+        setcookie('remember_me', '', time() - 3600, '/', $domain, $secure, true);
         setcookie('remember_me', '', time() - 3600, '/', '', $secure, true);
-    } else {
-        // If headers already sent, use JavaScript to clear the cookie
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-        $secureFlag = $secure ? '; secure' : '';
-        echo '<script>document.cookie = "remember_me=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/' . $secureFlag . '; samesite=strict";</script>';
+        setcookie('remember_me', '', time() - 3600, '/', '', false, true);
     }
 }
 
@@ -258,10 +261,6 @@ function isLoggedIn() {
     
     // Check if session is valid and user is logged in
     if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
-        // Session not valid, check remember me token
-        if (checkRememberToken()) {
-            return true; // User logged in via remember me
-        }
         return false;
     }
     if (!isset($_SESSION['user_id'])) {
@@ -606,45 +605,6 @@ function generateRandomUsername($length = 8) {
     return $username;
 }
 
-function generateUniquePhoneNumber($db = null) {
-    if (!$db) {
-        global $_db;
-        $db = $_db;
-    }
-    
-    // Malaysian phone number format: 6XXXXXXXXX (10 digits starting with 6)
-    // Staff prefix: 6X9XXXXXXX (starting with 6, second digit 9 for staff)
-    $prefix = '69'; // Staff prefix
-    $maxAttempts = 100;
-    
-    for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-        // Generate 8 random digits
-        $randomDigits = '';
-        for ($i = 0; $i < 8; $i++) {
-            $randomDigits .= rand(0, 9);
-        }
-        
-        $phoneNumber = $prefix . $randomDigits;
-        
-        // Check if this phone number already exists
-        try {
-            $stmt = $db->prepare("SELECT COUNT(*) FROM user WHERE phoneNo = ?");
-            $stmt->execute([$phoneNumber]);
-            $count = $stmt->fetchColumn();
-            
-            if ($count == 0) {
-                return $phoneNumber;
-            }
-        } catch (PDOException $e) {
-            error_log("Error checking phone number uniqueness: " . $e->getMessage());
-            // If database error, return a timestamp-based number as fallback
-            return '6' . date('YmdHis') . rand(100, 999);
-        }
-    }
-    
-    // Fallback: if we can't find a unique number, use timestamp-based approach
-    return '6' . date('YmdHis') . rand(100, 999);
-}
 
 function err($key) {
     global $_err;
