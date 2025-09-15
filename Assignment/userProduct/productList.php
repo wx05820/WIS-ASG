@@ -42,7 +42,17 @@ if ($min_price !== null && $min_price > 0) {
 if ($max_price !== null && $max_price > 0) {
     $sql .= " AND p.price <= ?";
     $params[] = $max_price;
+if ($min_price !== null && $min_price > 0) {
+    $sql .= " AND p.price >= ?";
+    $params[] = $min_price;
 }
+if ($max_price !== null && $max_price > 0) {
+    $sql .= " AND p.price <= ?";
+    $params[] = $max_price;
+}
+
+// Add GROUP BY clause after all WHERE conditions
+$sql .= " GROUP BY p.prodID, c.name";
 
 // Add GROUP BY clause after all WHERE conditions
 $sql .= " GROUP BY p.prodID, c.name";
@@ -69,6 +79,8 @@ if (isset($_SESSION['error'])) {
     echo '<div class="alert alert-error">' . htmlspecialchars($_SESSION['error']) . '</div>';
     unset($_SESSION['error']);
 }
+
+// Active filters display removed as requested
 
 // Active filters display removed as requested
 
