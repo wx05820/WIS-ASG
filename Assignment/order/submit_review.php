@@ -44,13 +44,27 @@ $deliveryRating = !empty($_POST['delivery_rating']) ? (int)$_POST['delivery_rati
 $valueRating = !empty($_POST['value_rating']) ? (int)$_POST['value_rating'] : null;
 
 // Debug logging
-error_log("Review submission debug:");
+error_log("=== REVIEW SUBMISSION DEBUG START ===");
+error_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
+error_log("POST Data: " . print_r($_POST, true));
+error_log("Session Data: " . print_r($_SESSION, true));
 error_log("User ID: " . $userID);
 error_log("Order ID: " . $orderID);
 error_log("Product ID: " . $productID);
 error_log("Rating: " . $rating);
 error_log("Title: " . $title);
 error_log("Review Text: " . $reviewText);
+
+// CRITICAL: Validate that we have valid user_id and product_id
+if (empty($userID) || empty($productID) || $userID == '0' || $productID == '0') {
+    error_log("CRITICAL ERROR: Invalid user_id or product_id detected!");
+    error_log("User ID: " . $userID . " (type: " . gettype($userID) . ")");
+    error_log("Product ID: " . $productID . " (type: " . gettype($productID) . ")");
+    error_log("This will cause database insertion to fail with invalid user_id or product_id");
+    $_SESSION['error'] = "Invalid review data. Please try again.";
+    header('Location: history_details.php?id=' . urlencode($orderID));
+    exit();
+}
 
 
 // Validate required fields
@@ -153,10 +167,16 @@ try {
     $reviewStmt = $_db->prepare($reviewQuery);
     $reviewImagesJson = !empty($uploadedImages) ? json_encode($uploadedImages) : null;
     
+    // Final validation before insertion
+    error_log("Final validation before insertion:");
+    error_log("Order ID: " . $orderID . " (type: " . gettype($orderID) . ")");
+    error_log("User ID: " . $userID . " (type: " . gettype($userID) . ")");
+    error_log("Product ID: " . $productID . " (type: " . gettype($productID) . ")");
+    
     $reviewStmt->execute([
         $orderID,
-        (int)$userID,  // Ensure integer
-        (int)$productID,  // Ensure integer
+        $userID,       // Keep as string for user_id (e.g., "U00006")
+        $productID,    // Keep as string for product_id (e.g., "P000100")
         $rating,
         $title,
         $reviewText,
@@ -167,6 +187,27 @@ try {
     ]);
     
     $reviewID = $_db->lastInsertId();
+    
+    // Verify the insertion
+    error_log("Review inserted with ID: " . $reviewID);
+    $verifyStmt = $_db->prepare("SELECT * FROM product_reviews WHERE review_id = ?");
+    $verifyStmt->execute([$reviewID]);
+    $insertedReview = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+    
+    error_log("Verification - Inserted Review:");
+    error_log("Review ID: " . $insertedReview['review_id']);
+    error_log("Order ID: " . $insertedReview['order_id']);
+    error_log("User ID: " . $insertedReview['user_id']);
+    error_log("Product ID: " . $insertedReview['product_id']);
+    error_log("Rating: " . $insertedReview['rating']);
+    error_log("Title: " . $insertedReview['title']);
+    
+    if (empty($insertedReview['user_id']) || empty($insertedReview['product_id']) || $insertedReview['user_id'] == '0' || $insertedReview['product_id'] == '0') {
+        error_log("CRITICAL ERROR: Review was inserted with invalid user_id or product_id!");
+        throw new Exception("Database insertion failed - invalid user_id or product_id");
+    } else {
+        error_log("SUCCESS: Review inserted with correct user_id and product_id");
+    }
     
     // Insert individual image records if using separate table approach
     if (!empty($uploadedImages)) {

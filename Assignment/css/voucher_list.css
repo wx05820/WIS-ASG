@@ -396,15 +396,15 @@ body {
 
 /* Status-specific colors */
 .status-select.status-active {
-    background-color: #d1fae5;
-    color: #065f46;
-    border-color: #10b981;
+    background-color: #d1fae5 !important;
+    color: #065f46 !important;
+    border-color: #10b981 !important;
 }
 
 .status-select.status-inactive {
-    background-color: #fecaca;
-    color: #dc2626;
-    border-color: #ef4444;
+    background-color: #fecaca !important;
+    color: #dc2626 !important;
+    border-color: #ef4444 !important;
 }
 
 .voucher-usage {

@@ -1,12 +1,16 @@
 <?php
 require_once '../_base.php';
 
-// Check if user is logged in and has admin privileges
-if (!isStaffAdmin()) {
-    redirect('../loginstaff.php');
+if (!isLoggedInStaff()) {
+    error_log("Update status: User not logged in");
+    redirect('loginstaff.php');
     exit;
 }
 
+if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+    error_log("Update status: User doesn't have required role. Role: " . ($_SESSION['staff_role'] ?? 'not set'));
+    redirect('loginstaff.php');
+}
 // Get database connection
 $pdo = $_db;
 
@@ -23,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Validate status value
-    $valid_statuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Refunded'];
+    $valid_statuses = ['Pending', 'Processing', 'Shipped', 'Delivered'];
     if (!in_array($new_status, $valid_statuses)) {
         temp('error', 'Invalid status value');
         redirect('shipping.php');

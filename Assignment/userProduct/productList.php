@@ -17,7 +17,7 @@ $sql = "SELECT p.*, c.name AS category_name,
         COUNT(DISTINCT pr.review_id) as review_count
     FROM product p 
     LEFT JOIN category c ON p.catID = c.catID 
-    LEFT JOIN product_reviews pr ON p.prodID = pr.product_id AND pr.user_id > 0 AND pr.product_id > 0
+    LEFT JOIN product_reviews pr ON p.prodID = pr.product_id AND pr.user_id != '0' AND pr.product_id != '0'
     WHERE p.status IS NULL
     GROUP BY p.prodID, c.name";
 
@@ -132,13 +132,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p class="price"><?= money($p['price']); ?></p>
                         
                         <!-- Rating Display -->
+                        <?php 
+                        $avgRating = round($p['avg_rating'], 1);
+                        $reviewCount = (int)$p['review_count'];
+                        $fullStars = floor($avgRating);
+                        ?>
                         <div class="product-rating <?= $p['review_count'] == 0 ? 'no-rating' : ''; ?>" 
                              onclick="event.stopPropagation(); showRatingPopup('<?= $p['prodID']; ?>', <?= $avgRating; ?>, <?= $reviewCount; ?>)">
-                            <?php 
-                            $avgRating = round($p['avg_rating'], 1);
-                            $reviewCount = (int)$p['review_count'];
-                            $fullStars = floor($avgRating);
-                            ?>
                             <div class="stars">
                                 <?php for ($i = 1; $i <= 5; $i++): ?>
                                     <span class="star <?= $i <= $fullStars ? 'filled' : ''; ?>">★</span>

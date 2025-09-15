@@ -2,7 +2,7 @@
 include '../../_base.php'; // loads config.php internally via _base
 
 // Check if user is admin
-if (!isStaffAdmin() && !isStaffSupervisor() && !isStaffSuperAdmin()) {
+if (!isStaffSuperAdmin()) {
     redirect('../loginstaff.php');
 }
 

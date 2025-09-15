@@ -557,7 +557,25 @@ function req($key) {
 }
 
 function is_email($email) {
-    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    // First check if it's a valid email format
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+    
+    // Extract domain from email
+    $domain = substr(strrchr($email, '@'), 1);
+    $domain = strtolower($domain);
+    
+    // Allowed domains
+    $allowed_domains = [
+        'gmail.com',
+        'outlook.com',
+        'hotmail.com',
+        'yahoo.com'
+    ];
+    
+    // Check if domain is in allowed list
+    return in_array($domain, $allowed_domains);
 }
 
 function temp($type, $message) {
@@ -982,12 +1000,24 @@ function validateEmail($email, $current_user_id = null, $db = null) {
         $result['message'] = 'Email address too long.';
         return $result;
     }
-    $disposable_domains = ['10minutemail.com', 'tempmail.org', 'guerrillamail.com', 'mailinator.com', 'throwaway.email'];
+    
+    // Check for allowed domains (Gmail, Outlook, Yahoo, Hotmail)
     $domain = substr(strrchr($email, '@'), 1);
-    if (in_array(strtolower($domain), $disposable_domains)) {
+    $domain = strtolower($domain);
+    $allowed_domains = ['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com'];
+    
+    if (!in_array($domain, $allowed_domains)) {
+        $result['message'] = 'Only Gmail, Outlook, Yahoo, and Hotmail email addresses are allowed.';
+        return $result;
+    }
+    
+    // Check for disposable domains (additional security)
+    $disposable_domains = ['10minutemail.com', 'tempmail.org', 'guerrillamail.com', 'mailinator.com', 'throwaway.email'];
+    if (in_array($domain, $disposable_domains)) {
         $result['message'] = 'Disposable email addresses are not allowed.';
         return $result;
     }
+    
     if ($db && $db instanceof PDO) {
         try {
             $sql = "SELECT userID FROM user WHERE email = ?";

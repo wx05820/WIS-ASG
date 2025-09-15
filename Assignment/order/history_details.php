@@ -5,8 +5,17 @@ require_once '../_base.php';
 // Generate CSRF token using the proper function
 $csrfToken = generateCSRFToken();
 
-$userID = $_SESSION['user_id'] ?? null;
+// Check if user is logged in first
 checkLogin();
+$userID = $_SESSION['user_id']; // After checkLogin(), user_id should be set
+
+// Additional safety check
+if (!$userID || $userID <= 0) {
+    error_log("CRITICAL: User ID is invalid in history_details.php: " . $userID);
+    $_SESSION['error'] = "Invalid user session. Please log in again.";
+    header('Location: ../user/login.php');
+    exit();
+}
 
 $orderID = isset($_GET['id']) ? $_GET['id'] : '';
 
@@ -218,6 +227,10 @@ include '../header.php';
                                             <input type="hidden" name="order_id" value="<?= htmlspecialchars($orderID) ?>">
                                             <input type="hidden" name="product_id" value="<?= htmlspecialchars($item['prodID']) ?>">
                                             <input type="hidden" name="user_id" value="<?= htmlspecialchars($userID) ?>">
+                                            <?php 
+                                            // Debug logging for form generation
+                                            error_log("Form generation debug - Order: $orderID, User: $userID, Product: " . $item['prodID']);
+                                            ?>
                                             <input type="hidden" name="redirect" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
                                             
                                             <div class="review-form-content">

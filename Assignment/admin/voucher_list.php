@@ -91,260 +91,7 @@ $page_title = 'Voucher Management';
     <link rel="stylesheet" href="../css/userlist.css">
     <link rel="stylesheet" href="../css/products.css">
     <link rel="stylesheet" href="../css/shipping.css">
-    <link rel="stylesheet" href="../css/voucher_list.css">
-    <style>
-        /* Voucher page specific styles to match shipping page */
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* Voucher-specific card styling */
-        .voucher-card {
-            display: flex !important;
-            background: #fff;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            padding: 0.75rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            position: relative;
-            margin-bottom: 0.5rem;
-        }
-
-        /* Checkbox styling to match shipping page */
-        .voucher-checkbox {
-            display: flex;
-            align-items: center;
-            padding-right: 0.75rem;
-            border-right: 1px solid #e5e7eb;
-        }
-
-        .voucher-select-checkbox {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-            accent-color: #667eea;
-        }
-
-        .voucher-checkbox label {
-            cursor: pointer;
-            margin-left: 0.5rem;
-        }
-
-        .voucher-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-            border-color: #667eea;
-        }
-
-        /* Left Column */
-        .voucher-left-column {
-            flex: 1;
-            padding-right: 1rem;
-            border-right: 1px solid #e5e7eb;
-        }
-
-        .voucher-code-large {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #1e3a8a;
-            margin-bottom: 0.25rem;
-            line-height: 1.1;
-        }
-
-        .voucher-type, .voucher-value {
-            color: #6b7280;
-            font-size: 0.75rem;
-            margin-bottom: 0.15rem;
-            font-weight: 500;
-        }
-
-        .voucher-dates {
-            margin-top: 0.5rem;
-            padding-top: 0.25rem;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .date-label {
-            color: #6b7280;
-            font-size: 0.75rem;
-            margin-right: 0.25rem;
-            font-weight: 500;
-        }
-
-        .date-value {
-            font-size: 0.7rem;
-            font-weight: 500;
-            color: #374151;
-        }
-
-        /* Right Column */
-        .voucher-right-column {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            padding-left: 1rem;
-        }
-
-        /* Status Form */
-        .status-form {
-            margin-bottom: 0.15rem;
-        }
-
-        .status-select {
-            align-self: flex-start;
-            padding: 0.25rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            border: 1px solid #d97706;
-            background-color: #fef3c7;
-            color: #92400e;
-            cursor: pointer;
-            outline: none;
-            transition: all 0.3s ease;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 0.5rem center;
-            background-size: 0.8rem;
-            padding-right: 1.5rem;
-        }
-
-        .status-select:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .status-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-        }
-
-        /* Status-specific colors */
-        .status-select.status-active {
-            background-color: #d1fae5;
-            color: #065f46;
-            border-color: #10b981;
-        }
-
-        .status-select.status-inactive {
-            background-color: #fecaca;
-            color: #dc2626;
-            border-color: #ef4444;
-        }
-
-        .voucher-usage {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .usage-label {
-            color: #6b7280;
-            font-size: 0.65rem;
-            font-weight: 500;
-            min-width: fit-content;
-        }
-
-        .usage-value {
-            color: #374151;
-            font-size: 0.7rem;
-            font-weight: 500;
-        }
-
-        .voucher-dates {
-            margin-top: 0.5rem;
-            padding-top: 0.25rem;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .voucher-date {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            margin-bottom: 0.15rem;
-        }
-
-        .voucher-created {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            margin-top: 0.5rem;
-            padding-top: 0.25rem;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .created-label {
-            color: #6b7280;
-            font-size: 0.65rem;
-            font-weight: 500;
-            min-width: fit-content;
-        }
-
-        .created-value {
-            color: #374151;
-            font-size: 0.7rem;
-            font-weight: 500;
-        }
-
-        /* Bulk button styling */
-        #bulkVoucherBtn:hover {
-            background-color: #8B4513 !important;
-            color: white !important;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.3);
-        }
-
-        /* Multi-select button styling */
-        #multiSelectBtn:hover {
-            background-color: #8B4513 !important;
-            color: white !important;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(139, 69, 19, 0.3);
-        }
-
-        /* Multi-select button active state (when in multi-select mode) */
-        #multiSelectBtn.active {
-            background-color: #28a745 !important;
-            color: white !important;
-            border-color: #28a745 !important;
-        }
-
-        /* Add Voucher Button */
-        .add-voucher-btn {
-            background: var(--wood-primary);
-            color: var(--text-light);
-            border: 2px solid var(--wood-primary);
-            border-radius: 12px;
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-family: 'Georgia', serif;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-
-        .add-voucher-btn:hover {
-            background: var(--gold-accent);
-            color: var(--wood-dark);
-            border-color: var(--gold-accent);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
-        }
-    </style>
+    <link rel="stylesheet" href="../css/voucherlist.css">
 </head>
 <body class="product-list-main" style="margin-top:0; padding-top:0;">
     <?php include 'adminheader.php'; ?>
@@ -490,13 +237,11 @@ $page_title = 'Voucher Management';
 
                         <!-- Right Column -->
                         <div class="voucher-right-column">
-                            <form class="status-form" method="POST" action="update_voucher_status.php">
-                                <input type="hidden" name="voucher_id" value="<?php echo $voucher->voucher_id; ?>">
-                                <select name="new_status" class="status-select status-<?php echo strtolower($voucher->is_active); ?>">
-                                    <option value="Active" <?php echo $voucher->is_active === 'Active' ? 'selected' : ''; ?>>Active</option>
-                                    <option value="Inactive" <?php echo $voucher->is_active === 'Inactive' ? 'selected' : ''; ?>>Inactive</option>
-                                </select>
-                            </form>
+                            <button class="status-toggle-btn status-<?php echo strtolower($voucher->is_active); ?>" 
+                                    data-voucher-id="<?php echo $voucher->voucher_id; ?>"
+                                    data-current-status="<?php echo $voucher->is_active; ?>">
+                                <?php echo $voucher->is_active; ?>
+                            </button>
                             <div class="voucher-dates">
                                 <div class="voucher-date">
                                     <span class="date-label">Start:</span>
@@ -646,6 +391,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             if (noDataMessage) noDataMessage.style.display = 'none';
             ordersContainer.innerHTML = generateVouchersHTML(vouchers);
+            setupStatusToggleButtons(); // Set up status toggle buttons for new content
         }
     }
     
@@ -679,13 +425,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     <!-- Right Column -->
                     <div class="voucher-right-column">
-                        <form class="status-form" method="POST" action="update_voucher_status.php">
-                            <input type="hidden" name="voucher_id" value="${voucher.voucher_id}">
-                            <select name="new_status" class="status-select status-${voucher.is_active.toLowerCase()}">
-                                <option value="Active" ${voucher.is_active === 'Active' ? 'selected' : ''}>Active</option>
-                                <option value="Inactive" ${voucher.is_active === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                            </select>
-                        </form>
+                        <button class="status-toggle-btn status-${voucher.is_active.toLowerCase()}" 
+                                data-voucher-id="${voucher.voucher_id}"
+                                data-current-status="${voucher.is_active}">
+                            ${voucher.is_active}
+                        </button>
                         <div class="voucher-dates">
                             <div class="voucher-date">
                                 <span class="date-label">Start:</span>
@@ -707,6 +451,48 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
     
+    // Status toggle button functionality
+    function setupStatusToggleButtons() {
+        const statusButtons = document.querySelectorAll('.status-toggle-btn');
+        
+        statusButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const voucherId = this.getAttribute('data-voucher-id');
+                const currentStatus = this.getAttribute('data-current-status');
+                const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+                
+                // Disable button and show loading state
+                this.disabled = true;
+                this.textContent = 'Updating...';
+                
+                // Make AJAX request to update status
+                fetch('update_voucher_status.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `voucher_id=${voucherId}&new_status=${newStatus}`
+                })
+                .then(response => response.text())
+                .then(data => {
+                    // Update button appearance and data
+                    this.setAttribute('data-current-status', newStatus);
+                    this.textContent = newStatus;
+                    this.className = `status-toggle-btn status-${newStatus.toLowerCase()}`;
+                    this.disabled = false;
+                    
+                    // Show success message (optional)
+                    console.log(`Voucher ${voucherId} status updated to ${newStatus}`);
+                })
+                .catch(error => {
+                    console.error('Error updating voucher status:', error);
+                    this.disabled = false;
+                    this.textContent = currentStatus; // Revert text
+                    alert('Error updating voucher status. Please try again.');
+                });
+            });
+        });
+    }
     
     // Set up event listeners - with fallback to page reload
     const enableAJAX = true; // Set to false to disable AJAX and use page reload instead
@@ -734,8 +520,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Status forms now use direct form submission (like update_status.php)
-    // No AJAX needed - forms submit directly and redirect back to voucher_list.php
+    // Set up status toggle buttons
+    setupStatusToggleButtons();
     
     // Clear filters functionality
     const clearFiltersBtn = document.getElementById('clearFiltersBtn');
