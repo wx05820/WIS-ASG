@@ -8,6 +8,8 @@ $query = isset($_GET['query']) ? trim($_GET['query']) : '';
 $category = isset($_GET['category']) ? trim($_GET['category']) : '';
 $min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : null;
 $max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : null;
+$min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : null;
+$max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : null;
 $sort = isset($_GET['sort']) ? trim($_GET['sort']) : '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
@@ -500,6 +502,12 @@ function setQtyForBuyNow(form) {
                 outline: 2px solid #8B4513;
                 outline-offset: 2px;
             }
+            .price-range-container input:invalid {
+                border-color: #e74c3c;
+            }
+            .price-range-container input:focus {
+                outline: 2px solid #8B4513;
+                outline-offset: 2px;
             .price-range-container input:invalid {
                 border-color: #e74c3c;
             }
