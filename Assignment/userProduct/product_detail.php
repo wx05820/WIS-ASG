@@ -26,7 +26,7 @@ $sql = "SELECT p.*, c.name AS category_name,
         COUNT(DISTINCT pr.review_id) as review_count
         FROM product p 
         JOIN category c ON p.catID = c.catID 
-        LEFT JOIN product_reviews pr ON p.prodID = pr.product_id AND pr.user_id > 0 AND pr.product_id > 0
+        LEFT JOIN product_reviews pr ON p.prodID = pr.product_id AND pr.user_id != '0' AND pr.product_id != '0'
         WHERE p.prodID = ?
         GROUP BY p.prodID, c.name";
 $stmt = $_db->prepare($sql);

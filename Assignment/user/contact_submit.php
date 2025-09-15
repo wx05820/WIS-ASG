@@ -31,8 +31,8 @@ if (empty($name)) {
 
 if (empty($email)) {
     $errors[] = 'Email is required.';
-} elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $errors[] = 'Please enter a valid email address.';
+} elseif (!is_email($email)) {
+    $errors[] = 'Only Gmail, Outlook, Yahoo, and Hotmail email addresses are allowed.';
 } elseif (strlen($email) > 255) {
     $errors[] = 'Email address is too long.';
 }
@@ -109,8 +109,7 @@ if (!empty($errors)) {
 }
 
 try {
-    $priority_analysis = PriorityDetector::getPriorityAnalysis($subject, $message, $email);
-    $detected_priority = $priority_analysis['priority'];
+    $detected_priority = PriorityDetector::detectPriority($subject, $message, $email);
     
     $stmt = $_db->prepare("
         INSERT INTO contact_messages 
