@@ -198,7 +198,7 @@ try {
     // Mark voucher as used if applicable
     if ($voucher_id) {
         $stmt = $_db->prepare("
-            INSERT INTO voucher_usage (voucher_id, user_id, order_id, used_at) 
+            INSERT INTO voucher_user (voucher_id, user_id, order_id, used_at) 
             VALUES (?, ?, ?, NOW())
         ");
         $stmt->execute([$voucher_id, $user_id, $order_id]);
