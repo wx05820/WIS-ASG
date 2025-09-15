@@ -42,13 +42,6 @@ if ($min_price !== null && $min_price > 0) {
 if ($max_price !== null && $max_price > 0) {
     $sql .= " AND p.price <= ?";
     $params[] = $max_price;
-if ($min_price !== null && $min_price > 0) {
-    $sql .= " AND p.price >= ?";
-    $params[] = $min_price;
-}
-if ($max_price !== null && $max_price > 0) {
-    $sql .= " AND p.price <= ?";
-    $params[] = $max_price;
 }
 
 // Add GROUP BY clause after all WHERE conditions
@@ -657,13 +650,8 @@ function setQtyForBuyNow(form) {
             resetToFirstImage(e.target);
         }
     });
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
-    
-    // QR Code Functions
+
+        // QR Code Functions
     function showProductQR(productId, productName, price) {
         // Create well-formatted text that's easy to copy and share
         const formattedText = `🪑 AIKUN FURNITURE 🪑
@@ -855,10 +843,6 @@ Thank you for choosing AiKUN Furniture!`;
             window.currentQRModal = null;
         }
     }
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     </script>
 </body>
 
